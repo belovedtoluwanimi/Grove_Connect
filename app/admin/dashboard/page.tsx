@@ -146,9 +146,10 @@ export default function DashboardPage() {
         .order('created_at', { ascending: false })
 
       if (courseData) {
-        // Calculate Real Revenue
+        // Calculate Real Revenue & Ensure Student Count Defaults to 0
         const processedCourses = courseData.map((c: any) => ({
             ...c,
+            students_count: c.students_count || 0, // Fix: Default to 0 if null
             total_revenue: c.total_revenue || (c.price * (c.students_count || 0))
         }))
         setCourses(processedCourses)
@@ -292,7 +293,9 @@ export default function DashboardPage() {
       {/* SIDEBAR */}
       <aside className="w-72 bg-neutral-950 border-r border-white/5 hidden lg:flex flex-col z-20 shadow-2xl">
         <div className="p-8 pb-4">
-          <h2 className="text-2xl font-bold tracking-tighter flex items-center gap-2">GROVE<span className="text-green-500 text-xs bg-green-500/10 px-2 py-1 rounded border border-green-500/20">TUTOR</span></h2>
+          <Link href='/'>
+            <h2 className="text-2xl font-bold tracking-tighter flex items-center gap-2">GROVE<span className="text-green-500 text-xs bg-green-500/10 px-2 py-1 rounded border border-green-500/20">TUTOR</span></h2>
+          </Link>
         </div>
         
         <nav className="flex-1 px-4 space-y-2 mt-4">
@@ -327,7 +330,7 @@ export default function DashboardPage() {
             <input type="text" placeholder="Search analytics..." className="bg-transparent outline-none text-sm w-full text-white" />
           </div>
           <div className="flex items-center gap-6">
-             <div className="relative">
+              <div className="relative">
                 <button onClick={() => setNotificationsOpen(!notificationsOpen)} className="relative text-gray-400 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full">
                   <Bell size={20} />
                   {notifications.some(n => !n.read) && <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />}
@@ -520,8 +523,8 @@ export default function DashboardPage() {
                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Phone Number</label><input defaultValue={user.phone} onBlur={(e)=>updateProfile({phone:e.target.value})} className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none focus:border-green-500" placeholder="+1 (555) 000-0000" /></div>
                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Address Line</label><input defaultValue={user.address} onBlur={(e)=>updateProfile({address:e.target.value})} className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none focus:border-green-500" /></div>
                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">City</label><input defaultValue={user.city} onBlur={(e)=>updateProfile({city:e.target.value})} className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none" /></div>
-                              <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Zip Code</label><input defaultValue={user.zip} onBlur={(e)=>updateProfile({zip:e.target.value})} className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none" /></div>
+                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">City</label><input defaultValue={user.city} onBlur={(e)=>updateProfile({city:e.target.value})} className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none" /></div>
+                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Zip Code</label><input defaultValue={user.zip} onBlur={(e)=>updateProfile({zip:e.target.value})} className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none" /></div>
                            </div>
                         </div>
                         
@@ -606,11 +609,11 @@ export default function DashboardPage() {
                             <div className="space-y-3">
                                 {(PAYOUT_MAPPING[user.nationality] || PAYOUT_MAPPING['default']).map(method => (
                                     <label key={method} className={`flex items-center justify-between p-4 border rounded-xl cursor-pointer transition-all ${user.payout_method === method ? 'bg-green-900/20 border-green-500' : 'bg-neutral-900 border-white/10 hover:border-white/30'}`}>
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-white rounded-full"><CreditCard size={16} className="text-black"/></div>
-                                            <span className="font-bold">{method}</span>
-                                        </div>
-                                        <input type="radio" name="payout" checked={user.payout_method === method} onChange={() => updateProfile({ payout_method: method })} className="accent-green-500 w-5 h-5" />
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 bg-white rounded-full"><CreditCard size={16} className="text-black"/></div>
+                                                <span className="font-bold">{method}</span>
+                                            </div>
+                                            <input type="radio" name="payout" checked={user.payout_method === method} onChange={() => updateProfile({ payout_method: method })} className="accent-green-500 w-5 h-5" />
                                     </label>
                                 ))}
                             </div>
@@ -667,7 +670,7 @@ const CoursesTable = ({ courses, onAction, onDelete, onView }: CoursesTableProps
               <td className="p-5 font-bold text-white flex items-center gap-3"><div className="w-10 h-10 bg-neutral-800 rounded flex items-center justify-center"><BookOpen size={16} className="text-gray-500"/></div>{course.title}</td>
               <td className="p-5"><span className={`px-3 py-1 rounded-full text-[10px] uppercase font-bold ${course.status === 'Active' ? 'bg-green-500/10 text-green-400' : 'bg-yellow-500/10 text-yellow-400'}`}>{course.status}</span></td>
               <td className="p-5 text-gray-300">${course.price}</td>
-              <td className="p-5 text-gray-300">{course.students_count}</td>
+              <td className="p-5 text-gray-300">{course.students_count || 0}</td>
               <td className="p-5 font-mono text-green-400 font-bold">${course.total_revenue}</td>
               <td className="p-5 text-right"><button onClick={(e) => { e.stopPropagation(); onAction(course.id) }} className="text-gray-500 hover:text-white mr-4"><Edit size={16} /></button><button onClick={(e) => { e.stopPropagation(); onDelete(course.id) }} className="text-gray-500 hover:text-red-400"><Trash2 size={16} /></button></td>
             </tr>
