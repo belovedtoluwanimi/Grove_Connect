@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { preloader } from '../assets'
 
 type PreloaderProps = {
@@ -10,14 +10,29 @@ type PreloaderProps = {
 const Preloader: React.FC<PreloaderProps> = ({ onFinish }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const [hasInteracted, setHasInteracted] = useState(false)
+  
+  // FIX: Initialize as FALSE so nothing renders during the initial check
+  const [shouldRender, setShouldRender] = useState(false)
+
+  useEffect(() => {
+    // 1. Check local storage
+    const hasVisited = localStorage.getItem('hasVisited')
+
+    if (hasVisited) {
+      // 2a. If visited, keep it hidden and tell parent to finish immediately
+      onFinish()
+    } else {
+      // 2b. If NOT visited, now we allow the preloader to show
+      setShouldRender(true)
+    }
+  }, [onFinish])
 
   const handleStart = () => {
     const video = videoRef.current
     if (!video) return
 
-    // Unmute and play based on user interaction
     video.currentTime = 0
-    video.volume = 1.0 // Ensure volume is up
+    video.volume = 1.0
     
     const playPromise = video.play()
     
@@ -28,11 +43,19 @@ const Preloader: React.FC<PreloaderProps> = ({ onFinish }) => {
         })
         .catch((error) => {
           console.error("Playback failed:", error)
-          // Fallback: If it still fails, just finish the loader
-          onFinish()
+          handlePreloaderFinish()
         })
     }
   }
+
+  const handlePreloaderFinish = () => {
+    localStorage.setItem('hasVisited', 'true')
+    onFinish()
+  }
+
+  // If shouldRender is false, we return null immediately.
+  // This prevents the "Enter Experience" button from flashing on reload.
+  if (!shouldRender) return null
 
   return (
     <div
@@ -58,14 +81,10 @@ const Preloader: React.FC<PreloaderProps> = ({ onFinish }) => {
         src={preloader}
         playsInline
         preload="auto"
-        onEnded={onFinish}
-        onError={onFinish}
-        // Remove autoPlay, we handle it manually
+        onEnded={handlePreloaderFinish} 
+        onError={handlePreloaderFinish}
       />
 
-      {/* This button is REQUIRED for browsers to allow sound.
-        It hides itself once the video starts playing.
-      */}
       {!hasInteracted && (
         <button
           onClick={handleStart}
