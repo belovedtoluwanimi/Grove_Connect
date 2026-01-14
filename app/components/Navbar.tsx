@@ -83,12 +83,14 @@ const Navbar = () => {
             ))}
             
             {/* Mobile CTA Button */}
+            <Link href="/auth">
             <div className="pt-4 mt-2">
               <button className="w-full flex justify-center items-center gap-2 bg-green-600 hover:bg-green-500 text-white px-4 py-3 rounded-xl cursor-pointer font-medium transition-colors">
                 Sign Up
                 <LucideArrowUpRight size={18} />
               </button>
             </div>
+            </Link>
           </div>
         )}
       </div>
