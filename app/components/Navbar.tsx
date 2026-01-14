@@ -5,6 +5,7 @@ import { LucideArrowUpRight, Menu, X } from 'lucide-react';
 import Image from 'next/image';
 import { logo, navItems } from '../assets';
 import { FloatingNav } from './ui/floating-navbar';
+import Link from 'next/link';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -45,12 +46,14 @@ const Navbar = () => {
           </div>
 
           {/* 3. CTA BUTTON (Desktop) */}
-          <div className="hidden md:block">
-            <button className="group flex items-center gap-1 bg-transparent border border-white/20 hover:border-green-400 cursor-pointer text-white px-6 py-2 rounded-full transition-all duration-200 hover:bg-green-500/10">
+          <Link href="/auth">
+            <div className="hidden md:block">
+            <button className="group flex items-center gap-1 bg-transparent border border-white/20 hover:border-green-400 cursor-pointer text-white px-6 py-3 rounded-full transition-all duration-200 hover:bg-green-500/10">
               <span className="text-sm font-medium">Sign Up</span>
               <LucideArrowUpRight size={16} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
             </button>
           </div>
+          </Link>
 
           {/* 4. MOBILE MENU TOGGLE */}
           <div className="md:hidden flex items-center">

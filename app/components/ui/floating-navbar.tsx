@@ -7,6 +7,7 @@ import {
   useMotionValueEvent,
 } from "framer-motion"; // Changed to framer-motion
 import { cn } from "@/app/lib/utils";
+import Link from "next/link";
 
 export const FloatingNav = ({
   navItems,
@@ -52,7 +53,7 @@ export const FloatingNav = ({
         duration: 0.2,
       }}
       className={cn(
-        "fixed top-10 inset-x-0 mx-auto border border-transparent dark:border-white/[0.2] rounded-full dark:bg-black bg-white shadow-lg z-[5000] pr-2 pl-8 py-2 flex items-center justify-center space-x-4 max-w-fit",
+        "fixed top-10 inset-x-0 mx-auto border border-transparent dark:border-green-500/50 rounded-full dark:bg-black/50 bg-white shadow-lg z-[5000] pr-2 pl-8 py-2 flex items-center justify-center space-x-4 max-w-fit",
         className
       )}
     >
@@ -61,17 +62,19 @@ export const FloatingNav = ({
           key={`link=${idx}`}
           href={navItem.link}
           className={cn(
-            "relative dark:text-neutral-50 items-center flex space-x-1 text-neutral-600 dark:hover:text-neutral-300 hover:text-neutral-500"
+            "relative dark:text-neutral-50 items-center flex space-x-1 text-neutral-600 dark:hover:text-green-300 hover:text-green-500"
           )}
         >
           <span className="block sm:hidden">{navItem.icon}</span>
           <span className="hidden sm:block text-sm">{navItem.name}</span>
         </a>
       ))}
-      <button className="border text-sm font-medium relative border-neutral-200 dark:border-white/[0.2] text-black dark:text-white px-4 py-2 rounded-full">
+      <Link href="/auth">
+      <button className="border text-sm cursor-pointer font-medium relative border-neutral-200 dark:border-green-500/50 text-black dark:text-white px-4 py-2 rounded-full">
         <span>Login</span>
-        <span className="absolute inset-x-0 w-1/2 mx-auto -bottom-px bg-gradient-to-r from-transparent via-blue-500 to-transparent h-px" />
+        <span className="absolute inset-x-0 w-1/2 mx-auto -bottom-px bg-gradient-to-r from-transparent via-green-200 to-transparent h-px" />
       </button>
+      </Link>
     </motion.div>
   );
 };
