@@ -4,6 +4,8 @@ import React, { useState } from 'react'
 import Preloader from './components/Preloader'
 import Hero from './components/Hero'
 import Navbar from './components/Navbar'
+import { FloatingNav } from './components/ui/floating-navbar'
+import { navItems } from './assets'
 
 const HomePage = () => {
   const [loading, setLoading] = useState(true)

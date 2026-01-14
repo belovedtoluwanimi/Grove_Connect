@@ -36,7 +36,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${grotesque.className} font-sans`}>
+      <body className={`${sora.className} font-sans`}>
         {children}
       </body>
     </html>

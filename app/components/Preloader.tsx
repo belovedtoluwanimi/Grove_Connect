@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useRef } from 'react'
+import React, { useState, useRef } from 'react'
 import { preloader } from '../assets'
 
 type PreloaderProps = {
@@ -9,19 +9,30 @@ type PreloaderProps = {
 
 const Preloader: React.FC<PreloaderProps> = ({ onFinish }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null)
+  const [hasInteracted, setHasInteracted] = useState(false)
 
-  useEffect(() => {
+  const handleStart = () => {
     const video = videoRef.current
     if (!video) return
 
-    // iOS Safari sometimes needs explicit play call
+    // Unmute and play based on user interaction
+    video.currentTime = 0
+    video.volume = 1.0 // Ensure volume is up
+    
     const playPromise = video.play()
+    
     if (playPromise !== undefined) {
-      playPromise.catch(() => {
-        // Fail silently – user still sees loading UI
-      })
+      playPromise
+        .then(() => {
+          setHasInteracted(true)
+        })
+        .catch((error) => {
+          console.error("Playback failed:", error)
+          // Fallback: If it still fails, just finish the loader
+          onFinish()
+        })
     }
-  }, [])
+  }
 
   return (
     <div
@@ -37,31 +48,41 @@ const Preloader: React.FC<PreloaderProps> = ({ onFinish }) => {
     >
       <video
         ref={videoRef}
-        className="
+        className={`
           w-full h-full
           object-cover
           max-w-full max-h-full
-        "
+          transition-opacity duration-500
+          ${hasInteracted ? 'opacity-100' : 'opacity-0'} 
+        `}
         src={preloader}
-        autoPlay
-        muted
         playsInline
         preload="auto"
         onEnded={onFinish}
         onError={onFinish}
+        // Remove autoPlay, we handle it manually
       />
 
-      {/* Overlay text */}
-      <p
-        className="
-          absolute bottom-4
-          text-white text-sm
-          tracking-wide
-          opacity-80
-        "
-      >
-        Loading…
-      </p>
+      {/* This button is REQUIRED for browsers to allow sound.
+        It hides itself once the video starts playing.
+      */}
+      {!hasInteracted && (
+        <button
+          onClick={handleStart}
+          className="
+            absolute z-10
+            px-8 py-4
+            text-white text-xl tracking-widest uppercase
+            border border-green-500 rounded-full
+            backdrop-blur-sm
+            hover:bg-green-300/10 hover:border-green-500/80
+            transition-all duration-300
+            animate-pulse cursor-pointer
+          "
+        >
+          Enter Experience
+        </button>
+      )}
     </div>
   )
 }
