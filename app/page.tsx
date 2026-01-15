@@ -6,6 +6,7 @@ import Hero from './components/Hero'
 import Navbar from './components/Navbar'
 import { FloatingNav } from './components/ui/floating-navbar'
 import { navItems } from './assets'
+import HomeWrapper from './components/HomeWrapper'
 
 const HomePage = () => {
   const [loading, setLoading] = useState(true)
@@ -17,7 +18,7 @@ const HomePage = () => {
       {!loading && (
         <main className='fade-in'>
           <Navbar />
-          <Hero />
+          <HomeWrapper />
           {/* Other sections */}
         </main>
       )}

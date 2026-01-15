@@ -9,7 +9,7 @@ import { CircleArrowOutUpRightIcon } from 'lucide-react'
 
 const Hero = () => {
   return (
-    <div className="relative w-full h-screen overflow-hidden">
+    <div id='home' className="relative w-full h-screen overflow-hidden">
       {/* Background Image */}
       <Image
         src={heroImage}
@@ -29,7 +29,7 @@ const Hero = () => {
           - max-w-[89vw]: Prevents text from hitting edges on mobile
           - md:max-w-2xl / lg:max-w-[60vw]: Keeps content centered and readable on wide screens
         */}
-        <div className="relative flex flex-col items-center justify-center max-w-[89vw] md:max-w-2xl lg:max-w-2xl z-10">
+        <div id="hero-content" className="relative flex flex-col items-center justify-center max-w-[89vw] md:max-w-2xl lg:max-w-2xl z-10">
           
           {/* Heading */}
           <TextGenerateEffect
