@@ -3,112 +3,74 @@
 import React, { useRef } from 'react'
 import gsap from 'gsap'
 import { useGSAP } from '@gsap/react'
-import { Observer } from 'gsap/Observer'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import Hero from './Hero'
 import YouTubeShowcase from './YoutubeShowcase'
 
 if (typeof window !== "undefined") {
-  gsap.registerPlugin(Observer);
+  gsap.registerPlugin(ScrollTrigger);
 }
 
 const HomeWrapper = () => {
   const containerRef = useRef<HTMLDivElement>(null)
-  const isAnimating = useRef(false)
-  const currentSection = useRef(0)
+  const heroRef = useRef<HTMLDivElement>(null)
+  const youtubeRef = useRef<HTMLDivElement>(null)
 
   useGSAP(() => {
-    
-    // 1. INITIAL SETUP: Force GSAP to handle positioning
-    // We set YouTube section to be 100% down (off-screen) immediately
-    gsap.set("#youtube-container", { yPercent: 100, autoAlpha: 1 });
-    gsap.set("#hero-container", { zIndex: 10 });
-
-    // --- ANIMATION FUNCTION ---
-    const gotoSection = (index: number) => {
-      if (isAnimating.current) return
-      isAnimating.current = true
-
-      const tl = gsap.timeline({
-        defaults: { duration: 1.0, ease: "power3.inOut" },
-        onComplete: () => {
-          isAnimating.current = false
-        }
-      })
-
-      if (index === 1) {
-        // SCROLL DOWN -> SHOW YOUTUBE
-        tl.to("#hero-container", {
-          yPercent: -20, 
-          autoAlpha: 0,
-          filter: "blur(10px) brightness(0.4)",
-          scale: 0.95,
-        })
-        .to("#youtube-container", { 
-          yPercent: 0, // Slide UP to center
-        }, "<")
-      } else {
-        // SCROLL UP -> SHOW HERO
-        tl.to("#youtube-container", {
-          yPercent: 100, // Slide DOWN off-screen
-        })
-        .to("#hero-container", {
-          yPercent: 0,
-          autoAlpha: 1,
-          filter: "blur(0px) brightness(1)",
-          scale: 1,
-        }, "<")
+    const tl = gsap.timeline({
+      scrollTrigger: {
+        trigger: containerRef.current,
+        start: "top top", // When top of container hits top of screen
+        end: "+=100%",   // Scroll distance = 100% of viewport height
+        pin: true,       // PIN THE SCREEN: Locks the user in place while animating
+        scrub: 1,        // 1s delay on scrub makes it feel smooth/weighty (like auto-scroll)
+        anticipatePin: 1 // Prevents a small jitter when pinning starts
       }
-    }
-
-    // --- OBSERVER ---
-    Observer.create({
-      target: window,
-      type: "wheel,touch,pointer",
-      
-      // FIX: wheelSpeed -1 usually fixes the "inverted" feel on mouse wheels
-      wheelSpeed: -1,
-      
-      // SENSITIVITY: Lower = More Immediate
-      tolerance: 5,
-      preventDefault: true,
-
-      onUp: () => {
-        // Logic: Moving "Up" means looking at content below (Next Section)
-        if (!isAnimating.current && currentSection.current === 0) {
-          currentSection.current = 1;
-          gotoSection(1);
-        }
-      },
-      
-      onDown: () => {
-        // Logic: Moving "Down" means looking at content above (Prev Section)
-        if (!isAnimating.current && currentSection.current === 1) {
-          currentSection.current = 0;
-          gotoSection(0);
-        }
-      },
     })
+
+    // --- ANIMATION SEQUENCE ---
+    // 1. YouTube Slide Up (Primary Action)
+    // We move the YouTube section from top:100% (below screen) to top:0% (on screen)
+    tl.to(youtubeRef.current, {
+      yPercent: -100,
+      ease: "none", // Linear is best for scrub
+    })
+
+    // 2. Hero Effects (Secondary Action)
+    // Happens simultaneously ("<")
+    tl.to(heroRef.current, {
+      filter: "blur(15px) brightness(0.3)",
+      scale: 0.95,
+      ease: "none"
+    }, "<") // Start at beginning
+    
+    // 3. Hero Text Fade
+    tl.to("#hero-content", { 
+      opacity: 0, 
+      y: -50,
+      ease: "power1.in"
+    }, "<")
 
   }, { scope: containerRef })
 
   return (
-    <div ref={containerRef} className="relative w-full h-screen overflow-hidden bg-black touch-none">
+    // CONTAINER: We set it to h-screen.
+    // GSAP will handle the "length" of the scroll via the 'pin' property.
+    <div ref={containerRef} className="relative w-full h-screen overflow-hidden">
       
-      {/* SECTION 1: HERO */}
-      <div 
-        id="hero-container" 
-        className="absolute inset-0 w-full h-full will-change-transform"
-      >
+      {/* HERO SECTION */}
+      <div ref={heroRef} id="hero-container" className="absolute inset-0 w-full h-full z-0">
         <Hero />
       </div>
 
-      {/* SECTION 2: YOUTUBE SHOWCASE */}
-      {/* REMOVED 'translate-y-[100%]' class to avoid conflict. GSAP handles it now. */}
+      {/* YOUTUBE SECTION */}
+      {/* Positioned initially 'top-full' (just below the screen) */}
       <div 
+        ref={youtubeRef} 
         id="youtube-container" 
-        className="absolute top-0 inset-x-0 w-full h-full z-20 will-change-transform bg-black"
+        className="absolute top-full left-0 w-full h-full z-10 bg-black"
       >
-        <YouTubeShowcase />
+         <YouTubeShowcase />
       </div>
 
     </div>

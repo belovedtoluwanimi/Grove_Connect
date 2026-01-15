@@ -2,28 +2,48 @@
 
 import React, { useState } from 'react'
 import Preloader from './components/Preloader'
-import Hero from './components/Hero'
 import Navbar from './components/Navbar'
-import { FloatingNav } from './components/ui/floating-navbar'
-import { navItems } from './assets'
-import HomeWrapper from './components/HomeWrapper'
+import Hero from './components/Hero'
+import AboutSection from './components/AboutSection'
+import YouTubeShowcase from './components/YoutubeShowcase'
 
-const HomePage = () => {
-  const [loading, setLoading] = useState(true)
+// Define the stages of the user journey
+type PageStage = 'preloader' | 'intro' | 'main'
+
+const Home = () => {
+  const [stage, setStage] = useState<PageStage>('preloader')
 
   return (
     <>
-      {loading && <Preloader onFinish={() => setLoading(false)} />}
+      {/* STAGE 1: PRELOADER */}
+      {stage === 'preloader' && (
+        <Preloader onFinish={() => setStage('intro')} />
+      )}
 
-      {!loading && (
-        <main className='fade-in'>
+      {/* STAGE 2: INTRO / YOUTUBE SHOWCASE */}
+      {stage === 'intro' && (
+        <YouTubeShowcase onEnter={() => setStage('main')} />
+      )}
+
+      {/* STAGE 3: MAIN WEBSITE */}
+      {stage === 'main' && (
+        <main className="bg-black min-h-screen w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
           <Navbar />
-          <HomeWrapper />
-          {/* Other sections */}
+          
+          {/* Simple Hero Section */}
+          <div className="relative h-screen w-full">
+            <Hero />
+          </div>
+
+          {/* About Section */}
+          <div className="relative z-20 bg-black">
+            <AboutSection />
+          </div>
+          
         </main>
       )}
     </>
   )
 }
 
-export default HomePage
+export default Home
