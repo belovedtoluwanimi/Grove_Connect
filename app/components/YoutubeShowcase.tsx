@@ -100,7 +100,7 @@ const YouTubeShowcase = ({ onEnter }: { onEnter: () => void }) => {
         
         {/* Dynamic Text */}
         <div className="h-24 flex items-center justify-center w-full"> 
-          <p className="text-center text-3xl md:text-5xl font-light tracking-wide text-gray-200">
+          <p className="text-center text-3xl md:text-5xl font-bold tracking-wide text-gray-200">
              <TypewriterGlitchText text={getRevealText()} />
           </p>
         </div>

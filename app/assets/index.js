@@ -7,7 +7,7 @@ export const courseImage = "https://res.cloudinary.com/dxozkyy38/image/upload/v1
 
 export const navItems = [
   { name: "Home", link: "/#home" },
-  { name: "About", link: "/#features" },
+  { name: "About", link: "/about" },
   { name: "YouTube", link: "https://www.youtube.com/@GroveConnect" },
   { name: "Courses", link: "/#pricing" },
   { name: "Contact", link: "/#contact" },
