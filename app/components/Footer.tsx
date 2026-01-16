@@ -51,7 +51,7 @@ const Footer = () => {
         <div>
           <h4 className="text-white font-bold mb-6">Company</h4>
           <ul className="flex flex-col gap-4 text-gray-400">
-            <li><a href="#" className="hover:text-green-400 transition-colors">About Us</a></li>
+            <li><a href="/about" className="hover:text-green-400 transition-colors">About Us</a></li>
             <li><a href="#" className="hover:text-green-400 transition-colors">Careers</a></li>
             <li><a href="#" className="hover:text-green-400 transition-colors">Contact</a></li>
             <li><a href="#" className="hover:text-green-400 transition-colors">Privacy Policy</a></li>
