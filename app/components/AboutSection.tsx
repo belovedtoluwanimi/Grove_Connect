@@ -4,6 +4,7 @@ import React from 'react'
 import Image from 'next/image'
 import { CheckCircle2, ArrowRight, PlayCircle, BookOpen } from 'lucide-react'
 import { aboutImage, courseImage } from '../assets' 
+import Link from 'next/link'
 
 const courseFeatures = [
   "Master Video Editing & Cinematic Production.",
@@ -91,10 +92,12 @@ const AboutSection = () => {
 
           {/* CTA Buttons */}
           <div className="pt-2 md:pt-4 flex flex-col sm:flex-row gap-4">
-            <button className="flex items-center cursor-pointer justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-full font-medium transition-all duration-300 shadow-lg shadow-green-900/20 hover:shadow-green-900/40">
+            <Link href="/courses">
+              <button className="flex items-center cursor-pointer justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-full font-medium transition-all duration-300 shadow-lg shadow-green-900/20 hover:shadow-green-900/40">
               Browse Courses
               <ArrowRight className="w-4 h-4" />
             </button>
+            </Link>
             
             <button className="flex items-center justify-center cursor-pointer  gap-2 text-white border border-white/20 hover:border-green-500/50 px-6 py-3 rounded-full font-medium transition-all duration-300 hover:bg-green-400/5">
               <PlayCircle className="w-4 h-4 text-green-400" />

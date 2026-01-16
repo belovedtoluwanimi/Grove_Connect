@@ -8,9 +8,9 @@ export const Joseph = "https://res.cloudinary.com/dxozkyy38/image/upload/v176857
 export const Eniola = "https://res.cloudinary.com/dxozkyy38/image/upload/v1768578230/IMG-20251112-WA0253_idybii.webp"
 
 export const navItems = [
-  { name: "Home", link: "/#home" },
+  { name: "Home", link: "/home" },
   { name: "About", link: "/about" },
   { name: "YouTube", link: "https://www.youtube.com/@GroveConnect" },
-  { name: "Courses", link: "/#pricing" },
+  { name: "Courses", link: "/courses" },
   { name: "Contact", link: "/#contact" },
 ];
