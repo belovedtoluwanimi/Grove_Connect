@@ -4,6 +4,8 @@ export const logo = "https://res.cloudinary.com/dxozkyy38/image/upload/v17683900
 export const preloader = "https://res.cloudinary.com/dxozkyy38/video/upload/v1767498981/Cinematic_Logo_Motion_Design_Generated_gro1fh.mp4"
 export const aboutImage = "https://res.cloudinary.com/dxozkyy38/image/upload/v1768500783/Gemini_Generated_Image_nia8ysnia8ysnia8_cows5i.png";
 export const courseImage = "https://res.cloudinary.com/dxozkyy38/image/upload/v1768501945/Gemini_Generated_Image_6q68b36q68b36q68_nvv12z.png";
+export const Joseph = "https://res.cloudinary.com/dxozkyy38/image/upload/v1768578071/IMG_20250202_074336_byynpy.webp"
+export const Eniola = "https://res.cloudinary.com/dxozkyy38/image/upload/v1768578230/IMG-20251112-WA0253_idybii.webp"
 
 export const navItems = [
   { name: "Home", link: "/#home" },
