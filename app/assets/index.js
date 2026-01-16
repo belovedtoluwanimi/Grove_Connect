@@ -6,9 +6,15 @@ export const aboutImage = "https://res.cloudinary.com/dxozkyy38/image/upload/v17
 export const courseImage = "https://res.cloudinary.com/dxozkyy38/image/upload/v1768501945/Gemini_Generated_Image_6q68b36q68b36q68_nvv12z.png";
 export const Joseph = "https://res.cloudinary.com/dxozkyy38/image/upload/v1768578071/IMG_20250202_074336_byynpy.webp"
 export const Eniola = "https://res.cloudinary.com/dxozkyy38/image/upload/v1768578230/IMG-20251112-WA0253_idybii.webp"
+export const Dunsin = "https://res.cloudinary.com/dxozkyy38/image/upload/v1768593924/472016219_1135080858146217_139748005532131916_n_wwxsnr.jpg"
+export const Ajiboss = "https://res.cloudinary.com/dxozkyy38/image/upload/v1768593987/LOP_7694-Edit_otpuvi.jpg"
+export const Daniel = "https://res.cloudinary.com/dxozkyy38/image/upload/v1768593955/IMG_9178_k0oqnk.jpg"
+export const EmmaDesigns = "https://res.cloudinary.com/dxozkyy38/image/upload/v1768593945/20241019_131514-01_oftgnh.jpg"
+export const Obong = "https://res.cloudinary.com/dxozkyy38/image/upload/v1768593941/9cdccc1f-965d-47e5-ba1e-7535985879ca_y6jgtg.jpg"
+
 
 export const navItems = [
-  { name: "Home", link: "/home" },
+  { name: "Home", link: "/" },
   { name: "About", link: "/about" },
   { name: "YouTube", link: "https://www.youtube.com/@GroveConnect" },
   { name: "Courses", link: "/courses" },

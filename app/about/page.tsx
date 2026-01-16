@@ -6,7 +6,7 @@ import Navbar from '../components/Navbar' // Adjust path if necessary
 import Footer from '../components/Footer' // Adjust path if necessary
 import { Linkedin, Twitter, Youtube, ArrowRight } from 'lucide-react'
 // REPLACE these with actual founder photos
-import { Eniola, heroImage, Joseph } from '../assets' 
+import { Ajiboss, Daniel, Dunsin, EmmaDesigns, Eniola, heroImage, Joseph, Obong } from '../assets' 
 
 // --- 1. FOUNDER DATA STRUCTURE ---
 // This makes it easy to add/remove founders later.
@@ -51,9 +51,9 @@ const founders: FounderData[] = [
     }
   },
   {
-    name: "David Okonkwo",
+    name: "Dunsin Olowonirejuaro",
     role: "Head of Community & Growth | The Catalyst",
-    image: heroImage, // REPLACE with actual photo (e.g., founderDavidImg)
+    image: Dunsin, // REPLACE with actual photo (e.g., founderDavidImg)
     bio: [
       "David started as a YouTube creator himself, growing a community to over 500K subscribers. He understands the lonely grind of the creator path intimately.",
       "At Grove Connect, David bridges the gap between platform and people. He leads our educational initiatives and ensures that our community remains a vibrant, supportive space for genuine collaboration."
@@ -65,9 +65,9 @@ const founders: FounderData[] = [
     }
   },
   {
-    name: "David Okonkwo",
+    name: "Emmanuel Ajibola",
     role: "Head of Community & Growth | The Catalyst",
-    image: heroImage, // REPLACE with actual photo (e.g., founderDavidImg)
+    image: Ajiboss, // REPLACE with actual photo (e.g., founderDavidImg)
     bio: [
       "David started as a YouTube creator himself, growing a community to over 500K subscribers. He understands the lonely grind of the creator path intimately.",
       "At Grove Connect, David bridges the gap between platform and people. He leads our educational initiatives and ensures that our community remains a vibrant, supportive space for genuine collaboration."
@@ -79,9 +79,9 @@ const founders: FounderData[] = [
     }
   },
   {
-    name: "David Okonkwo",
+    name: "Daniel Akerele",
     role: "Head of Community & Growth | The Catalyst",
-    image: heroImage, // REPLACE with actual photo (e.g., founderDavidImg)
+    image: Daniel, // REPLACE with actual photo (e.g., founderDavidImg)
     bio: [
       "David started as a YouTube creator himself, growing a community to over 500K subscribers. He understands the lonely grind of the creator path intimately.",
       "At Grove Connect, David bridges the gap between platform and people. He leads our educational initiatives and ensures that our community remains a vibrant, supportive space for genuine collaboration."
@@ -93,9 +93,9 @@ const founders: FounderData[] = [
     }
   },
   {
-    name: "David Okonkwo",
+    name: "Emmanuel Olorunmola",
     role: "Head of Community & Growth | The Catalyst",
-    image: heroImage, // REPLACE with actual photo (e.g., founderDavidImg)
+    image: EmmaDesigns, // REPLACE with actual photo (e.g., founderDavidImg)
     bio: [
       "David started as a YouTube creator himself, growing a community to over 500K subscribers. He understands the lonely grind of the creator path intimately.",
       "At Grove Connect, David bridges the gap between platform and people. He leads our educational initiatives and ensures that our community remains a vibrant, supportive space for genuine collaboration."
@@ -107,9 +107,9 @@ const founders: FounderData[] = [
     }
   },
   {
-    name: "David Okonkwo",
+    name: "George Ifiok",
     role: "Head of Community & Growth | The Catalyst",
-    image: heroImage, // REPLACE with actual photo (e.g., founderDavidImg)
+    image: Obong, // REPLACE with actual photo (e.g., founderDavidImg)
     bio: [
       "David started as a YouTube creator himself, growing a community to over 500K subscribers. He understands the lonely grind of the creator path intimately.",
       "At Grove Connect, David bridges the gap between platform and people. He leads our educational initiatives and ensures that our community remains a vibrant, supportive space for genuine collaboration."
@@ -120,34 +120,34 @@ const founders: FounderData[] = [
       youtube: "#"
     }
   },
-  {
-    name: "David Okonkwo",
-    role: "Head of Community & Growth | The Catalyst",
-    image: heroImage, // REPLACE with actual photo (e.g., founderDavidImg)
-    bio: [
-      "David started as a YouTube creator himself, growing a community to over 500K subscribers. He understands the lonely grind of the creator path intimately.",
-      "At Grove Connect, David bridges the gap between platform and people. He leads our educational initiatives and ensures that our community remains a vibrant, supportive space for genuine collaboration."
-    ],
-    socials: {
-      linkedin: "#",
-      twitter: "#",
-      youtube: "#"
-    }
-  },
-  {
-    name: "David Okonkwo",
-    role: "Head of Community & Growth | The Catalyst",
-    image: heroImage, // REPLACE with actual photo (e.g., founderDavidImg)
-    bio: [
-      "David started as a YouTube creator himself, growing a community to over 500K subscribers. He understands the lonely grind of the creator path intimately.",
-      "At Grove Connect, David bridges the gap between platform and people. He leads our educational initiatives and ensures that our community remains a vibrant, supportive space for genuine collaboration."
-    ],
-    socials: {
-      linkedin: "#",
-      twitter: "#",
-      youtube: "#"
-    }
-  }
+  // {
+  //   name: "David Okonkwo",
+  //   role: "Head of Community & Growth | The Catalyst",
+  //   image: heroImage, // REPLACE with actual photo (e.g., founderDavidImg)
+  //   bio: [
+  //     "David started as a YouTube creator himself, growing a community to over 500K subscribers. He understands the lonely grind of the creator path intimately.",
+  //     "At Grove Connect, David bridges the gap between platform and people. He leads our educational initiatives and ensures that our community remains a vibrant, supportive space for genuine collaboration."
+  //   ],
+  //   socials: {
+  //     linkedin: "#",
+  //     twitter: "#",
+  //     youtube: "#"
+  //   }
+  // },
+  // {
+  //   name: "David Okonkwo",
+  //   role: "Head of Community & Growth | The Catalyst",
+  //   image: heroImage, // REPLACE with actual photo (e.g., founderDavidImg)
+  //   bio: [
+  //     "David started as a YouTube creator himself, growing a community to over 500K subscribers. He understands the lonely grind of the creator path intimately.",
+  //     "At Grove Connect, David bridges the gap between platform and people. He leads our educational initiatives and ensures that our community remains a vibrant, supportive space for genuine collaboration."
+  //   ],
+  //   socials: {
+  //     linkedin: "#",
+  //     twitter: "#",
+  //     youtube: "#"
+  //   }
+  // }
 ]
 
 // --- 2. THE PAGE COMPONENT ---
