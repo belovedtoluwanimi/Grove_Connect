@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { Search, Star, PlayCircle, Clock, BarChart, Filter, ChevronDown } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
-import { heroImage, heroVideo } from '../assets' // Using placeholders, replace with real course thumbs
+import { heroImage } from '../assets' // We still use this for course cards
 
 // --- MOCK DATA ---
 type Course = {
@@ -149,15 +149,31 @@ const CoursesPage = () => {
     : allCourses.filter(c => c.category === activeCategory)
 
   return (
-    <main className="bg-black min-h-screen w-full relative">
+    <main className="bg-black min-h-screen w-full relative overflow-x-hidden">
       <Navbar />
 
-      {/* --- HERO SECTION: SEARCH & VALUE PROP --- */}
-      <section className="relative pt-32 pb-16 px-6 md:px-12 border-b border-white/10 overflow-hidden">
-         {/* Background Effects */}
-        <div className="absolute top-0 right-0 w-1/2 h-full bg-green-900/10 blur-[100px] -z-10" />
+      {/* --- HERO SECTION --- */}
+      <section className="relative pt-32 pb-24 px-6 md:px-12 border-b border-white/10 overflow-hidden">
         
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-12">
+        {/* 1. BACKGROUND IMAGE LAYER (z-0) */}
+        <div className="absolute inset-0 z-0">
+          {/* Using a reliable Unsplash URL to guarantee visibility. 
+              If you want to use 'heroImage', make sure it is imported correctly 
+              and not pointing to Google Drive. */}
+          <Image 
+            src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=3291&auto=format&fit=crop"
+            alt="Learning Background" 
+            fill 
+            className="object-cover opacity-60"
+            priority
+          />
+          {/* Gradient Overlay for Text Readability */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black via-black/90 to-black/40" />
+        </div>
+
+        {/* 2. CONTENT LAYER (z-10) */}
+        <div className="relative z-10 max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-12">
+          
           <div className="w-full md:w-2/3">
             <h1 className="text-4xl md:text-5xl font-bold text-white mb-6 leading-tight">
               What do you want to <br />
@@ -165,19 +181,19 @@ const CoursesPage = () => {
                 Master Today?
               </span>
             </h1>
-            <p className="text-gray-400 text-lg mb-8 max-w-2xl">
+            <p className="text-gray-300 text-lg mb-8 max-w-2xl font-light">
               Join thousands of learners acquiring the skills that matter. From coding the future to directing your own cinematic universe.
             </p>
 
             {/* SEARCH BAR */}
             <div className="relative max-w-2xl group">
-              <div className="absolute inset-0 bg-green-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative flex items-center bg-white/5 border border-white/10 rounded-full px-6 py-4 focus-within:border-green-500/50 focus-within:bg-black transition-all">
-                <Search className="text-gray-400 w-6 h-6 mr-4" />
+              <div className="absolute inset-0 bg-green-500/30 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="relative flex items-center bg-white/10 backdrop-blur-md border border-white/20 rounded-full px-6 py-4 focus-within:border-green-500/50 focus-within:bg-black/80 transition-all shadow-xl">
+                <Search className="text-gray-300 w-6 h-6 mr-4" />
                 <input 
                   type="text" 
                   placeholder="Search for Python, Video Editing, Marketing..." 
-                  className="bg-transparent border-none outline-none text-white w-full placeholder-gray-500 text-lg"
+                  className="bg-transparent border-none outline-none text-white w-full placeholder-gray-400 text-lg"
                 />
               </div>
             </div>
@@ -185,11 +201,11 @@ const CoursesPage = () => {
           
           {/* STATS / SOCIAL PROOF RIGHT */}
           <div className="hidden md:flex w-1/3 flex-col gap-4">
-             <div className="bg-neutral-900/50 border border-white/10 p-6 rounded-2xl">
+             <div className="bg-black/60 backdrop-blur-md border border-white/10 p-6 rounded-2xl shadow-2xl transform hover:-translate-y-1 transition-transform">
                 <h3 className="text-3xl font-bold text-white">100+</h3>
                 <p className="text-gray-400 text-sm">Premium Courses</p>
              </div>
-             <div className="bg-neutral-900/50 border border-white/10 p-6 rounded-2xl">
+             <div className="bg-black/60 backdrop-blur-md border border-white/10 p-6 rounded-2xl shadow-2xl transform hover:-translate-y-1 transition-transform">
                 <h3 className="text-3xl font-bold text-green-400">50k+</h3>
                 <p className="text-gray-400 text-sm">Active Students</p>
              </div>
@@ -308,8 +324,8 @@ const CoursesPage = () => {
         <div className="max-w-7xl mx-auto">
             <h2 className="text-2xl font-bold text-white mb-8">Featured Learning Paths</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="p-8 rounded-2xl bg-gradient-to-br from-neutral-900 to-black border border-white/10 flex flex-col md:flex-row items-center gap-6">
-                    <div className="w-24 h-24 rounded-full bg-green-900/20 flex items-center justify-center shrink-0 border border-green-500/30">
+                <div className="p-8 rounded-2xl bg-gradient-to-br from-neutral-900 to-black border border-white/10 flex flex-col md:flex-row items-center gap-6 group hover:border-green-500/30 transition-colors">
+                    <div className="w-24 h-24 rounded-full bg-green-900/20 flex items-center justify-center shrink-0 border border-green-500/30 group-hover:scale-110 transition-transform">
                         <span className="text-3xl">🎬</span>
                     </div>
                     <div>
@@ -318,8 +334,8 @@ const CoursesPage = () => {
                         <button className="text-green-400 text-sm font-medium hover:text-white transition-colors">Explore Path &rarr;</button>
                     </div>
                 </div>
-                 <div className="p-8 rounded-2xl bg-gradient-to-br from-neutral-900 to-black border border-white/10 flex flex-col md:flex-row items-center gap-6">
-                    <div className="w-24 h-24 rounded-full bg-blue-900/20 flex items-center justify-center shrink-0 border border-blue-500/30">
+                 <div className="p-8 rounded-2xl bg-gradient-to-br from-neutral-900 to-black border border-white/10 flex flex-col md:flex-row items-center gap-6 group hover:border-blue-500/30 transition-colors">
+                    <div className="w-24 h-24 rounded-full bg-blue-900/20 flex items-center justify-center shrink-0 border border-blue-500/30 group-hover:scale-110 transition-transform">
                         <span className="text-3xl">💻</span>
                     </div>
                     <div>
