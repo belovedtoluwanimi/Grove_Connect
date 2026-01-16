@@ -83,7 +83,7 @@ const YouTubeShowcase = ({ onEnter }: { onEnter: () => void }) => {
       {/* --- TOP RIGHT CLOSE BUTTON (Optional "Cancel" interaction) --- */}
       <button 
         onClick={onEnter}
-        className="absolute top-8 right-8 z-30 text-white/50 hover:text-white transition-colors flex items-center gap-2 group"
+        className="absolute top-8 cursor-pointer right-8 z-30 text-white/50 hover:text-white transition-colors flex items-center gap-2 group"
       >
         <span className="text-sm uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Skip Intro</span>
         <X size={32} />
