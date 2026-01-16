@@ -6,12 +6,20 @@ import Navbar from './components/Navbar'
 import Hero from './components/Hero'
 import AboutSection from './components/AboutSection'
 import YouTubeShowcase from './components/YoutubeShowcase'
+// --- NEW IMPORTS ---
+import FeaturesSection from './components/FeaturesSection'
+import CoursesSection from './components/CoursesSection'
+import TestimonialsSection from './components/TestimonialsSection'
+import CTASection from './components/CTASection'
+import Footer from './components/Footer'
 
-// Define the stages of the user journey
 type PageStage = 'preloader' | 'intro' | 'main'
 
 const Home = () => {
   const [stage, setStage] = useState<PageStage>('preloader')
+
+  // Helper to skip ahead for development testing if needed
+  // const [stage, setStage] = useState<PageStage>('main') 
 
   return (
     <>
@@ -27,18 +35,33 @@ const Home = () => {
 
       {/* STAGE 3: MAIN WEBSITE */}
       {stage === 'main' && (
-        <main className="bg-black min-h-screen w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
+        <main className="bg-black min-h-screen w-full animate-in fade-in slide-in-from-bottom-4 duration-1000 flex flex-col">
           <Navbar />
           
-          {/* Simple Hero Section */}
+          {/* Hero Section */}
           <div className="relative h-screen w-full">
             <Hero />
           </div>
 
-          {/* About Section */}
-          <div className="relative z-20 bg-black">
-            <AboutSection />
-          </div>
+          {/* About Section (Grove Academy Intro) */}
+          <AboutSection />
+
+          {/* --- NEW SECTIONS STACKED BELOW --- */}
+          
+          {/* Why Us? */}
+          <FeaturesSection />
+
+          {/* The Products */}
+          <CoursesSection />
+          
+          {/* Social Proof */}
+          <TestimonialsSection />
+          
+          {/* Final Push */}
+          <CTASection />
+
+          {/* Footer */}
+          <Footer />
           
         </main>
       )}
