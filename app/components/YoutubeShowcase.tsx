@@ -133,10 +133,10 @@ const YouTubeShowcase = ({ onEnter }: { onEnter: () => void }) => {
         {/* --- MAIN ENTRY BUTTON --- */}
         <button 
           onClick={onEnter}
-          className="mt-12 group relative px-8 py-4 bg-transparent overflow-hidden rounded-full border border-white/30 hover:border-green-500 transition-colors duration-300"
+          className="mt-12 group relative px-8 py-4 bg-transparent overflow-hidden rounded-full border border-white/30 hover:border-green-500 cursor-pointer  transition-colors duration-300"
         >
           <div className="absolute inset-0 w-0 bg-green-600 transition-all duration-[250ms] ease-out group-hover:w-full opacity-10" />
-          <div className="relative cursor-pointer flex items-center gap-3">
+          <div className="relative flex items-center gap-3">
              <span className="text-lg text-white font-light  tracking-widest uppercase">Enter Website</span>
              <ChevronRight className="text-white group-hover:translate-x-1 transition-transform" />
           </div>
