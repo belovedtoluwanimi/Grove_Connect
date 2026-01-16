@@ -3,27 +3,27 @@
 import React from 'react'
 import Image from 'next/image'
 import { Clock, BarChart, ArrowRight } from 'lucide-react'
-import { heroImage } from '../assets' // REPLACE with actual course thumbnails
+import { courseImage, heroImage } from '../assets' // REPLACE with actual course thumbnails
 
 const courses = [
   {
     title: "YouTube Growth Accelerator",
     description: "The complete blueprint from 0 to 100K subscribers. Master the algorithm and content strategy.",
-    image: heroImage, // Replace
+    image: courseImage, // Replace
     level: "Beginner to Pro",
     duration: "12 Hours"
   },
   {
     title: "Cinematic Video Editing Masterclass",
     description: "Learn Premiere Pro & DaVinci Resolve. Turn raw footage into compelling stories.",
-    image: heroImage, // Replace
+    image: courseImage, // Replace
     level: "Intermediate",
     duration: "20 Hours"
   },
   {
     title: "Digital Product Launchpad",
     description: "How to build, market, and sell your own digital products to your audience.",
-    image: heroImage, // Replace
+    image: courseImage, // Replace
     level: "Advanced",
     duration: "8 Hours"
   }
