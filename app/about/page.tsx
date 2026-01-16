@@ -24,7 +24,7 @@ type FounderData = {
 
 const founders: FounderData[] = [
   {
-    name: "Joseph Beloved",
+    name: "Beloved Joseph",
     role: "CEO & Co-Founder | The Visionary",
     image: Joseph, // REPLACE with actual photo (e.g., founderAlexImg)
     bio: [
@@ -51,7 +51,7 @@ const founders: FounderData[] = [
     }
   },
   {
-    name: "Dunsin Olowonirejuaro",
+    name: "Oluwadunsin Olowonirejuaro",
     role: "Head of Community & Growth | The Catalyst",
     image: Dunsin, // REPLACE with actual photo (e.g., founderDavidImg)
     bio: [
