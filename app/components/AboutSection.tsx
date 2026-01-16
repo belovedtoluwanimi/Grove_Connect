@@ -91,12 +91,12 @@ const AboutSection = () => {
 
           {/* CTA Buttons */}
           <div className="pt-2 md:pt-4 flex flex-col sm:flex-row gap-4">
-            <button className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-full font-medium transition-all duration-300 shadow-lg shadow-green-900/20 hover:shadow-green-900/40">
+            <button className="flex items-center cursor-pointer justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-full font-medium transition-all duration-300 shadow-lg shadow-green-900/20 hover:shadow-green-900/40">
               Browse Courses
               <ArrowRight className="w-4 h-4" />
             </button>
             
-            <button className="flex items-center justify-center gap-2 text-white border border-white/20 hover:border-white/50 px-6 py-3 rounded-full font-medium transition-all duration-300 hover:bg-white/5">
+            <button className="flex items-center justify-center cursor-pointer  gap-2 text-white border border-white/20 hover:border-green-500/50 px-6 py-3 rounded-full font-medium transition-all duration-300 hover:bg-green-400/5">
               <PlayCircle className="w-4 h-4 text-green-400" />
               Free Tutorials
             </button>

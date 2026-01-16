@@ -44,7 +44,7 @@ const CoursesSection = () => {
               Start Your Learning Journey
             </h2>
           </div>
-          <button className="flex items-center gap-2 text-gray-300 hover:text-green-400 transition-colors group shrink-0">
+          <button className="flex items-center cursor-pointer gap-2 text-gray-300 hover:text-green-400 transition-colors group shrink-0">
             View All Courses
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </button>
@@ -76,7 +76,7 @@ const CoursesSection = () => {
                     <div className="flex items-center gap-1"><Clock className="w-4 h-4" /> {course.duration}</div>
                   </div>
                 </div>
-                 <button className="w-full mt-6 py-3 bg-white/5 hover:bg-green-600 text-white rounded-lg font-medium transition-all duration-300">
+                 <button className="w-full cursor-pointer mt-6 py-3 c bg-white/5 hover:bg-green-600 text-white rounded-lg font-medium transition-all duration-300">
                     Enroll Now
                   </button>
               </div>

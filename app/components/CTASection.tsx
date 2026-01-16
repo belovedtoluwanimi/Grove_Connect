@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { ArrowRight } from 'lucide-react'
+import Link from 'next/link'
 
 const CTASection = () => {
   return (
@@ -23,11 +24,13 @@ const CTASection = () => {
         </p>
         
         <div className="flex flex-col sm:flex-row gap-4 mt-4">
-           <button className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-full font-bold text-lg transition-all duration-300 shadow-lg shadow-green-900/30 hover:shadow-green-900/50 hover:scale-105">
+           <Link href="/auth">
+            <button className="flex items-center justify-center gap-2 cursor-pointer bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-full font-bold text-lg transition-all duration-300 shadow-lg shadow-green-900/30 hover:shadow-green-900/50 hover:scale-105">
               Get Started Now
               <ArrowRight className="w-5 h-5" />
             </button>
-             <button className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white px-8 py-4 rounded-full font-bold text-lg transition-all duration-300 backdrop-blur-md">
+           </Link>
+             <button className="flex items-center justify-center border border-white/20 cursor-pointer gap-2 bg-white/10 hover:border-green-400 hover:bg-green-500/10 text-white px-8 py-4 rounded-full font-bold text-lg transition-all duration-300 backdrop-blur-md">
               View Pricing
             </button>
         </div>
