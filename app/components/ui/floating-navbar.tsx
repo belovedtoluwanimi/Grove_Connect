@@ -70,7 +70,7 @@ export const FloatingNav = ({
         </a>
       ))}
       <Link href="/auth">
-      <button className="border text-sm cursor-pointer font-medium relative border-green-500/50 hover:border-green-400 text-white px-4 py-2 rounded-full">
+      <button className="border text-sm cursor-pointer font-medium relative border-green-500/50 hover:border-green-400 hover:bg-green-500/10 text-white px-4 py-2 rounded-full">
         <span>Login</span>
         <span className="absolute inset-x-0 w-1/2 mx-auto -bottom-px bg-gradient-to-r from-transparent via-green-200 to-transparent h-px" />
       </button>
