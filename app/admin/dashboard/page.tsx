@@ -231,7 +231,7 @@ const DashboardPage = () => {
               <h1 className="text-3xl font-bold text-white">Dashboard Overview</h1>
               <p className="text-gray-400 mt-1">Track your performance and manage content.</p>
             </div>
-            <Link href = "/create-course">
+            <Link href = "/admin/create-course">
             <button 
               className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 shadow-lg shadow-green-900/20 transition-all hover:scale-105"
             >
