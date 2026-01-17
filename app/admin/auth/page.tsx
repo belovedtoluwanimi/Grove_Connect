@@ -1,12 +1,69 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Eye, EyeOff, ArrowRight, CheckCircle2, Lock } from 'lucide-react'
-import Link from 'next/link'
+import { Eye, EyeOff, ArrowRight, CheckCircle2, Lock, Loader2, AlertCircle } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/app/utils/supabase/client' // Ensure this path matches your utils folder
 
 const AuthPage = () => {
+  const router = useRouter()
+  const supabase = createClient()
+  
+  // UI State
   const [isLogin, setIsLogin] = useState(true)
   const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  // Form Data State
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+
+  // --- AUTHENTICATION HANDLER ---
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setErrorMsg(null)
+
+    try {
+      if (isLogin) {
+        // 1. LOG IN LOGIC
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        })
+        if (error) throw error
+        
+        // Success: Redirect to Admin Dashboard
+        router.push('/admin/dashboard')
+        
+      } else {
+        // 2. SIGN UP LOGIC (TUTOR)
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            // Critical: Pass 'tutor' role so the DB knows this is an instructor
+            data: {
+              full_name: `${firstName} ${lastName}`,
+              role: 'tutor', 
+            },
+          },
+        })
+        if (error) throw error
+
+        // Success: Switch to login or show alert
+        alert('Account created successfully! Please check your email to confirm your account.')
+        setIsLogin(true) 
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || "An unexpected error occurred.")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="min-h-screen w-full bg-black flex relative overflow-hidden">
@@ -59,31 +116,63 @@ const AuthPage = () => {
             </p>
           </div>
 
+          {/* ERROR ALERT BOX */}
+          {errorMsg && (
+            <div className="flex items-start gap-3 p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-200 text-sm animate-in fade-in slide-in-from-top-2">
+              <AlertCircle size={18} className="shrink-0 mt-0.5" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
           {/* Form */}
-          <form className="space-y-6 mt-8" onSubmit={(e) => e.preventDefault()}>
+          <form className="space-y-6 mt-8" onSubmit={handleAuth}>
             {!isLogin && (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">First Name</label>
-                  <input type="text" className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-green-500 focus:outline-none transition-colors" placeholder="John" />
+                  <input 
+                    required 
+                    type="text" 
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-green-500 focus:outline-none transition-colors" 
+                    placeholder="John" 
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">Last Name</label>
-                  <input type="text" className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-green-500 focus:outline-none transition-colors" placeholder="Doe" />
+                  <input 
+                    required
+                    type="text" 
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-green-500 focus:outline-none transition-colors" 
+                    placeholder="Doe" 
+                  />
                 </div>
               </div>
             )}
 
             <div className="space-y-2">
               <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">Email Address</label>
-              <input type="email" className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-green-500 focus:outline-none transition-colors" placeholder="mentor@groveconnect.com" />
+              <input 
+                required
+                type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-green-500 focus:outline-none transition-colors" 
+                placeholder="mentor@groveconnect.com" 
+              />
             </div>
 
             <div className="space-y-2">
               <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">Password</label>
               <div className="relative">
                 <input 
+                  required
                   type={showPassword ? "text" : "password"} 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-green-500 focus:outline-none transition-colors" 
                   placeholder="••••••••" 
                 />
@@ -97,9 +186,15 @@ const AuthPage = () => {
               </div>
             </div>
 
-            <button className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-green-900/20">
-              {isLogin ? 'Access Dashboard' : 'Create Account'}
-              <ArrowRight size={18} />
+            <button 
+              disabled={loading}
+              className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-green-900/20"
+            >
+              {loading ? (
+                 <><Loader2 className="animate-spin" size={18} /> Processing...</>
+              ) : (
+                 <>{isLogin ? 'Access Dashboard' : 'Create Account'} <ArrowRight size={18} /></>
+              )}
             </button>
           </form>
 
@@ -108,7 +203,10 @@ const AuthPage = () => {
             <p className="text-gray-400">
               {isLogin ? "Don't have an account yet?" : "Already an instructor?"}
               <button 
-                onClick={() => setIsLogin(!isLogin)}
+                onClick={() => {
+                  setIsLogin(!isLogin)
+                  setErrorMsg(null) // Clear errors when switching modes
+                }}
                 className="ml-2 text-green-400 hover:text-green-300 font-medium underline-offset-4 hover:underline transition-all"
               >
                 {isLogin ? "Apply Now" : "Sign In"}
