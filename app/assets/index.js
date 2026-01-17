@@ -18,6 +18,6 @@ export const navItems = [
   { name: "About", link: "/about" },
   { name: "YouTube", link: "https://www.youtube.com/@GroveConnect" },
   { name: "Courses", link: "/courses" },
-  { name: "Teach on Grove Connect", link: "/admin/auth" },
+  { name: "Teach on Grove", link: "/admin/auth" },
   { name: "Contact", link: "/#contact" },
 ];
