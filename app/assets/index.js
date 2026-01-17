@@ -14,10 +14,34 @@ export const Obong = "https://res.cloudinary.com/dxozkyy38/image/upload/v1768593
 
 
 export const navItems = [
-  { name: "Home", link: "/" },
-  { name: "About", link: "/about" },
-  { name: "YouTube", link: "https://www.youtube.com/@GroveConnect" },
-  { name: "Courses", link: "/courses" },
-  { name: "Teach on Grove", link: "/admin/auth" },
-  { name: "Contact", link: "/#contact" },
+  {
+    name: "Home",
+    link: "/", 
+    target: "_self"
+  },
+  { 
+    name: "About", 
+    link: "/about", 
+    target: "_self" 
+  },
+  { 
+    name: "YouTube", 
+    link: "https://www.youtube.com/@GroveConnect", 
+    target: "_blank" 
+  },
+  { 
+    name: "Courses", 
+    link: "/courses", 
+    target: "_self" 
+  },
+  { 
+    name: "Teach on Grove", 
+    link: "/admin/auth", 
+    target: "_blank" 
+  },
+  { 
+    name: "Contact", 
+    link: "/#contact", 
+    target: "_self" 
+  },
 ];
