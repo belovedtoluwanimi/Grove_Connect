@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Mail, Lock, User, Github, Chrome, Loader2, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/utils/supabase/client"; // Your existing client helper
+import { createClient } from "@/app/utils/supabase/client"; // Your existing client helper
 
 // --- REUSABLE COMPONENTS (Updated to accept props) ---
 
