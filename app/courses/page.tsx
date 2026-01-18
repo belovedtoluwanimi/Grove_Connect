@@ -148,6 +148,17 @@ const CoursesPage = () => {
     ? allCourses 
     : allCourses.filter(c => c.category === activeCategory)
 
+    const handleEnroll = (courseId: string) => {
+    if (!user) {
+      // If not logged in, go to Auth
+      router.push('/auth')
+      return
+    }
+    // If logged in, go to Checkout
+    // We use a dynamic route, putting the courseId in the URL
+    router.push(`/courses/${courseId}/checkout`)
+  }
+
   return (
     <main className="bg-black min-h-screen w-full relative overflow-x-hidden">
       <Navbar />
