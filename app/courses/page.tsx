@@ -2,11 +2,11 @@
 
 import React, { useState } from 'react'
 import Image from 'next/image'
-import { Search, Star, PlayCircle, Clock, BarChart, Filter, ChevronDown, Check, Loader2 } from 'lucide-react'
+import { Search, Star, PlayCircle, Clock, BarChart, Filter, ChevronDown, Check, Loader2, ArrowRight } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
-import { heroImage } from '../assets' // Ensure this import is correct based on your folder structure
-import { useAuth } from '@/app/hooks/useAuth' // IMPORT AUTH HOOK
+import { heroImage } from '../assets' // Ensure this path matches your project
+import { useAuth } from '@/app/hooks/useAuth'
 import { useRouter } from 'next/navigation'
 
 // --- MOCK DATA ---
@@ -143,43 +143,50 @@ const allCourses: Course[] = [
 const categories = ["All", "Programming", "AI", "YouTube", "Video Editing", "Music", "Business"]
 
 const CoursesPage = () => {
-  const { user } = useAuth() // Get current user status
+  const { user } = useAuth()
   const router = useRouter()
   
   const [activeCategory, setActiveCategory] = useState("All")
   
   // State to track Cart UI
-  const [cartItems, setCartItems] = useState<string[]>([])
-  const [loadingId, setLoadingId] = useState<string | null>(null)
+  const [cartItems, setCartItems] = useState<string[]>([]) // List of IDs currently in cart
+  const [loadingId, setLoadingId] = useState<string | null>(null) // Which button is spinning
 
-  // Filter logic
   const displayedCourses = activeCategory === "All" 
     ? allCourses 
     : allCourses.filter(c => c.category === activeCategory)
 
-  // --- HANDLER: Enroll (Redirect to Checkout) ---
+  // --- HANDLER 1: Enroll (Clicking Image Play Button) ---
   const handleEnroll = (courseId: string) => {
     if (!user) {
-      router.push('/auth') // Redirect to Login if not logged in
+      router.push('/auth')
       return
     }
-    router.push(`/courses/${courseId}/checkout`) // Go to Checkout
+    router.push(`/courses/${courseId}/checkout`)
   }
 
-  // --- HANDLER: Add to Cart (Simulate API) ---
-  const handleAddToCart = (courseId: string) => {
+  // --- HANDLER 2: Add to Cart / Checkout (Clicking Price Button) ---
+  const handleCartAction = (courseId: string) => {
+    // 1. Auth Check
     if (!user) {
-      alert("Please log in to add items to your cart.")
+      alert("Please log in to start learning.")
       router.push('/auth')
       return
     }
 
+    // 2. If Already in Cart -> Go to Checkout
+    if (cartItems.includes(courseId)) {
+      router.push(`/courses/${courseId}/checkout`)
+      return
+    }
+
+    // 3. If Not in Cart -> Add it
     setLoadingId(courseId)
-    // Simulate network delay
+    // Simulate API call
     setTimeout(() => {
-      setCartItems([...cartItems, courseId])
+      setCartItems((prev) => [...prev, courseId])
       setLoadingId(null)
-    }, 800)
+    }, 600)
   }
 
   return (
@@ -294,13 +301,15 @@ const CoursesPage = () => {
                       fill 
                       className="object-cover transition-transform duration-500 group-hover:scale-105"
                     />
-                    {/* Overlay Play Button (Triggers Enroll) */}
+                    
+                    {/* Overlay Play Button -> Triggers Checkout */}
                     <div 
                       onClick={() => handleEnroll(course.id)}
                       className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer"
                     >
                       <PlayCircle className="w-12 h-12 text-white fill-green-500/50" />
                     </div>
+
                     {/* Badge */}
                     {course.badge && (
                       <div className="absolute top-2 left-2 bg-yellow-500/90 text-black text-[10px] font-bold px-2 py-1 uppercase tracking-wide rounded shadow-md">
@@ -336,7 +345,7 @@ const CoursesPage = () => {
                       <div className="flex items-center gap-1"><BarChart className="w-3 h-3" /> {course.lectures} lectures</div>
                     </div>
 
-                    {/* Price Row & Cart Button */}
+                    {/* Price Row & SMART Button */}
                     <div className="flex items-center justify-between border-t border-white/10 pt-4 mt-auto">
                       <div className="flex flex-col">
                           <span className="text-white font-bold text-lg">{course.price}</span>
@@ -346,19 +355,19 @@ const CoursesPage = () => {
                       </div>
                       
                       <button 
-                        onClick={() => handleAddToCart(course.id)}
-                        disabled={isInCart || isLoading}
+                        onClick={() => handleCartAction(course.id)}
+                        disabled={isLoading}
                         className={`
                           px-4 py-2 rounded text-xs font-medium transition-all flex items-center gap-2
                           ${isInCart 
-                            ? 'bg-green-600/20 text-green-400 border border-green-600/50 cursor-default' 
-                            : 'bg-white text-black hover:bg-green-400 hover:text-black cursor-pointer'}
+                            ? 'bg-green-600 text-white hover:bg-green-500 shadow-[0_0_15px_rgba(22,163,74,0.4)]' 
+                            : 'bg-white text-black hover:bg-gray-200'}
                         `}
                       >
                         {isLoading ? (
                            <Loader2 size={14} className="animate-spin" />
                         ) : isInCart ? (
-                           <>Added <Check size={14} /></>
+                           <>Checkout <ArrowRight size={14} /></>
                         ) : (
                            "Add to Cart"
                         )}
