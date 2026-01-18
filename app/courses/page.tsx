@@ -2,10 +2,12 @@
 
 import React, { useState } from 'react'
 import Image from 'next/image'
-import { Search, Star, PlayCircle, Clock, BarChart, Filter, ChevronDown } from 'lucide-react'
+import { Search, Star, PlayCircle, Clock, BarChart, Filter, ChevronDown, Check, Loader2 } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
-import { heroImage } from '../assets' // We still use this for course cards
+import { heroImage } from '../assets' // Ensure this import is correct based on your folder structure
+import { useAuth } from '@/app/hooks/useAuth' // IMPORT AUTH HOOK
+import { useRouter } from 'next/navigation'
 
 // --- MOCK DATA ---
 type Course = {
@@ -141,22 +143,43 @@ const allCourses: Course[] = [
 const categories = ["All", "Programming", "AI", "YouTube", "Video Editing", "Music", "Business"]
 
 const CoursesPage = () => {
+  const { user } = useAuth() // Get current user status
+  const router = useRouter()
+  
   const [activeCategory, setActiveCategory] = useState("All")
   
+  // State to track Cart UI
+  const [cartItems, setCartItems] = useState<string[]>([])
+  const [loadingId, setLoadingId] = useState<string | null>(null)
+
   // Filter logic
   const displayedCourses = activeCategory === "All" 
     ? allCourses 
     : allCourses.filter(c => c.category === activeCategory)
 
-    const handleEnroll = (courseId: string) => {
+  // --- HANDLER: Enroll (Redirect to Checkout) ---
+  const handleEnroll = (courseId: string) => {
     if (!user) {
-      // If not logged in, go to Auth
+      router.push('/auth') // Redirect to Login if not logged in
+      return
+    }
+    router.push(`/courses/${courseId}/checkout`) // Go to Checkout
+  }
+
+  // --- HANDLER: Add to Cart (Simulate API) ---
+  const handleAddToCart = (courseId: string) => {
+    if (!user) {
+      alert("Please log in to add items to your cart.")
       router.push('/auth')
       return
     }
-    // If logged in, go to Checkout
-    // We use a dynamic route, putting the courseId in the URL
-    router.push(`/courses/${courseId}/checkout`)
+
+    setLoadingId(courseId)
+    // Simulate network delay
+    setTimeout(() => {
+      setCartItems([...cartItems, courseId])
+      setLoadingId(null)
+    }, 800)
   }
 
   return (
@@ -168,9 +191,6 @@ const CoursesPage = () => {
         
         {/* 1. BACKGROUND IMAGE LAYER (z-0) */}
         <div className="absolute inset-0 z-0">
-          {/* Using a reliable Unsplash URL to guarantee visibility. 
-              If you want to use 'heroImage', make sure it is imported correctly 
-              and not pointing to Google Drive. */}
           <Image 
             src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=3291&auto=format&fit=crop"
             alt="Learning Background" 
@@ -178,7 +198,6 @@ const CoursesPage = () => {
             className="object-cover opacity-60"
             priority
           />
-          {/* Gradient Overlay for Text Readability */}
           <div className="absolute inset-0 bg-gradient-to-r from-black via-black/90 to-black/40" />
         </div>
 
@@ -258,73 +277,97 @@ const CoursesPage = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {displayedCourses.map((course) => (
-              <div 
-                key={course.id} 
-                className="group relative bg-neutral-900 border border-white/10 rounded-xl overflow-hidden hover:border-green-500/50 hover:-translate-y-1 transition-all duration-300 flex flex-col h-full"
-              >
-                {/* Image Section */}
-                <div className="relative aspect-video w-full overflow-hidden">
-                  <Image 
-                    src={course.image} 
-                    alt={course.title} 
-                    fill 
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  {/* Overlay Play Button */}
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <PlayCircle className="w-12 h-12 text-white fill-green-500/50" />
-                  </div>
-                  {/* Badge */}
-                  {course.badge && (
-                    <div className="absolute top-2 left-2 bg-yellow-500/90 text-black text-[10px] font-bold px-2 py-1 uppercase tracking-wide rounded shadow-md">
-                      {course.badge}
+            {displayedCourses.map((course) => {
+              const isInCart = cartItems.includes(course.id)
+              const isLoading = loadingId === course.id
+
+              return (
+                <div 
+                  key={course.id} 
+                  className="group relative bg-neutral-900 border border-white/10 rounded-xl overflow-hidden hover:border-green-500/50 hover:-translate-y-1 transition-all duration-300 flex flex-col h-full"
+                >
+                  {/* Image Section */}
+                  <div className="relative aspect-video w-full overflow-hidden">
+                    <Image 
+                      src={course.image} 
+                      alt={course.title} 
+                      fill 
+                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    {/* Overlay Play Button (Triggers Enroll) */}
+                    <div 
+                      onClick={() => handleEnroll(course.id)}
+                      className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer"
+                    >
+                      <PlayCircle className="w-12 h-12 text-white fill-green-500/50" />
                     </div>
-                  )}
-                </div>
+                    {/* Badge */}
+                    {course.badge && (
+                      <div className="absolute top-2 left-2 bg-yellow-500/90 text-black text-[10px] font-bold px-2 py-1 uppercase tracking-wide rounded shadow-md">
+                        {course.badge}
+                      </div>
+                    )}
+                  </div>
 
-                {/* Content Section */}
-                <div className="p-5 flex flex-col flex-grow">
-                  <h3 className="text-white font-bold text-lg leading-snug line-clamp-2 mb-2 group-hover:text-green-400 transition-colors">
-                    {course.title}
-                  </h3>
-                  <p className="text-gray-400 text-sm mb-3">{course.instructor}</p>
-                  
-                  {/* Rating */}
-                  <div className="flex items-center gap-1 mb-3">
-                    <span className="text-yellow-500 font-bold text-sm">{course.rating}</span>
-                    <div className="flex">
-                      {[...Array(5)].map((_, i) => (
-                        <Star 
-                          key={i} 
-                          className={`w-3 h-3 ${i < Math.floor(course.rating) ? 'text-yellow-500 fill-yellow-500' : 'text-gray-600'}`} 
-                        />
-                      ))}
+                  {/* Content Section */}
+                  <div className="p-5 flex flex-col flex-grow">
+                    <h3 className="text-white font-bold text-lg leading-snug line-clamp-2 mb-2 group-hover:text-green-400 transition-colors">
+                      {course.title}
+                    </h3>
+                    <p className="text-gray-400 text-sm mb-3">{course.instructor}</p>
+                    
+                    {/* Rating */}
+                    <div className="flex items-center gap-1 mb-3">
+                      <span className="text-yellow-500 font-bold text-sm">{course.rating}</span>
+                      <div className="flex">
+                        {[...Array(5)].map((_, i) => (
+                          <Star 
+                            key={i} 
+                            className={`w-3 h-3 ${i < Math.floor(course.rating) ? 'text-yellow-500 fill-yellow-500' : 'text-gray-600'}`} 
+                          />
+                        ))}
+                      </div>
+                      <span className="text-gray-500 text-xs">({course.students})</span>
                     </div>
-                    <span className="text-gray-500 text-xs">({course.students})</span>
-                  </div>
 
-                  {/* Metadata */}
-                  <div className="flex items-center gap-4 text-xs text-gray-500 mb-4 mt-auto">
-                    <div className="flex items-center gap-1"><Clock className="w-3 h-3" /> {course.duration}</div>
-                    <div className="flex items-center gap-1"><BarChart className="w-3 h-3" /> {course.lectures} lectures</div>
-                  </div>
+                    {/* Metadata */}
+                    <div className="flex items-center gap-4 text-xs text-gray-500 mb-4 mt-auto">
+                      <div className="flex items-center gap-1"><Clock className="w-3 h-3" /> {course.duration}</div>
+                      <div className="flex items-center gap-1"><BarChart className="w-3 h-3" /> {course.lectures} lectures</div>
+                    </div>
 
-                  {/* Price Row */}
-                  <div className="flex items-center justify-between border-t border-white/10 pt-4">
-                    <div className="flex flex-col">
-                        <span className="text-white font-bold text-lg">{course.price}</span>
-                        {course.originalPrice && (
-                           <span className="text-gray-500 text-xs line-through">{course.originalPrice}</span>
+                    {/* Price Row & Cart Button */}
+                    <div className="flex items-center justify-between border-t border-white/10 pt-4 mt-auto">
+                      <div className="flex flex-col">
+                          <span className="text-white font-bold text-lg">{course.price}</span>
+                          {course.originalPrice && (
+                             <span className="text-gray-500 text-xs line-through">{course.originalPrice}</span>
+                          )}
+                      </div>
+                      
+                      <button 
+                        onClick={() => handleAddToCart(course.id)}
+                        disabled={isInCart || isLoading}
+                        className={`
+                          px-4 py-2 rounded text-xs font-medium transition-all flex items-center gap-2
+                          ${isInCart 
+                            ? 'bg-green-600/20 text-green-400 border border-green-600/50 cursor-default' 
+                            : 'bg-white text-black hover:bg-green-400 hover:text-black cursor-pointer'}
+                        `}
+                      >
+                        {isLoading ? (
+                           <Loader2 size={14} className="animate-spin" />
+                        ) : isInCart ? (
+                           <>Added <Check size={14} /></>
+                        ) : (
+                           "Add to Cart"
                         )}
+                      </button>
                     </div>
-                    <button className="text-xs font-medium text-black bg-white hover:bg-green-400 px-4 py-2 rounded transition-colors">
-                      Add to Cart
-                    </button>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
         </div>

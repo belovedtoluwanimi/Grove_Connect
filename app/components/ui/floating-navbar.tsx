@@ -5,9 +5,10 @@ import {
   AnimatePresence,
   useScroll,
   useMotionValueEvent,
-} from "framer-motion"; // Changed to framer-motion
-import { cn } from "@/app/lib/utils";
+} from "framer-motion";
+import { cn } from "@/app/lib/utils"; // Make sure this path is correct for your project
 import Link from "next/link";
+import { useAuth } from "@/app/hooks/useAuth"; // 1. IMPORT THE AUTH HOOK
 
 export const FloatingNav = ({
   navItems,
@@ -16,26 +17,28 @@ export const FloatingNav = ({
   navItems: {
     name: string;
     link: string;
-    icon?: React.ReactNode; 
+    icon?: React.ReactNode;
     target?: string;
-    // Added icon type
   }[];
   className?: string;
 }) => {
   const { scrollYProgress } = useScroll();
-  const [visible, setVisible] = useState(true); // Default to true so it's visible on load
+  const [visible, setVisible] = useState(true);
+
+  // 2. GET USER STATUS
+  const { user } = useAuth();
 
   useMotionValueEvent(scrollYProgress, "change", (current) => {
     if (typeof current === "number") {
       let direction = current! - scrollYProgress.getPrevious()!;
 
       if (scrollYProgress.get() < 0.05) {
-        setVisible(true); // Keep visible at top
+        setVisible(true);
       } else {
         if (direction < 0) {
-          setVisible(true); // Show on scroll up
+          setVisible(true);
         } else {
-          setVisible(false); // Hide on scroll down
+          setVisible(false);
         }
       }
     }
@@ -64,7 +67,7 @@ export const FloatingNav = ({
           key={`link=${idx}`}
           href={navItem.link}
           target={navItem.target}
-  rel="noopener noreferrer"
+          rel="noopener noreferrer"
           className={cn(
             "relative text-neutral-50 items-center flex space-x-1 hover:text-green-300 "
           )}
@@ -73,12 +76,16 @@ export const FloatingNav = ({
           <span className="hidden sm:block text-sm">{navItem.name}</span>
         </Link>
       ))}
-      <Link href="/auth">
-      <button className="border text-sm cursor-pointer font-medium relative border-green-500/50 hover:border-green-400 hover:bg-green-500/10 text-white px-4 py-2 rounded-full">
-        <span>Login</span>
-        <span className="absolute inset-x-0 w-1/2 mx-auto -bottom-px bg-gradient-to-r from-transparent via-green-200 to-transparent h-px" />
-      </button>
-      </Link>
+      
+      {/* 3. CONDITIONAL RENDERING: Only show if NO user is logged in */}
+      {!user && (
+        <Link href="/auth">
+          <button className="border text-sm cursor-pointer font-medium relative border-green-500/50 hover:border-green-400 hover:bg-green-500/10 text-white px-4 py-2 rounded-full">
+            <span>Login</span>
+            <span className="absolute inset-x-0 w-1/2 mx-auto -bottom-px bg-gradient-to-r from-transparent via-green-200 to-transparent h-px" />
+          </button>
+        </Link>
+      )}
     </motion.div>
   );
 };
