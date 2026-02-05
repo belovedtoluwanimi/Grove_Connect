@@ -5,9 +5,9 @@ import Image from 'next/image'
 import { Search, Star, PlayCircle, Clock, BarChart, Filter, ChevronDown, Check, Loader2, ArrowRight } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth } from '@/app/hooks/useAuth'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/utils/supabase/client'
+import { createClient } from '@/app/utils/supabase/client'
 
 // --- 1. FIXED TYPE DEFINITION ---
 type Course = {
