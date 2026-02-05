@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { createClient } from '@/utils/supabase/client'
+import { createClient } from '@/app/utils/supabase/client'
 import { Check, X, AlertTriangle, Play } from 'lucide-react'
 
 export default function AdminReviewPage() {
