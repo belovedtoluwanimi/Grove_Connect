@@ -12,6 +12,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/app/hooks/useAuth' 
 import { motion, AnimatePresence } from 'framer-motion'
+import API_URL from '../../utils/api'
 
 // --- TYPES ---
 type Step = 'learners' | 'curriculum' | 'landing' | 'settings' | 'legal'
@@ -161,7 +162,7 @@ export default function CreateCoursePage() {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      const res = await fetch('http://localhost:5000/api/upload', { method: 'POST', body: formData })
+      const res = await fetch(`${API_URL}/api/upload`, { method: 'POST', body: formData })
       if (!res.ok) throw new Error('Upload failed')
       const responseData = await res.json()
       
@@ -190,7 +191,7 @@ export default function CreateCoursePage() {
     setIsSaving(true)
     try {
         const payload = { ...data, instructor_id: user.id, thumbnailUrl: data.thumbnail, promoVideoUrl: data.promoVideo }
-        const res = await fetch('http://localhost:5000/api/courses', {
+        const res = await fetch(`${API_URL}/api/courses`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
