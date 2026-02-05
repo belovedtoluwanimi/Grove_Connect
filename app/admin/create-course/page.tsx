@@ -9,10 +9,10 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/hooks/useAuth' 
+import { useAuth } from '@/app/hooks/useAuth' 
 import { motion, AnimatePresence } from 'framer-motion'
-import { createClient } from '@/utils/supabase/client'
-import API_URL from '@/utils/api' 
+import { createClient } from '@/app/utils/supabase/client'
+import API_URL from '@/app/utils/api' 
 
 // --- TYPES ---
 type Step = 'learners' | 'curriculum' | 'landing' | 'settings' | 'legal'
