@@ -3,6 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const { createClient } = require('@supabase/supabase-js');
+// IMPORT VALIDATION CONTROLLER
+const { validateCourse } = require('./controllers/validation');
 
 const app = express();
 const port = 5000;
@@ -17,7 +19,6 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY; // Use SERVICE ROLE k
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // 3. MULTER SETUP (File Handling)
-// We use memoryStorage to keep the file in RAM briefly before sending to Supabase
 const upload = multer({ 
   storage: multer.memoryStorage(),
   limits: { fileSize: 500 * 1024 * 1024 } // Limit uploads to 500MB
@@ -29,23 +30,20 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'No file uploaded' });
 
-    // Create a unique file path: public/timestamp-filename
     const fileName = `${Date.now()}-${file.originalname.replace(/\s/g, '_')}`;
     const filePath = `public/${fileName}`;
 
-    // Upload to Supabase Storage bucket named 'course-content'
     const { data, error } = await supabase
       .storage
       .from('course-content')
       .upload(filePath, file.buffer, {
         contentType: file.mimetype,
         upsert: false,
-        duplex: 'half'
+        duplex: 'half' // Critical for Node 18+
       });
 
     if (error) throw error;
 
-    // Get the Public URL
     const { data: { publicUrl } } = supabase
       .storage
       .from('course-content')
@@ -59,31 +57,47 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
   }
 });
 
-// --- ROUTE 2: PUBLISH COURSE (Save to DB) ---
+// --- ROUTE 2: PUBLISH COURSE (Save to DB with Validation) ---
 app.post('/api/courses', async (req, res) => {
   try {
+    // 1. Destructure all data
     const { 
       title, subtitle, description, category, 
       level, price, objectives, curriculum, 
       thumbnailUrl, promoVideoUrl, instructor_id 
     } = req.body;
 
-    // Insert into 'courses' table
-    // Note: We are storing 'curriculum' and 'objectives' as JSONB columns
+    // 2. RUN VALIDATION ALGORITHM
+    const { isValid, score, flags } = await validateCourse(req.body, instructor_id);
+
+    // 3. REJECT IF INVALID
+    if (!isValid) {
+      return res.status(400).json({ 
+        error: "Automated Quality Check Failed", 
+        details: flags 
+      });
+    }
+
+    // 4. INSERT INTO DATABASE (Status = 'Review')
     const { data, error } = await supabase
       .from('courses')
       .insert([
         {
           instructor_id,
           title,
-          description: subtitle + "\n" + description, // Combining for simplicity
+          description: subtitle + "\n" + description,
           price: price === 'Free' ? 0 : parseFloat(price),
           category,
-          status: 'Review', // Default status
+          
+          // ALGORITHM FIELDS
+          status: 'Review',  // Must pass human review to become 'Active'
+          admin_flags: flags, // Store warnings for the admin
+          quality_score: score, // Store the automated score
+
           thumbnail_url: thumbnailUrl,
           video_url: promoVideoUrl,
-          curriculum_data: curriculum, // Ensure you add this column to Supabase (type: jsonb)
-          objectives_data: objectives, // Ensure you add this column to Supabase (type: jsonb)
+          curriculum_data: curriculum, 
+          objectives_data: objectives, 
           created_at: new Date()
         }
       ])
@@ -91,7 +105,7 @@ app.post('/api/courses', async (req, res) => {
 
     if (error) throw error;
 
-    res.status(201).json({ message: 'Course created successfully', course: data[0] });
+    res.status(201).json({ message: 'Course submitted for review', course: data[0] });
 
   } catch (error) {
     console.error('Database Error:', error);
