@@ -5,24 +5,24 @@ import Image from 'next/image'
 import { Search, Star, PlayCircle, Clock, BarChart, Filter, ChevronDown, Check, Loader2, ArrowRight } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
-import { useAuth } from '@/app/hooks/useAuth'
+import { useAuth } from '@/hooks/useAuth'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/app/utils/supabase/client'
+import { createClient } from '@/utils/supabase/client'
 
-// --- TYPES ---
+// --- 1. FIXED TYPE DEFINITION ---
 type Course = {
   id: string
   title: string
-  instructor: { full_name: string } // Joined from profiles
+  instructor: string 
   rating: number
-  students_count: number
-  price: number
-  original_price?: number // Optional if you have sales
-  thumbnail_url: string
+  students: number
+  price: string
+  original_price?: number 
+  image: string // <--- ADDED THIS (Fixes the Build Error)
   category: string
   badge?: string
-  duration?: string // You might need to calculate this from lectures
-  lectures_count?: number
+  duration: string 
+  lectures: number
 }
 
 const categories = ["All", "Development", "Design", "Marketing", "Business", "Music"]
@@ -66,13 +66,17 @@ const CoursesPage = () => {
 
         if (error) throw error
         
-        // Transform data to match UI needs
-        const formattedCourses = data?.map((course: any) => ({
-            ...course,
+        // Transform data to match the 'Course' Type
+        const formattedCourses: Course[] = data?.map((course: any) => ({
+            id: course.id,
+            title: course.title,
             instructor: course.instructor?.full_name || "Unknown Instructor",
-            rating: 4.8, // Placeholder until you have reviews table
+            rating: 4.8, // Placeholder
             students: course.students_count || 0,
-            image: course.thumbnail_url || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=3291&auto=format&fit=crop", // Fallback
+            original_price: course.original_price,
+            category: course.category,
+            // Map 'thumbnail_url' to 'image' to satisfy the UI and Type
+            image: course.thumbnail_url || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=3291&auto=format&fit=crop", 
             duration: "10h 30m", // Placeholder
             lectures: 24, // Placeholder
             price: course.price === 0 ? "Free" : `$${course.price}`
@@ -244,7 +248,7 @@ const CoursesPage = () => {
                       <h3 className="text-white font-bold text-lg leading-snug line-clamp-2 mb-2 group-hover:text-green-400 transition-colors">
                         {course.title}
                       </h3>
-                      <p className="text-gray-400 text-sm mb-3">{typeof course.instructor === 'string' ? course.instructor : 'Instructor'}</p>
+                      <p className="text-gray-400 text-sm mb-3">{course.instructor}</p>
                       
                       {/* Rating */}
                       <div className="flex items-center gap-1 mb-3">
