@@ -9,19 +9,19 @@ import { useAuth } from '@/app/hooks/useAuth'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/app/utils/supabase/client'
 
-// --- 1. FIXED TYPE DEFINITION ---
+// --- TYPES ---
 type Course = {
   id: string
   title: string
-  instructor: string 
+  instructor: string
   rating: number
   students: number
   price: string
-  original_price?: number 
-  image: string // <--- ADDED THIS (Fixes the Build Error)
+  original_price?: number
+  image: string
   category: string
   badge?: string
-  duration: string 
+  duration: string
   lectures: number
 }
 
@@ -46,14 +46,16 @@ const CoursesPage = () => {
     const fetchCourses = async () => {
       setLoading(true)
       try {
+        // 1. Build Query
         let query = supabase
           .from('courses')
           .select(`
             *,
-            instructor:profiles!instructor_id(full_name) 
+            profiles ( full_name )
           `)
-          .eq('status', 'Active') // Only show published courses
+          .eq('status', 'Active') // Only show Active courses
 
+        // 2. Apply Filters
         if (activeCategory !== "All") {
           query = query.eq('category', activeCategory)
         }
@@ -62,23 +64,29 @@ const CoursesPage = () => {
           query = query.ilike('title', `%${searchTerm}%`)
         }
 
+        // 3. Execute
         const { data, error } = await query
 
-        if (error) throw error
+        if (error) {
+            console.error("Supabase Error:", error)
+            throw error
+        }
         
-        // Transform data to match the 'Course' Type
+        console.log("Fetched Data:", data) // DEBUG: Check console to see if data arrives
+
+        // 4. Format Data
         const formattedCourses: Course[] = data?.map((course: any) => ({
             id: course.id,
             title: course.title,
-            instructor: course.instructor?.full_name || "Unknown Instructor",
-            rating: 4.8, // Placeholder
+            // Handle Profile Join safely
+            instructor: course.profiles?.full_name || "Unknown Instructor",
+            rating: 4.8, 
             students: course.students_count || 0,
             original_price: course.original_price,
             category: course.category,
-            // Map 'thumbnail_url' to 'image' to satisfy the UI and Type
             image: course.thumbnail_url || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=3291&auto=format&fit=crop", 
-            duration: "10h 30m", // Placeholder
-            lectures: 24, // Placeholder
+            duration: "10h 30m",
+            lectures: 24,
             price: course.price === 0 ? "Free" : `$${course.price}`
         })) || []
 
@@ -90,7 +98,6 @@ const CoursesPage = () => {
       }
     }
 
-    // Debounce search slightly
     const timer = setTimeout(() => {
         fetchCourses()
     }, 300)
@@ -101,10 +108,7 @@ const CoursesPage = () => {
 
   // --- HANDLERS ---
   const handleEnroll = (courseId: string) => {
-    if (!user) {
-      router.push('/auth')
-      return
-    }
+    if (!user) return router.push('/auth')
     router.push(`/courses/${courseId}/checkout`)
   }
 
