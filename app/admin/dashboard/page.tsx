@@ -323,6 +323,7 @@ export default function DashboardPage() {
                  <div className="lg:col-span-2 bg-neutral-900/40 border border-white/5 p-6 rounded-2xl relative">
                     <h3 className="text-lg font-bold mb-6 text-white">Revenue Growth</h3>
                     {/* UPDATED HEIGHT TO 100% */}
+                    <div className='h-[300px] w-full min-w-0'>
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={analyticsData}>
                             <defs><linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/><stop offset="95%" stopColor="#22c55e" stopOpacity={0}/></linearGradient></defs>
@@ -333,12 +334,14 @@ export default function DashboardPage() {
                             <Area type="monotone" dataKey="revenue" stroke="#22c55e" strokeWidth={3} fill="url(#colorRev)" />
                         </AreaChart>
                     </ResponsiveContainer>
+                    </div>
                  </div>
 
                  {/* Enrollments Bar Chart */}
                  <div className="bg-neutral-900/40 border border-white/5 p-6 rounded-2xl">
                     <h3 className="text-lg font-bold mb-6 text-white">Monthly Enrollments</h3>
                     {/* UPDATED HEIGHT TO 100% */}
+                    <div className='h-[300px] w-full min-w-0'>
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={analyticsData}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
@@ -347,6 +350,7 @@ export default function DashboardPage() {
                             <Bar dataKey="students" fill="#fff" radius={[4, 4, 0, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
+                    </div>
                  </div>
               </div>
 
