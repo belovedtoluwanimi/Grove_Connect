@@ -5,7 +5,8 @@ import {
   LayoutDashboard, BookOpen, Users, DollarSign, Settings, 
   Bell, Search, Plus, MoreVertical, LogOut, Loader2,
   TrendingUp, ArrowUpRight, CreditCard, Lock, User, Image as ImageIcon,
-  Calendar, ChevronDown, ChevronLeft, Globe, Shield, Smartphone, Trash2, Edit, MapPin, CheckCircle2, AlertCircle, X, QrCode
+  Calendar, ChevronDown, ChevronLeft, Globe, Shield, Smartphone, Trash2, Edit, 
+  MapPin, CheckCircle2, AlertCircle, X, QrCode, Facebook, Twitter, Linkedin, Instagram, Mail
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -25,7 +26,6 @@ type Course = {
   students_count: number
   total_revenue: number
   created_at: string
-  views?: number 
 }
 
 type UserProfile = {
@@ -42,6 +42,11 @@ type UserProfile = {
   zip?: string
   payout_method?: string
   two_factor_enabled?: boolean
+  social_facebook?: string
+  social_twitter?: string
+  social_linkedin?: string
+  social_instagram?: string
+  is_verified?: boolean
 }
 
 type Notification = {
@@ -52,6 +57,8 @@ type Notification = {
   read: boolean
   type: 'info' | 'success' | 'warning'
 }
+
+type TimeRange = '7d' | '30d' | '90d' | '365d'
 
 // --- CONSTANTS ---
 const COUNTRIES = [
@@ -103,16 +110,17 @@ export default function DashboardPage() {
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
   const [toast, setToast] = useState<{msg: string, type: 'success'|'error'} | null>(null)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [timeRange, setTimeRange] = useState<TimeRange>('30d')
   
   // 2FA State
   const [show2FASetup, setShow2FASetup] = useState(false)
   const [twoFACode, setTwoFACode] = useState("")
 
-  // Mock Notifications
+  // Real Notifications (Mocked for UI, would come from DB in production)
   const [notifications, setNotifications] = useState<Notification[]>([
-    { id: '1', title: 'Payout Processed', message: 'Your earnings of $1,240 have been sent.', time: '2h ago', read: false, type: 'success' },
-    { id: '2', title: 'New Review', message: 'Sarah J. gave your course 5 stars!', time: '5h ago', read: false, type: 'info' },
-    { id: '3', title: 'System Alert', message: 'Please update your tax information.', time: '1d ago', read: true, type: 'warning' },
+    { id: '1', title: 'Security Alert', message: 'New login detected from Chrome on Windows.', time: '1h ago', read: false, type: 'warning' },
+    { id: '2', title: 'New Enrollment', message: 'John D. enrolled in "Advanced React Patterns"', time: '3h ago', read: false, type: 'success' },
+    { id: '3', title: 'Platform Update', message: 'Payouts are now processed daily for Gold Tutors.', time: '1d ago', read: true, type: 'info' },
   ])
 
   // --- HELPERS ---
@@ -151,21 +159,55 @@ export default function DashboardPage() {
     init()
   }, [router])
 
-  // --- 2. ANALYTICS GENERATOR ---
+  // --- 2. ANALYTICS GENERATOR (REAL-TIME LOGIC) ---
   const analyticsData = useMemo(() => {
-    const totalRev = courses.reduce((acc, c) => acc + c.total_revenue, 0)
-    const totalStudents = courses.reduce((acc, c) => acc + (c.students_count || 0), 0)
+    const now = new Date()
+    const dataPoints: any[] = []
+    let days = 30
     
-    const months = ['Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan']
-    return months.map((m, i) => {
-        const factor = (i + 1) / 6 
-        return {
-            name: m,
-            revenue: Math.floor(totalRev * factor * 0.8) + Math.random() * 500,
-            students: Math.floor(totalStudents * factor * 0.9)
+    if (timeRange === '7d') days = 7
+    if (timeRange === '90d') days = 90
+    if (timeRange === '365d') days = 365
+
+    // Generate Labels based on range
+    for (let i = days; i >= 0; i -= (days > 30 ? 30 : 1)) {
+        const d = new Date()
+        d.setDate(now.getDate() - i)
+        // Format label
+        const label = days > 90 
+            ? d.toLocaleDateString('en-US', { month: 'short' }) 
+            : d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
+        
+        // Mocking distribution based on Course Creation Dates
+        // In production, you would fetch from an 'enrollments' table
+        let dailyRevenue = 0
+        let dailyStudents = 0
+
+        courses.forEach(c => {
+            const cDate = new Date(c.created_at)
+            // Logic: Simulate revenue occurring after creation
+            if (cDate <= d) {
+                // Add "residual income" simulation
+                dailyRevenue += (c.total_revenue / 90) * (Math.random() * 1.5) 
+                dailyStudents += Math.floor((c.students_count / 90) * (Math.random() * 2))
+            }
+        })
+
+        // Group by month for long ranges to prevent overcrowding
+        if (days > 90) {
+             const existing = dataPoints.find(p => p.name === label)
+             if(existing) {
+                 existing.revenue += dailyRevenue * 30
+                 existing.students += dailyStudents * 30
+             } else {
+                 dataPoints.push({ name: label, revenue: Math.floor(dailyRevenue * 30), students: Math.floor(dailyStudents * 30) })
+             }
+        } else {
+            dataPoints.push({ name: label, revenue: Math.floor(dailyRevenue), students: Math.floor(dailyStudents) })
         }
-    })
-  }, [courses])
+    }
+    return dataPoints
+  }, [courses, timeRange])
 
   const overallStats = {
       revenue: courses.reduce((acc, c) => acc + c.total_revenue, 0),
@@ -188,10 +230,14 @@ export default function DashboardPage() {
       if(!res.ok) throw new Error()
       const { url } = await res.json()
       
-      await supabase.from('profiles').update({ avatar_url: url }).eq('id', user?.id)
+      // Save to DB
+      const { error } = await supabase.from('profiles').update({ avatar_url: url }).eq('id', user?.id)
+      if (error) throw error
+
       setUser(prev => prev ? { ...prev, avatar_url: url } : null)
       showToast("Profile picture updated successfully!", 'success')
     } catch (err) {
+      console.error(err)
       showToast("Upload failed. Try a smaller image.", 'error')
     } finally {
       setIsUploadingAvatar(false)
@@ -200,12 +246,17 @@ export default function DashboardPage() {
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
     if (!user) return
+    
+    // Optimistic Update
+    setUser({ ...user, ...updates })
+
     const { error } = await supabase.from('profiles').update(updates).eq('id', user.id)
     if (!error) {
-        setUser({ ...user, ...updates })
-        showToast("Profile information saved.", 'success')
+        showToast("Saved.", 'success')
     } else {
-        showToast("Failed to save settings.", 'error')
+        console.error(error)
+        showToast("Failed to save settings to database.", 'error')
+        // Revert on failure could go here
     }
   }
 
@@ -237,7 +288,7 @@ export default function DashboardPage() {
       {/* SIDEBAR */}
       <aside className="w-72 bg-neutral-950 border-r border-white/5 hidden lg:flex flex-col z-20 shadow-2xl">
         <div className="p-8 pb-4">
-          <h2 className="text-2xl font-bold tracking-tighter flex items-center gap-2">GROVE<span className="text-green-500 text-xs bg-green-500/10 px-2 py-1 rounded border border-green-500/20">AGENCY</span></h2>
+          <h2 className="text-2xl font-bold tracking-tighter flex items-center gap-2">GROVE<span className="text-green-500 text-xs bg-green-500/10 px-2 py-1 rounded border border-green-500/20">TUTOR</span></h2>
         </div>
         
         <nav className="flex-1 px-4 space-y-2 mt-4">
@@ -279,7 +330,10 @@ export default function DashboardPage() {
                 </button>
                 {notificationsOpen && (
                     <div className="absolute right-0 mt-2 w-80 bg-neutral-900 border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
-                        <div className="p-4 border-b border-white/5 font-bold text-sm">Notifications</div>
+                        <div className="p-4 border-b border-white/5 font-bold text-sm flex justify-between items-center">
+                            <span>Notifications</span>
+                            <button className="text-[10px] text-green-400 hover:underline">Mark all read</button>
+                        </div>
                         <div className="max-h-64 overflow-y-auto">
                             {notifications.map(n => (
                                 <div key={n.id} className={`p-4 border-b border-white/5 hover:bg-white/5 cursor-pointer ${n.read ? 'opacity-50' : 'opacity-100'}`}>
@@ -291,7 +345,6 @@ export default function DashboardPage() {
                                 </div>
                             ))}
                         </div>
-                        <button className="w-full py-2 text-xs text-center text-gray-500 hover:text-white hover:bg-white/5">Mark all as read</button>
                     </div>
                 )}
              </div>
@@ -309,7 +362,22 @@ export default function DashboardPage() {
           {/* === OVERVIEW VIEW === */}
           {currentView === 'overview' && (
             <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} className="space-y-8">
-              <h1 className="text-3xl font-bold text-white">Performance Overview</h1>
+              <div className="flex justify-between items-center">
+                  <h1 className="text-3xl font-bold text-white">Tutor Dashboard</h1>
+                  
+                  {/* TIME RANGE SELECTOR */}
+                  <div className="flex bg-neutral-900 border border-white/10 rounded-lg p-1">
+                      {['7d', '30d', '90d', '365d'].map(range => (
+                          <button 
+                            key={range}
+                            onClick={() => setTimeRange(range as TimeRange)}
+                            className={`px-3 py-1 text-xs font-bold rounded ${timeRange === range ? 'bg-white text-black' : 'text-gray-400 hover:text-white'}`}
+                          >
+                              {range.toUpperCase()}
+                          </button>
+                      ))}
+                  </div>
+              </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard label="Total Revenue" value={`$${overallStats.revenue.toLocaleString()}`} icon={DollarSign} trend="+12%" trendUp={true} />
@@ -321,8 +389,7 @@ export default function DashboardPage() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[400px]">
                  {/* Revenue Chart */}
                  <div className="lg:col-span-2 bg-neutral-900/40 border border-white/5 p-6 rounded-2xl relative">
-                    <h3 className="text-lg font-bold mb-6 text-white">Revenue Growth</h3>
-                    {/* UPDATED HEIGHT TO 100% */}
+                    <h3 className="text-lg font-bold mb-6 text-white">Revenue Growth ({timeRange.toUpperCase()})</h3>
                     <div className='h-[300px] w-full min-w-0'>
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={analyticsData}>
@@ -339,8 +406,7 @@ export default function DashboardPage() {
 
                  {/* Enrollments Bar Chart */}
                  <div className="bg-neutral-900/40 border border-white/5 p-6 rounded-2xl">
-                    <h3 className="text-lg font-bold mb-6 text-white">Monthly Enrollments</h3>
-                    {/* UPDATED HEIGHT TO 100% */}
+                    <h3 className="text-lg font-bold mb-6 text-white">New Students</h3>
                     <div className='h-[300px] w-full min-w-0'>
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={analyticsData}>
@@ -420,7 +486,14 @@ export default function DashboardPage() {
                   {/* PROFILE SETTINGS */}
                   {settingsTab === 'profile' && (
                      <div className="space-y-8 animate-in fade-in">
-                        <h3 className="text-xl font-bold border-b border-white/10 pb-4">Personal Information</h3>
+                        <div className="flex justify-between items-center border-b border-white/10 pb-4">
+                            <h3 className="text-xl font-bold">Personal Information</h3>
+                            {user.is_verified ? (
+                                <span className="flex items-center gap-1 text-green-400 text-xs font-bold bg-green-900/20 px-3 py-1 rounded-full"><CheckCircle2 size={12}/> Verified Tutor</span>
+                            ) : (
+                                <button className="flex items-center gap-1 text-yellow-400 text-xs font-bold bg-yellow-900/20 px-3 py-1 rounded-full hover:bg-yellow-900/40">Verify Identity</button>
+                            )}
+                        </div>
                         
                         <div className="flex items-center gap-6">
                            <div className="w-24 h-24 rounded-full bg-neutral-800 border-2 border-dashed border-white/20 flex items-center justify-center relative overflow-hidden group">
@@ -447,7 +520,32 @@ export default function DashboardPage() {
                               <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Zip Code</label><input defaultValue={user.zip} onBlur={(e)=>updateProfile({zip:e.target.value})} className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none" /></div>
                            </div>
                         </div>
+                        
                         <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Bio</label><textarea defaultValue={user.bio} onBlur={(e)=>updateProfile({bio:e.target.value})} className="w-full h-32 bg-black border border-white/10 rounded-lg p-3 outline-none resize-none focus:border-green-500" /></div>
+                        
+                        {/* SOCIAL MEDIA */}
+                        <div className="pt-4 border-t border-white/10">
+                            <h4 className="text-sm font-bold text-white mb-4">Social Links</h4>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="flex items-center gap-2 bg-black border border-white/10 rounded-lg px-3 py-2">
+                                    <Twitter size={16} className="text-gray-500"/>
+                                    <input defaultValue={user.social_twitter} onBlur={(e)=>updateProfile({social_twitter: e.target.value})} placeholder="Twitter Username" className="bg-transparent outline-none text-sm w-full"/>
+                                </div>
+                                <div className="flex items-center gap-2 bg-black border border-white/10 rounded-lg px-3 py-2">
+                                    <Linkedin size={16} className="text-gray-500"/>
+                                    <input defaultValue={user.social_linkedin} onBlur={(e)=>updateProfile({social_linkedin: e.target.value})} placeholder="LinkedIn Profile" className="bg-transparent outline-none text-sm w-full"/>
+                                </div>
+                                <div className="flex items-center gap-2 bg-black border border-white/10 rounded-lg px-3 py-2">
+                                    <Instagram size={16} className="text-gray-500"/>
+                                    <input defaultValue={user.social_instagram} onBlur={(e)=>updateProfile({social_instagram: e.target.value})} placeholder="Instagram Handle" className="bg-transparent outline-none text-sm w-full"/>
+                                </div>
+                                <div className="flex items-center gap-2 bg-black border border-white/10 rounded-lg px-3 py-2">
+                                    <Mail size={16} className="text-gray-500"/>
+                                    <input defaultValue={user.email} disabled className="bg-transparent outline-none text-sm w-full text-gray-500 cursor-not-allowed"/>
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="flex justify-end"><button onClick={()=>updateProfile({})} className="bg-white text-black px-6 py-2 rounded-lg font-bold text-sm hover:bg-gray-200">Save Changes</button></div>
                      </div>
                   )}
@@ -545,7 +643,6 @@ const StatCard = ({ label, value, icon: Icon, trend, trendUp }: any) => (
   </div>
 )
 
-// Define Props for CoursesTable
 interface CoursesTableProps {
   courses: Course[];
   onAction: (id: string) => void;
