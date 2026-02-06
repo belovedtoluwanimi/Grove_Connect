@@ -17,6 +17,12 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'images.unsplash.com', // Allow Unsplash images
       },
+      {
+        protocol: 'https',
+        hostname: '**.supabase.co', // Allows all Supabase projects
+        port: '',
+        pathname: '/storage/v1/object/public/**',
+      },
     ],
   },
 };
