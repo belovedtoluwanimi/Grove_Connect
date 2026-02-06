@@ -23,7 +23,7 @@ type Course = {
   status: 'Draft' | 'Review' | 'Active'
   price: number
   students_count: number
-  total_revenue: number // Computed: price * students_count
+  total_revenue: number
   created_at: string
   views?: number 
 }
@@ -139,7 +139,7 @@ export default function DashboardPage() {
         .order('created_at', { ascending: false })
 
       if (courseData) {
-        // Calculate Real Revenue based on price * students if total_revenue column is empty/mock
+        // Calculate Real Revenue
         const processedCourses = courseData.map((c: any) => ({
             ...c,
             total_revenue: c.total_revenue || (c.price * (c.students_count || 0))
@@ -152,19 +152,16 @@ export default function DashboardPage() {
   }, [router])
 
   // --- 2. ANALYTICS GENERATOR ---
-  // Create realistic looking charts based on the actual summary data
   const analyticsData = useMemo(() => {
     const totalRev = courses.reduce((acc, c) => acc + c.total_revenue, 0)
     const totalStudents = courses.reduce((acc, c) => acc + (c.students_count || 0), 0)
     
-    // Distribute totals over 6 months to create a graph shape
     const months = ['Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan']
     return months.map((m, i) => {
-        // Create a gentle upward curve using math
         const factor = (i + 1) / 6 
         return {
             name: m,
-            revenue: Math.floor(totalRev * factor * 0.8) + Math.random() * 500, // Randomized slightly
+            revenue: Math.floor(totalRev * factor * 0.8) + Math.random() * 500,
             students: Math.floor(totalStudents * factor * 0.9)
         }
     })
@@ -213,7 +210,6 @@ export default function DashboardPage() {
   }
 
   const handleEnable2FA = () => {
-      // Simulate 2FA Setup
       if(twoFACode === "123456") {
           updateProfile({ two_factor_enabled: true })
           setShow2FASetup(false)
@@ -281,7 +277,6 @@ export default function DashboardPage() {
                   <Bell size={20} />
                   {notifications.some(n => !n.read) && <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />}
                 </button>
-                {/* Notifications Dropdown */}
                 {notificationsOpen && (
                     <div className="absolute right-0 mt-2 w-80 bg-neutral-900 border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
                         <div className="p-4 border-b border-white/5 font-bold text-sm">Notifications</div>
@@ -327,7 +322,8 @@ export default function DashboardPage() {
                  {/* Revenue Chart */}
                  <div className="lg:col-span-2 bg-neutral-900/40 border border-white/5 p-6 rounded-2xl relative">
                     <h3 className="text-lg font-bold mb-6 text-white">Revenue Growth</h3>
-                    <ResponsiveContainer width="100%" height="300px">
+                    {/* UPDATED HEIGHT TO 100% */}
+                    <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={analyticsData}>
                             <defs><linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/><stop offset="95%" stopColor="#22c55e" stopOpacity={0}/></linearGradient></defs>
                             <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
@@ -342,7 +338,8 @@ export default function DashboardPage() {
                  {/* Enrollments Bar Chart */}
                  <div className="bg-neutral-900/40 border border-white/5 p-6 rounded-2xl">
                     <h3 className="text-lg font-bold mb-6 text-white">Monthly Enrollments</h3>
-                    <ResponsiveContainer width="100%" height="300px">
+                    {/* UPDATED HEIGHT TO 100% */}
+                    <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={analyticsData}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
                             <XAxis dataKey="name" stroke="#666" tickLine={false} axisLine={false} />
@@ -354,7 +351,7 @@ export default function DashboardPage() {
               </div>
 
               <h3 className="text-xl font-bold pt-4 text-white">Recent Courses</h3>
-              <CoursesTable courses={courses.slice(0, 5)} onAction={handleEditCourse} onDelete={handleDeleteCourse} />
+              <CoursesTable courses={courses.slice(0, 5)} onAction={handleEditCourse} onDelete={handleDeleteCourse} onView={(c: Course) => { setSelectedCourse(c); setCurrentView('course_detail') }} />
             </motion.div>
           )}
 
@@ -368,7 +365,7 @@ export default function DashboardPage() {
                         <button className="px-4 py-2 bg-neutral-900 border border-white/10 rounded-lg text-sm text-gray-400">Sort</button>
                     </div>
                 </div>
-                <CoursesTable courses={courses} onAction={handleEditCourse} onDelete={handleDeleteCourse} onView={(c) => { setSelectedCourse(c); setCurrentView('course_detail') }} />
+                <CoursesTable courses={courses} onAction={handleEditCourse} onDelete={handleDeleteCourse} onView={(c: Course) => { setSelectedCourse(c); setCurrentView('course_detail') }} />
              </motion.div>
           )}
 
@@ -451,7 +448,7 @@ export default function DashboardPage() {
                      </div>
                   )}
 
-                  {/* SECURITY */}
+                  {/* SECURITY (2FA) */}
                   {settingsTab === 'security' && (
                      <div className="space-y-8 animate-in fade-in">
                         <h3 className="text-xl font-bold border-b border-white/10 pb-4">Security Settings</h3>
@@ -544,7 +541,15 @@ const StatCard = ({ label, value, icon: Icon, trend, trendUp }: any) => (
   </div>
 )
 
-const CoursesTable = ({ courses, onAction, onDelete, onView }: any) => (
+// Define Props for CoursesTable
+interface CoursesTableProps {
+  courses: Course[];
+  onAction: (id: string) => void;
+  onDelete: (id: string) => void;
+  onView?: (course: Course) => void;
+}
+
+const CoursesTable = ({ courses, onAction, onDelete, onView }: CoursesTableProps) => (
   <div className="bg-neutral-900/40 border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
     <div className="overflow-x-auto">
       <table className="w-full text-left">
