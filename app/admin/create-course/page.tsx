@@ -117,12 +117,26 @@ export default function CreateCoursePage() {
     terms: false
   })
 
-  // --- 1. PROFILE CHECK (On Mount) ---
+  // --- 1. PROFILE CHECK (Updated for Payout Security) ---
   useEffect(() => {
     const checkProfile = async () => {
         if (!user) return
-        const { data: profile } = await supabase.from('profiles').select('full_name, avatar_url, bio').eq('id', user.id).single()
-        setProfileComplete(!!(profile?.full_name && profile?.avatar_url && profile?.bio))
+        
+        // Fetch extended profile details needed for payouts
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name, avatar_url, bio, nationality, phone')
+            .eq('id', user.id)
+            .single()
+        
+        // STRICT CHECK: User must have Name, Avatar, Bio, Country, and Phone
+        setProfileComplete(!!(
+            profile?.full_name && 
+            profile?.avatar_url && 
+            profile?.bio && 
+            profile?.nationality && 
+            profile?.phone
+        ))
         setProfileLoading(false)
     }
     checkProfile()
@@ -131,7 +145,7 @@ export default function CreateCoursePage() {
   // --- 2. LIVE VALIDATION (The Algorithm) ---
   useEffect(() => {
       const errors = []
-      if (!profileLoading && !profileComplete) errors.push("Incomplete Profile")
+      if (!profileLoading && !profileComplete) errors.push("Incomplete Profile (Go to Settings)")
       if (!data.title) errors.push("Missing Title")
       if (!data.thumbnail) errors.push("Missing Thumbnail")
       if (data.curriculum.length < 2) errors.push("Min 2 Sections")
@@ -166,26 +180,43 @@ export default function CreateCoursePage() {
   const toggleLectureContent = (sId: string, lId: string) => setData({ ...data, curriculum: data.curriculum.map(s => s.id !== sId ? s : { ...s, lectures: s.lectures.map(l => l.id === lId ? { ...l, isContentOpen: !l.isContentOpen } : l) }) })
   const deleteLecture = (sId: string, lId: string) => setData({ ...data, curriculum: data.curriculum.map(s => s.id !== sId ? s : { ...s, lectures: s.lectures.filter(l => l.id !== lId) }) })
 
-  // Upload
+  // Upload (Updated with Smart Type Detection)
   const handleFileUpload = async (file: File, context: 'thumbnail' | 'video' | 'lecture', sId?: string, lId?: string) => {
     setUploadProgress(10)
     const interval = setInterval(() => setUploadProgress(p => p < 90 ? p + 10 : p), 200)
+    
     try {
-      const formData = new FormData(); formData.append('file', file)
-      const res = await fetch(`${API_URL}/api/upload`, { method: 'POST', body: formData })
-      if (!res.ok) throw new Error()
+      const formData = new FormData(); 
+      formData.append('file', file)
+      
+      // Determine the correct upload path (Image vs Video)
+      const typeParam = context === 'thumbnail' ? 'image' : 'video'
+
+      const res = await fetch(`${API_URL}/api/upload?type=${typeParam}`, { 
+          method: 'POST', 
+          body: formData 
+      })
+      
+      if (!res.ok) {
+          const errData = await res.json().catch(() => ({}))
+          throw new Error(errData.error || 'Upload failed')
+      }
+
       const { url } = await res.json()
       
       clearInterval(interval); setUploadProgress(100)
+      
       if (context === 'thumbnail') setData(p => ({ ...p, thumbnail: url }))
       else if (context === 'video') setData(p => ({ ...p, promoVideo: url }))
       else if (context === 'lecture' && sId && lId) updateLecture(sId, lId, 'videoUrl', url)
       
-      showToast('Upload Successful!', 'success')
+      showToast(`${typeParam === 'image' ? 'Image' : 'Video'} uploaded successfully!`, 'success')
       setTimeout(() => setUploadProgress(0), 1000)
-    } catch (e) {
+    
+    } catch (e: any) {
       clearInterval(interval); setUploadProgress(0)
-      showToast('Upload Failed. Check server connection.', 'error')
+      console.error(e)
+      showToast(e.message || 'Upload Failed. Check server connection.', 'error')
     }
   }
 
@@ -246,7 +277,7 @@ export default function CreateCoursePage() {
                     Readiness Check
                 </h4>
                 <div className="space-y-2 text-xs">
-                    <div className={`flex items-center gap-2 ${profileComplete ? 'text-green-400' : 'text-red-400'}`}>{profileComplete ? <Check size={12} /> : <User size={12} />} <span>Profile</span> {!profileComplete && <Link href="/settings" className="ml-auto underline text-gray-500">Fix</Link>}</div>
+                    <div className={`flex items-center gap-2 ${profileComplete ? 'text-green-400' : 'text-red-400'}`}>{profileComplete ? <Check size={12} /> : <User size={12} />} <span>Complete Profile</span> {!profileComplete && <Link href="/settings" className="ml-auto underline text-gray-500">Fix</Link>}</div>
                     <div className={`flex items-center gap-2 ${data.curriculum.length >= 2 ? 'text-green-400' : 'text-gray-500'}`}>{data.curriculum.length >= 2 ? <Check size={12} /> : <div className="w-3 h-3 border border-gray-600 rounded-full" />} <span>2+ Sections</span></div>
                     <div className={`flex items-center gap-2 ${data.curriculum.reduce((a,b)=>a+b.lectures.length,0) >= 5 ? 'text-green-400' : 'text-gray-500'}`}>{data.curriculum.reduce((a,b)=>a+b.lectures.length,0) >= 5 ? <Check size={12} /> : <div className="w-3 h-3 border border-gray-600 rounded-full" />} <span>5+ Lectures</span></div>
                     <div className={`flex items-center gap-2 ${data.thumbnail ? 'text-green-400' : 'text-gray-500'}`}>{data.thumbnail ? <Check size={12} /> : <div className="w-3 h-3 border border-gray-600 rounded-full" />} <span>Thumbnail</span></div>
@@ -257,9 +288,12 @@ export default function CreateCoursePage() {
         {/* MAIN CONTENT */}
         <main className="flex-1 overflow-y-auto bg-black p-6 md:p-12 relative">
           {!profileLoading && !profileComplete && (
-              <div className="mb-8 p-4 bg-red-900/20 border border-red-500/30 rounded-lg flex items-center gap-3 text-red-200">
-                  <AlertCircle className="text-red-500" />
-                  <div><h3 className="font-bold text-sm">Instructor Profile Incomplete</h3><p className="text-xs opacity-80">You cannot publish until you complete your bio and avatar in Settings.</p></div>
+              <div className="mb-8 p-4 bg-red-900/20 border border-red-500/30 rounded-lg flex items-center justify-between">
+                  <div className="flex items-center gap-3 text-red-200">
+                      <AlertCircle className="text-red-500" />
+                      <div><h3 className="font-bold text-sm">Action Required: Incomplete Profile</h3><p className="text-xs opacity-80">You must add your Nationality and Phone number in Settings before publishing.</p></div>
+                  </div>
+                  <Link href="/admin/dashboard" className="px-4 py-2 bg-red-500 text-white text-xs font-bold rounded hover:bg-red-600">Go to Settings</Link>
               </div>
           )}
 
