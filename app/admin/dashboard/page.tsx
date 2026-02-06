@@ -5,7 +5,8 @@ import {
   LayoutDashboard, BookOpen, Users, DollarSign, Settings, 
   Bell, Search, Plus, FileText, MoreVertical, LogOut, Loader2,
   TrendingUp, ArrowUpRight, CreditCard, Lock, User, Image as ImageIcon,
-  Calendar, ChevronDown, ChevronLeft, Globe, Shield, Smartphone, Trash2, Edit
+  Calendar, ChevronDown, ChevronLeft, Globe, Shield, Smartphone, Trash2, Edit,
+  Eye
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
