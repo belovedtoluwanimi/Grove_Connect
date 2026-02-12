@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import Image from 'next/image'
-import { Search, Star, PlayCircle, Clock, BarChart, Filter, ChevronDown, Check, Loader2, ArrowRight } from 'lucide-react'
+import { Search, Star, PlayCircle, Clock, BarChart, Loader2, ArrowRight } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
 import { useAuth } from '@/app/hooks/useAuth'
@@ -37,8 +37,7 @@ const CoursesPage = () => {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   
-  // Cart Logic
-  const [cartItems, setCartItems] = useState<string[]>([])
+  // Logic State
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   // --- FETCH COURSES ---
@@ -46,16 +45,11 @@ const CoursesPage = () => {
     const fetchCourses = async () => {
       setLoading(true)
       try {
-        // 1. Build Query
         let query = supabase
           .from('courses')
-          .select(`
-            *,
-            profiles ( full_name )
-          `)
-          .eq('status', 'Active') // Only show Active courses
+          .select(`*, profiles ( full_name )`)
+          .eq('status', 'Active')
 
-        // 2. Apply Filters
         if (activeCategory !== "All") {
           query = query.eq('category', activeCategory)
         }
@@ -64,7 +58,6 @@ const CoursesPage = () => {
           query = query.ilike('title', `%${searchTerm}%`)
         }
 
-        // 3. Execute
         const { data, error } = await query
 
         if (error) {
@@ -72,19 +65,15 @@ const CoursesPage = () => {
             throw error
         }
         
-        console.log("Fetched Data:", data) // DEBUG: Check console to see if data arrives
-
-        // 4. Format Data
         const formattedCourses: Course[] = data?.map((course: any) => ({
             id: course.id,
             title: course.title,
-            // Handle Profile Join safely
             instructor: course.profiles?.full_name || "Unknown Instructor",
             rating: 4.8, 
             students: course.students_count || 0,
             original_price: course.original_price,
             category: course.category,
-            image: course.thumbnail_url || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=3291&auto=format&fit=crop", 
+            image: course.thumbnail_url || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3", 
             duration: "10h 30m",
             lectures: 24,
             price: course.price === 0 ? "Free" : `$${course.price}`
@@ -109,22 +98,21 @@ const CoursesPage = () => {
   // --- HANDLERS ---
   const handleEnroll = (courseId: string) => {
     if (!user) return router.push('/auth')
+    // FIX: Navigate immediately to checkout
     router.push(`/courses/${courseId}/checkout`)
   }
 
   const handleCartAction = (courseId: string) => {
     if (!user) return router.push('/auth')
 
-    if (cartItems.includes(courseId)) {
-      router.push(`/courses/${courseId}/checkout`)
-      return
-    }
-
+    // FIX: Removed the "Add to Cart" delay logic. 
+    // Now creates immediate visual feedback and navigates.
     setActionLoading(courseId)
+    
+    // Slight delay to show the spinner (UX), then go.
     setTimeout(() => {
-      setCartItems(prev => [...prev, courseId])
-      setActionLoading(null)
-    }, 600)
+        router.push(`/courses/${courseId}/checkout`)
+    }, 500) 
   }
 
   return (
@@ -216,7 +204,7 @@ const CoursesPage = () => {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
               {courses.map((course) => {
-                const isInCart = cartItems.includes(course.id)
+                // Logic Fix: We removed local cart state to force immediate navigation
                 const isLoading = actionLoading === course.id
 
                 return (
@@ -274,7 +262,7 @@ const CoursesPage = () => {
                         <div className="flex items-center gap-1"><BarChart className="w-3 h-3" /> {course.lectures} lectures</div>
                       </div>
 
-                      {/* Price Row & SMART Button */}
+                      {/* Price Row & BUTTON FIX */}
                       <div className="flex items-center justify-between border-t border-white/10 pt-4 mt-auto">
                         <div className="flex flex-col">
                             <span className="text-white font-bold text-lg">{course.price}</span>
@@ -285,17 +273,14 @@ const CoursesPage = () => {
                           disabled={isLoading}
                           className={`
                             px-4 py-2 rounded text-xs font-medium transition-all flex items-center gap-2
-                            ${isInCart 
-                              ? 'bg-green-600 text-white hover:bg-green-500 shadow-[0_0_15px_rgba(22,163,74,0.4)]' 
-                              : 'bg-white text-black hover:bg-gray-200'}
+                            bg-white text-black hover:bg-gray-200
                           `}
                         >
                           {isLoading ? (
                              <Loader2 size={14} className="animate-spin" />
-                          ) : isInCart ? (
-                             <>Checkout <ArrowRight size={14} /></>
                           ) : (
-                             "Add to Cart"
+                             // CHANGED: Simply "Checkout" or "Enroll" to indicate immediate action
+                             <>Enroll Now <ArrowRight size={14} /></>
                           )}
                         </button>
                       </div>
