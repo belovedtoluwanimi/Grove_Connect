@@ -27,6 +27,8 @@ const sora = Sora({
 export const metadata: Metadata = {
   title: "Grove Connect",
   description: "Grove Connect Official Website",
+  manifest: '/manifest.json',
+  themeColor: '#050505',
 };
 
 export default function RootLayout({
