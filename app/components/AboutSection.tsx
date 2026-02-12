@@ -2,7 +2,7 @@
 
 import React from 'react'
 import Image from 'next/image'
-import { CheckCircle2, ArrowRight, PlayCircle, BookOpen, Sparkles } from 'lucide-react'
+import { CheckCircle2, ArrowRight, PlayCircle, BookOpen } from 'lucide-react'
 import { aboutImage, courseImage } from '../assets' 
 import Link from 'next/link'
 
@@ -15,47 +15,75 @@ const courseFeatures = [
 
 const AboutSection = () => {
   return (
-    <section className="relative w-full py-24 md:py-32 px-6 overflow-hidden bg-neutral-950 z-20">
+    // CHANGED: py-16 md:py-0  ->  py-20 md:py-32
+    <section className="relative w-full min-h-screen flex items-center justify-center bg-transparent py-20 md:py-32 px-6 md:px-12 overflow-hidden border-t border-green-500/10 z-0">
       
-      {/* --- BACKGROUND ACCENTS (Matches Hero Vibe) --- */}
-      {/* Solid background ensures no overlap transparency issues */}
-      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-      <div className="absolute -top-40 -right-40 w-96 h-96 bg-green-500/10 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-blue-500/10 rounded-full blur-[100px] pointer-events-none" />
+      {/* --- AMBIENT GRADIENTS --- */}
+      <div className="absolute -top-[20%] -left-[10%] w-[300px] md:w-[500px] h-[300px] md:h-[500px] rounded-full bg-green-600/20 blur-[80px] md:blur-[100px] -z-10 pointer-events-none" />
+      <div className="absolute -bottom-[20%] -right-[10%] w-[300px] md:w-[500px] h-[300px] md:h-[500px] rounded-full bg-emerald-600/20 blur-[80px] md:blur-[100px] -z-10 pointer-events-none" />
 
       {/* CONTAINER */}
-      <div className="max-w-7xl w-full mx-auto flex flex-col lg:flex-row items-center gap-16 lg:gap-24 relative z-10">
+      <div className="max-w-7xl w-full mx-auto flex flex-col lg:flex-row items-center gap-12 lg:gap-20 relative z-10">
         
-        {/* --- LEFT SIDE: TEXT CONTENT --- */}
-        <div className="w-full lg:w-1/2 flex flex-col gap-8 order-2 lg:order-1">
+        {/* RIGHT SIDE (Image) - MOVED FIRST ON MOBILE FOR VISUAL IMPACT */}
+        {/* On Mobile: Order 1. On Desktop: Order 2 (lg:order-2) */}
+        <div className="w-full lg:w-1/2 relative order-1 lg:order-2">
+          
+          {/* Decorative Elements */}
+          <div className="absolute -top-6 -right-6 w-2/3 h-full border-2 border-green-500/20 rounded-3xl z-0 hidden md:block" />
+          <div className="absolute -bottom-6 -left-6 w-2/3 h-full bg-neutral-900/50 rounded-3xl z-0 hidden md:block" />
+          
+          {/* Main Image Card */}
+          <div className="relative z-10 rounded-2xl overflow-hidden shadow-2xl shadow-green-900/20 border border-white/10 group aspect-video lg:aspect-[4/3]">
+             {/* Hover Overlay */}
+            <div className="absolute inset-0 bg-green-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-20 pointer-events-none" />
+            
+            <Image
+              src={courseImage}
+              alt="Grove Connect Digital Courses"
+              fill
+              className="object-cover transform transition-transform duration-700 group-hover:scale-105"
+            />
+
+            {/* Floating Badge (Mobile & Desktop) */}
+            <div className="absolute bottom-4 right-4 bg-black/80 backdrop-blur-md border border-green-500/30 px-4 py-2 rounded-lg flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-xs md:text-sm font-medium text-white">New Courses Available</span>
+            </div>
+          </div>
+        </div>
+
+        {/* LEFT SIDE (Text Content) */}
+        {/* On Mobile: Order 2. On Desktop: Order 1 (lg:order-1) */}
+        <div className="w-full lg:w-1/2 flex flex-col gap-6 md:gap-8 order-2 lg:order-1">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 mb-6">
-              <Sparkles className="w-3 h-3 text-green-400" />
-              <span className="text-green-400 text-xs font-bold tracking-wide uppercase">
+            <div className="flex items-center gap-2 mb-3">
+              <BookOpen className="w-4 h-4 text-green-400" />
+              <span className="text-green-400 font-medium tracking-widest uppercase text-xs md:text-sm">
                 Grove Academy
               </span>
             </div>
             
-            <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-[1.1] tracking-tight">
+            <h2 className="text-3xl md:text-5xl font-bold text-white mb-4 leading-tight">
               Master the Skills of <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-600">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-700">
                 Tomorrow, Today.
               </span>
             </h2>
             
-            <p className="text-zinc-400 text-lg leading-relaxed max-w-xl">
-              Unlock your potential with our expert-led digital courses. Whether you want to launch a YouTube channel or code your first website, Grove Connect provides the structured learning path you need.
+            <p className="text-gray-400 text-base md:text-lg leading-relaxed">
+              Unlock your potential with our expert-led digital courses. Whether you want to 
+              launch a YouTube channel, code your first website, or master video production, 
+              Grove Connect provides the structured learning path you need to succeed in the creator economy.
             </p>
           </div>
 
-          {/* Feature List (Modernized) */}
-          <div className="space-y-4">
+          {/* Feature List */}
+          <div className="grid grid-cols-1 gap-3 md:gap-4">
             {courseFeatures.map((item, idx) => (
-              <div key={idx} className="flex items-start gap-4 group">
-                <div className="mt-1 p-1 rounded-full bg-green-500/10 text-green-500 group-hover:bg-green-500 group-hover:text-black transition-colors duration-300">
-                   <CheckCircle2 size={16} />
-                </div>
-                <span className="text-zinc-300 group-hover:text-white transition-colors">
+              <div key={idx} className="flex items-center gap-3 group p-2 rounded-lg hover:bg-white/5 transition-colors cursor-default">
+                <CheckCircle2 className="w-5 h-5 md:w-6 md:h-6 text-green-500 flex-shrink-0 group-hover:scale-110 transition-transform duration-300" />
+                <span className="text-sm md:text-base text-gray-300 group-hover:text-white transition-colors">
                   {item}
                 </span>
               </div>
@@ -63,55 +91,19 @@ const AboutSection = () => {
           </div>
 
           {/* CTA Buttons */}
-          <div className="pt-4 flex flex-wrap gap-4">
+          <div className="pt-2 md:pt-4 flex flex-col sm:flex-row gap-4">
             <Link href="/courses">
-              <button className="group px-8 py-3.5 bg-white text-black rounded-full font-bold flex items-center gap-2 hover:bg-gray-200 transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)]">
-                Browse Courses
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </button>
+              <button className="flex items-center cursor-pointer justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-full font-medium transition-all duration-300 shadow-lg shadow-green-900/20 hover:shadow-green-900/40">
+              Browse Courses
+              <ArrowRight className="w-4 h-4" />
+            </button>
             </Link>
             
-            <button className="px-8 py-3.5 rounded-full border border-white/10 text-white font-medium hover:bg-white/5 transition-colors flex items-center gap-2">
-              <PlayCircle className="w-4 h-4 text-zinc-400" />
+            <button className="flex items-center justify-center cursor-pointer  gap-2 text-white border border-white/20 hover:border-green-500/50 px-6 py-3 rounded-full font-medium transition-all duration-300 hover:bg-green-400/5">
+              <PlayCircle className="w-4 h-4 text-green-400" />
               Free Tutorials
             </button>
           </div>
-        </div>
-
-        {/* --- RIGHT SIDE: VISUALS (Modern Glass Card) --- */}
-        <div className="w-full lg:w-1/2 relative order-1 lg:order-2 perspective-1000">
-          
-          {/* Main Card */}
-          <div className="relative z-10 rounded-3xl overflow-hidden border border-white/10 shadow-2xl bg-neutral-900 group">
-             {/* Image */}
-             <div className="relative aspect-[4/3] w-full">
-                <Image
-                  src={courseImage}
-                  alt="Grove Connect Academy"
-                  fill
-                  className="object-cover transition-transform duration-700 group-hover:scale-105 opacity-80 group-hover:opacity-100"
-                />
-                {/* Gradient Overlay for Text Readability */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-             </div>
-
-             {/* Floating UI Elements inside Card */}
-             <div className="absolute bottom-6 left-6 right-6">
-                <div className="flex items-center justify-between">
-                   <div>
-                      <p className="text-green-400 text-xs font-bold uppercase mb-1">Featured Course</p>
-                      <h3 className="text-white font-bold text-xl">Digital Cinematography</h3>
-                   </div>
-                   <div className="h-10 w-10 bg-white rounded-full flex items-center justify-center cursor-pointer hover:scale-110 transition-transform">
-                      <ArrowRight className="text-black" size={20} />
-                   </div>
-                </div>
-             </div>
-          </div>
-
-          {/* Decorative Back Card (Offset) */}
-          <div className="absolute top-4 -right-4 w-full h-full rounded-3xl border border-white/5 bg-white/5 -z-10 hidden md:block" />
-          
         </div>
 
       </div>
