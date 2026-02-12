@@ -132,71 +132,49 @@ export default function LearningPage() {
       try {
           console.log("Starting secure download for:", lecture.title)
           
-          // 1. ROBUST URL PARSING
-          const urlObj = new URL(lecture.videoUrl)
-          const pathSegments = urlObj.pathname.split('/') 
-          
-          // Find 'public' or 'sign' to locate the start of the storage path
-          const typeIndex = pathSegments.findIndex(s => s === 'public' || s === 'sign')
-          
-          if (typeIndex === -1 || typeIndex + 2 >= pathSegments.length) {
-              throw new Error("Invalid Supabase URL structure")
-          }
+          // 1. ADD CACHE BUSTER
+          // We append ?t=timestamp to the URL. This forces the browser to treat it 
+          // as a brand new request, bypassing the corrupted cache entry.
+          const cacheBusterUrl = `${lecture.videoUrl}?t=${new Date().getTime()}`
 
-          const bucketName = pathSegments[typeIndex + 1] 
-          const filePath = pathSegments.slice(typeIndex + 2).join('/') 
-
-          console.log(`Bucket: ${bucketName} | Path: ${filePath}`)
-
-          // 2. DOWNLOAD VIA SDK
-          const { data: blob, error } = await supabase
-            .storage
-            .from(bucketName)
-            .download(filePath)
-
-          if (error) throw error
-          if (!blob) throw new Error("Download resulted in empty file")
-
-          // --- FIX 1: Verify it's actually a video, not an error JSON ---
-          if (blob.type.includes('application/json') || blob.type.includes('text/')) {
-              const text = await blob.text();
-              console.error("Download returned error text instead of video:", text);
-              throw new Error("File not found or access denied (Check Bucket Permissions)");
-          }
-
-          // --- FIX 2: Check Storage Quota ---
-          if (navigator.storage && navigator.storage.estimate) {
-              const estimate = await navigator.storage.estimate();
-              // Check if we have enough space (blob.size) with a 10MB buffer
-              if (estimate.quota && estimate.usage && (estimate.quota - estimate.usage < blob.size)) {
-                  throw new Error("Not enough browser storage space to save this video.");
-              }
-          }
-
-          // 3. CACHE THE FILE (Defensive Approach)
-          const cleanResponse = new Response(blob, {
-              status: 200,
-              statusText: "OK",
+          // 2. FETCH WITH 'no-store'
+          // We use standard fetch (not SDK) because we need strict control over headers
+          const response = await fetch(cacheBusterUrl, { 
+              mode: 'cors',
+              cache: 'no-store', // CRITICAL: Tells browser "Do not read/write to HTTP cache"
               headers: {
-                  'Content-Type': blob.type || 'video/mp4',
-                  'Content-Length': blob.size.toString(),
-                  'Cache-Control': 'public, max-age=31536000, immutable'
+                  'Pragma': 'no-cache',
+                  'Cache-Control': 'no-cache'
               }
           })
 
-          const cache = await caches.open('grove-courses-v1')
+          if (!response.ok) throw new Error(`Network error: ${response.statusText}`)
           
-          // Use a formal Request object to avoid string encoding issues
-          const request = new Request(lecture.videoUrl)
-          await cache.put(request, cleanResponse)
+          // 3. GET BLOB
+          const blob = await response.blob() 
+          
+          // 4. CREATE CLEAN RESPONSE
+          // We wrap the blob in a fresh Response to store in the Cache API
+          const cleanResponse = new Response(blob, {
+              status: 200,
+              headers: {
+                  'Content-Type': blob.type || 'video/mp4',
+                  'Content-Length': blob.size.toString()
+              }
+          })
+
+          // 5. STORE IN APP CACHE
+          // Note: We store it under the ORIGINAL url (without cache buster) 
+          // so the video player can find it later easily.
+          const cache = await caches.open('grove-courses-v1')
+          await cache.put(lecture.videoUrl, cleanResponse)
           
           setOfflineReadyIds(prev => new Set(prev).add(lecture.id))
           alert("Lesson saved! You can now watch this offline.")
           
       } catch (e: any) {
           console.error("Download failed:", e)
-          // Show alert with the specific error message for debugging
-          alert(`Download failed: ${e.message}`)
+          alert(`Download failed: ${e.message}. Try clearing your browser cache if this persists.`)
       } finally {
           setDownloadingId(null)
       }
