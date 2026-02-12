@@ -1,9 +1,9 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import { 
   PlayCircle, CheckCircle2, ChevronLeft, ChevronRight, 
-  Menu, FileText, ChevronDown, Check, Loader2, ArrowLeft 
+  Menu, FileText, ChevronDown, Check, Loader2, ArrowLeft, AlertCircle 
 } from 'lucide-react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
@@ -17,7 +17,6 @@ type Lecture = {
   type: 'video' | 'article'
   videoUrl?: string
   articleContent?: string
-  duration?: number // optional
 }
 
 type Section = {
@@ -37,14 +36,16 @@ export default function LearningPage() {
   const params = useParams()
   const router = useRouter()
   const supabase = createClient()
-  const courseId = params.courseId as string
+  
+  // Handle case where params might be undefined initially
+  const courseId = params?.courseId as string
 
   // --- STATE ---
   const [loading, setLoading] = useState(true)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [course, setCourse] = useState<Course | null>(null)
   const [completedLectures, setCompletedLectures] = useState<Set<string>>(new Set())
   
-  // Navigation State
   const [activeLecture, setActiveLecture] = useState<Lecture | null>(null)
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -52,47 +53,68 @@ export default function LearningPage() {
 
   // --- 1. INITIAL DATA FETCH ---
   useEffect(() => {
+    if (!courseId) return;
+
     const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return router.push('/auth')
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+            // Use window.location for hard redirect if auth fails
+            window.location.href = '/auth' 
+            return
+        }
 
-      // Fetch Course Content & User Progress in parallel
-      const [courseRes, progressRes] = await Promise.all([
-        supabase.from('courses').select('*').eq('id', courseId).single(),
-        supabase.from('course_progress').select('lecture_id').eq('user_id', user.id).eq('course_id', courseId)
-      ])
+        // Fetch Course
+        const { data: courseData, error: courseError } = await supabase
+            .from('courses')
+            .select('*')
+            .eq('id', courseId)
+            .single()
 
-      if (courseRes.error || !courseRes.data) {
-        console.error("Course load failed", courseRes.error)
-        return router.push('/dashboard')
+        if (courseError) throw courseError
+        if (!courseData) throw new Error("Course not found")
+
+        // Fetch Progress
+        const { data: progressData, error: progressError } = await supabase
+            .from('course_progress')
+            .select('lecture_id')
+            .eq('user_id', user.id)
+            .eq('course_id', courseId)
+
+        const progressSet = new Set(progressData?.map((p: any) => p.lecture_id) || [])
+
+        setCourse(courseData)
+        setCompletedLectures(progressSet)
+
+        // Initialize Active Lecture
+        // Check if curriculum exists and is an array
+        if (Array.isArray(courseData.curriculum_data) && courseData.curriculum_data.length > 0) {
+            const firstSection = courseData.curriculum_data[0]
+            if (firstSection.lectures && firstSection.lectures.length > 0) {
+                setActiveSectionId(firstSection.id)
+                setActiveLecture(firstSection.lectures[0])
+            }
+        }
+      } catch (err: any) {
+        console.error("Error loading course:", err)
+        setErrorMsg(err.message || "Failed to load course content.")
+      } finally {
+        setLoading(false)
       }
-
-      const courseData = courseRes.data
-      const progressSet = new Set(progressRes.data?.map(p => p.lecture_id) || [])
-
-      setCourse(courseData)
-      setCompletedLectures(progressSet)
-
-      // Auto-select first lecture if none active
-      if (courseData.curriculum_data?.length > 0) {
-        const firstSection = courseData.curriculum_data[0]
-        setActiveSectionId(firstSection.id)
-        setActiveLecture(firstSection.lectures[0])
-      }
-      
-      setLoading(false)
     }
     init()
-  }, [courseId, router, supabase])
+  }, [courseId, supabase])
 
-  // --- 2. HELPERS ---
+  // --- 2. ACTIONS ---
   const isCompleted = (id: string) => completedLectures.has(id)
 
   const findNextLecture = () => {
     if (!course || !activeLecture) return null
     let foundCurrent = false
+    // Safe check for curriculum_data
+    const sections = Array.isArray(course.curriculum_data) ? course.curriculum_data : []
     
-    for (const section of course.curriculum_data) {
+    for (const section of sections) {
         for (const lecture of section.lectures) {
             if (foundCurrent) return lecture
             if (lecture.id === activeLecture.id) foundCurrent = true
@@ -104,8 +126,9 @@ export default function LearningPage() {
   const findPrevLecture = () => {
     if (!course || !activeLecture) return null
     let prev = null
-    
-    for (const section of course.curriculum_data) {
+    const sections = Array.isArray(course.curriculum_data) ? course.curriculum_data : []
+
+    for (const section of sections) {
         for (const lecture of section.lectures) {
             if (lecture.id === activeLecture.id) return prev
             prev = lecture
@@ -114,44 +137,55 @@ export default function LearningPage() {
     return null
   }
 
-  // --- 3. ACTIONS ---
   const handleMarkComplete = async () => {
     if (!activeLecture || isCompleted(activeLecture.id)) return
     setMarkingComplete(true)
 
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (user) {
+        const newSet = new Set(completedLectures)
+        newSet.add(activeLecture.id)
+        setCompletedLectures(newSet)
 
-    // Optimistic Update
-    const newSet = new Set(completedLectures)
-    newSet.add(activeLecture.id)
-    setCompletedLectures(newSet)
-
-    // DB Update
-    await supabase.from('course_progress').insert({
-        user_id: user.id,
-        course_id: courseId,
-        lecture_id: activeLecture.id
-    })
-
+        await supabase.from('course_progress').insert({
+            user_id: user.id,
+            course_id: courseId,
+            lecture_id: activeLecture.id
+        })
+    }
     setMarkingComplete(false)
     
-    // Auto-Advance
     const next = findNextLecture()
     if (next) {
         setActiveLecture(next)
-        // Ensure parent section is open
-        const nextSection = course?.curriculum_data.find(s => s.lectures.some(l => l.id === next.id))
+        const sections = Array.isArray(course?.curriculum_data) ? course?.curriculum_data : []
+        const nextSection = sections.find((s: Section) => s.lectures.some(l => l.id === next.id))
         if (nextSection) setActiveSectionId(nextSection.id)
     }
   }
 
-  if (loading) return <div className="h-screen bg-black flex items-center justify-center text-green-500"><Loader2 className="animate-spin w-10 h-10" /></div>
+  // --- 3. RENDER STATES ---
+  if (loading) return (
+    <div className="h-screen bg-black flex items-center justify-center text-green-500">
+        <Loader2 className="animate-spin w-10 h-10" />
+    </div>
+  )
+
+  if (errorMsg) return (
+    <div className="h-screen bg-black flex flex-col items-center justify-center text-white p-6">
+        <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
+        <h2 className="text-2xl font-bold mb-2">Something went wrong</h2>
+        <p className="text-zinc-400 mb-6 bg-zinc-900 p-4 rounded-lg font-mono text-sm border border-zinc-800">Error: {errorMsg}</p>
+        <Link href="/dashboard" className="px-6 py-3 bg-white text-black rounded-full font-bold hover:bg-zinc-200">
+            Return to Dashboard
+        </Link>
+    </div>
+  )
 
   return (
     <div className="h-screen flex flex-col bg-[#0A0A0A] text-white overflow-hidden font-sans">
       
-      {/* --- TOP HEADER --- */}
+      {/* HEADER */}
       <header className="h-16 flex items-center justify-between px-4 border-b border-white/10 bg-[#0A0A0A] z-20 shrink-0">
         <div className="flex items-center gap-4">
             <Link href="/dashboard" className="p-2 hover:bg-white/10 rounded-full transition-colors text-zinc-400 hover:text-white">
@@ -161,15 +195,6 @@ export default function LearningPage() {
             <h1 className="font-bold text-sm md:text-base truncate max-w-md">{course?.title}</h1>
         </div>
         <div className="flex items-center gap-4">
-            <div className="hidden md:flex items-center gap-2 text-xs font-bold text-zinc-500">
-                <div className="w-24 h-2 bg-white/10 rounded-full overflow-hidden">
-                    <div 
-                        className="h-full bg-green-500 transition-all duration-500" 
-                        style={{ width: `${Math.round((completedLectures.size / (course?.curriculum_data.reduce((a,s)=>a+s.lectures.length,0)||1)) * 100)}%` }} 
-                    />
-                </div>
-                <span>{Math.round((completedLectures.size / (course?.curriculum_data.reduce((a,s)=>a+s.lectures.length,0)||1)) * 100)}% Complete</span>
-            </div>
             <button 
                 onClick={() => setSidebarOpen(!sidebarOpen)} 
                 className={`p-2 rounded-lg border border-white/10 transition-colors ${sidebarOpen ? 'bg-white text-black' : 'text-zinc-400 hover:text-white'}`}
@@ -179,22 +204,21 @@ export default function LearningPage() {
         </div>
       </header>
 
-      {/* --- MAIN WORKSPACE --- */}
+      {/* WORKSPACE */}
       <div className="flex-1 flex overflow-hidden">
         
-        {/* LEFT: CONTENT PLAYER */}
+        {/* LEFT: PLAYER */}
         <div className="flex-1 flex flex-col relative overflow-y-auto">
             {activeLecture ? (
                 <>
-                    {/* VIDEO PLAYER AREA */}
-                    <div className="bg-black w-full aspect-video max-h-[70vh] flex items-center justify-center relative shadow-2xl">
+                    <div className="bg-black w-full aspect-video max-h-[70vh] flex items-center justify-center relative shadow-2xl border-b border-white/5">
                         {activeLecture.type === 'video' && activeLecture.videoUrl ? (
                             <video 
-                                key={activeLecture.id} // Force re-render on change
+                                key={activeLecture.id} 
                                 src={activeLecture.videoUrl} 
                                 controls 
                                 className="w-full h-full object-contain"
-                                onEnded={handleMarkComplete} // Auto-complete on finish
+                                onEnded={handleMarkComplete} 
                             />
                         ) : activeLecture.type === 'article' ? (
                             <div className="w-full h-full bg-neutral-900 flex items-center justify-center text-zinc-500">
@@ -208,12 +232,13 @@ export default function LearningPage() {
                         )}
                     </div>
 
-                    {/* LECTURE DETAILS & ACTIONS */}
                     <div className="p-8 max-w-4xl mx-auto w-full">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b border-white/10 mb-8">
                             <div>
                                 <h2 className="text-2xl font-bold mb-2">{activeLecture.title}</h2>
-                                <p className="text-zinc-400 text-sm">Lecture {completedLectures.size + 1} of {course?.curriculum_data.reduce((a,s)=>a+s.lectures.length,0)}</p>
+                                <p className="text-zinc-400 text-sm">
+                                    {isCompleted(activeLecture.id) ? <span className="text-green-500 flex items-center gap-1"><CheckCircle2 size={14}/> Completed</span> : "Not completed"}
+                                </p>
                             </div>
                             
                             <div className="flex items-center gap-3">
@@ -249,28 +274,22 @@ export default function LearningPage() {
                             </div>
                         </div>
 
-                        {/* Article Content (If Article Type) */}
                         {activeLecture.type === 'article' && (
                             <div className="prose prose-invert max-w-none text-zinc-300">
                                 <p className="whitespace-pre-wrap">{activeLecture.articleContent || "No content available."}</p>
                             </div>
                         )}
-
-                        {/* Description / Resources Placeholder */}
-                        <div className="mt-8 space-y-4">
-                            <h3 className="font-bold text-lg">About this lecture</h3>
-                            <p className="text-zinc-400 leading-relaxed text-sm">
-                                No additional description provided for this lecture. Focus on the video content or article above to complete this module.
-                            </p>
-                        </div>
                     </div>
                 </>
             ) : (
-                <div className="flex-1 flex items-center justify-center text-zinc-500">Select a lecture to start</div>
+                <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 gap-4">
+                    <Loader2 className="animate-spin opacity-50" size={32} />
+                    <p>Loading lesson...</p>
+                </div>
             )}
         </div>
 
-        {/* RIGHT: CURRICULUM SIDEBAR */}
+        {/* RIGHT: SIDEBAR */}
         <AnimatePresence initial={false}>
             {sidebarOpen && (
                 <motion.div 
@@ -285,7 +304,7 @@ export default function LearningPage() {
                     </div>
                     
                     <div className="flex-1 overflow-y-auto custom-scrollbar">
-                        {course?.curriculum_data.map((section, idx) => (
+                        {Array.isArray(course?.curriculum_data) && course?.curriculum_data.map((section, idx) => (
                             <div key={section.id} className="border-b border-white/5">
                                 <button 
                                     onClick={() => setActiveSectionId(activeSectionId === section.id ? null : section.id)}
@@ -293,7 +312,9 @@ export default function LearningPage() {
                                 >
                                     <div>
                                         <h4 className="font-bold text-sm text-zinc-200 mb-1">Section {idx + 1}: {section.title}</h4>
-                                        <p className="text-[10px] text-zinc-500">{section.lectures.filter(l => isCompleted(l.id)).length} / {section.lectures.length} Completed</p>
+                                        <p className="text-[10px] text-zinc-500">
+                                            {section.lectures.filter(l => isCompleted(l.id)).length} / {section.lectures.length} Completed
+                                        </p>
                                     </div>
                                     <ChevronDown size={16} className={`text-zinc-500 transition-transform ${activeSectionId === section.id ? 'rotate-180' : ''}`} />
                                 </button>
@@ -321,11 +342,6 @@ export default function LearningPage() {
                                                     </div>
                                                     <div>
                                                         <span className={isActive ? 'font-bold' : ''}>{lIdx + 1}. {lecture.title}</span>
-                                                        <div className="text-[10px] text-zinc-600 mt-1 flex items-center gap-2">
-                                                            {lecture.type === 'video' ? 'Video' : 'Article'}
-                                                            {/* Placeholder duration if we had it */}
-                                                            {/* <span>• 5 min</span> */}
-                                                        </div>
                                                     </div>
                                                 </button>
                                             )
