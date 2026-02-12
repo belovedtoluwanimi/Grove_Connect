@@ -15,8 +15,8 @@ export default function LearningPage() {
   const router = useRouter()
   const supabase = createClient()
   
-  // Safe param handling
-  const courseId = params?.courseId as string
+  // --- FIX: Use 'id' because your folder is named [id] ---
+  const courseId = params?.id as string
 
   // --- STATE ---
   const [loading, setLoading] = useState(true)
@@ -32,11 +32,12 @@ export default function LearningPage() {
 
   // --- 1. INITIAL DATA FETCH ---
   useEffect(() => {
+    // Wait for the ID to be available
     if (!courseId) return;
 
     const init = async () => {
       try {
-        console.log("Fetching course:", courseId)
+        console.log("Fetching course content for:", courseId)
         
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) {
@@ -67,12 +68,11 @@ export default function LearningPage() {
         setCourse(courseData)
         setCompletedLectures(new Set(progressData?.map((p: any) => p.lecture_id) || []))
 
-        // 3. Set Active Lecture
-        // Ensure curriculum_data exists and is an array
+        // 3. Set Active Lecture (Handle both JSON string and object)
         const curriculum = Array.isArray(courseData.curriculum_data) 
             ? courseData.curriculum_data 
-            : typeof courseData.curriculum_data === 'string'
-                ? JSON.parse(courseData.curriculum_data) // Handle case where Supabase returns JSON as string
+            : typeof courseData.curriculum_data === 'string' 
+                ? JSON.parse(courseData.curriculum_data) 
                 : [];
 
         if (curriculum && curriculum.length > 0) {
@@ -81,8 +81,6 @@ export default function LearningPage() {
             if (firstSection.lectures?.length > 0) {
                 setActiveLecture(firstSection.lectures[0])
             }
-        } else {
-            console.warn("No curriculum data found for this course.")
         }
 
       } catch (err: any) {
@@ -98,6 +96,7 @@ export default function LearningPage() {
   // --- ACTIONS ---
   const isCompleted = (id: string) => completedLectures.has(id)
 
+  // Helper to safely get curriculum array
   const getCurriculum = () => {
       if (!course) return []
       return Array.isArray(course.curriculum_data) 
@@ -141,10 +140,12 @@ export default function LearningPage() {
 
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
+        // Optimistic UI update
         const newSet = new Set(completedLectures)
         newSet.add(activeLecture.id)
         setCompletedLectures(newSet)
 
+        // Save to DB
         await supabase.from('course_progress').insert({
             user_id: user.id,
             course_id: courseId,
