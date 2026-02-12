@@ -128,18 +128,35 @@ export default function LearningPage() {
       
       setDownloadingId(lecture.id)
       try {
-          // Robust Fetch: Ensures we get the full video blob
-          const response = await fetch(lecture.videoUrl, { mode: 'cors' })
-          if (!response.ok) throw new Error('Network response was not ok')
+          console.log("Starting download for:", lecture.title)
           
+          // 1. Fetch the raw data as a Blob (Forces full download, handles 206 errors)
+          const response = await fetch(lecture.videoUrl, { mode: 'cors' })
+          if (!response.ok) throw new Error('Network fetch failed')
+          
+          const blob = await response.blob() // Download entire file to memory
+          
+          // 2. Create a "Clean" Response 
+          // We manually create a new Response to strip out "Vary: *" or other 
+          // restrictive headers that cause the Cache API to crash.
+          const cleanResponse = new Response(blob, {
+              status: 200,
+              headers: {
+                  'Content-Type': blob.type || 'video/mp4',
+                  'Content-Length': blob.size.toString()
+              }
+          })
+
+          // 3. Store the clean response
           const cache = await caches.open('grove-courses-v1')
-          await cache.put(lecture.videoUrl, response) // Store in Cache API
+          await cache.put(lecture.videoUrl, cleanResponse)
           
           setOfflineReadyIds(prev => new Set(prev).add(lecture.id))
-          alert("Lesson saved for offline viewing!")
+          alert("Lesson saved! It is now available offline.")
+          
       } catch (e) {
           console.error("Download failed:", e)
-          alert("Download failed. Please check your internet connection or try again.")
+          alert("Could not save video. This might be a browser storage limit or network issue.")
       } finally {
           setDownloadingId(null)
       }
