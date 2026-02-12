@@ -132,30 +132,38 @@ export default function LearningPage() {
       try {
           console.log("Starting secure download for:", lecture.title)
           
-          // 1. Extract Bucket and Path from the URL
-          // Example URL: https://xyz.supabase.co/storage/v1/object/public/videos/lesson1.mp4
-          // We need: bucket = 'videos', path = 'lesson1.mp4'
-          const url = new URL(lecture.videoUrl)
-          const pathParts = url.pathname.split('/public/') // Split after 'public/'
+          // 1. ROBUST URL PARSING
+          // Example: https://xyz.supabase.co/storage/v1/object/public/course-content/videos/lesson1.mp4
+          const urlObj = new URL(lecture.videoUrl)
+          const pathSegments = urlObj.pathname.split('/') 
           
-          if (pathParts.length < 2) {
-              throw new Error("Could not parse video URL structure")
+          // Find where the storage path starts (usually after 'public' or 'sign')
+          // Segments: ["", "storage", "v1", "object", "public", "BUCKET_NAME", "folder", "file.mp4"]
+          const typeIndex = pathSegments.findIndex(s => s === 'public' || s === 'sign')
+          
+          if (typeIndex === -1 || typeIndex + 2 >= pathSegments.length) {
+              throw new Error("Could not parse Supabase storage URL. Check if it's a valid Supabase link.")
           }
-          
-          const fullPath = pathParts[1] // e.g., "videos/lesson1.mp4"
-          const bucketName = fullPath.split('/')[0] // e.g., "videos"
-          const filePath = fullPath.split('/').slice(1).join('/') // e.g., "lesson1.mp4"
 
-          // 2. Use Supabase SDK to Download (Handles CORS/Auth automatically)
+          const bucketName = pathSegments[typeIndex + 1] // e.g., "course-content"
+          const filePath = pathSegments.slice(typeIndex + 2).join('/') // e.g., "videos/lesson1.mp4"
+
+          console.log(`Downloading from Bucket: ${bucketName}, Path: ${filePath}`)
+
+          // 2. DOWNLOAD VIA SDK
           const { data: blob, error } = await supabase
             .storage
             .from(bucketName)
             .download(filePath)
 
-          if (error) throw error
+          if (error) {
+              console.error("Supabase SDK Error:", error)
+              throw error
+          }
+          
           if (!blob) throw new Error("Download resulted in empty file")
 
-          // 3. Create Clean Response & Store
+          // 3. CACHE THE FILE
           const cleanResponse = new Response(blob, {
               status: 200,
               headers: {
@@ -165,7 +173,6 @@ export default function LearningPage() {
           })
 
           const cache = await caches.open('grove-courses-v1')
-          // We store it against the ORIGINAL URL so the player can find it later
           await cache.put(lecture.videoUrl, cleanResponse)
           
           setOfflineReadyIds(prev => new Set(prev).add(lecture.id))
