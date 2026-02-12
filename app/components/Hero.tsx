@@ -11,26 +11,26 @@ import {
 // --- REUSABLE COMPONENTS ---
 
 // 1. Trust Badge (Social Proof)
-const TrustBadge = () => (
-  <div className="flex items-center gap-4 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-    {/* <div className="flex -space-x-3">
-      {[1, 2, 3, 4].map((i) => (
-        <div key={i} className="w-10 h-10 rounded-full border-2 border-black bg-neutral-800 overflow-hidden relative">
-           <img src={`https://i.pravatar.cc/100?img=${i + 10}`} alt="User" className="w-full h-full object-cover" />
-        </div>
-      ))}
-      <div className="w-10 h-10 rounded-full border-2 border-black bg-neutral-800 flex items-center justify-center text-[10px] font-bold text-white">
-        +2k
-      </div>
-    </div> */}
-    <div className="flex flex-col">
-      <div className="flex items-center gap-1">
-        {[1,2,3,4,5].map(i => <Star key={i} size={12} className="fill-yellow-500 text-yellow-500" />)}
-      </div>
-      <p className="text-xs text-gray-400"><span className="text-white font-bold">4.9/5</span> from verified students</p>
-    </div>
-  </div>
-)
+// const TrustBadge = () => (
+//   <div className="flex items-center gap-4 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+//     <div className="flex -space-x-3">
+//       {[1, 2, 3, 4].map((i) => (
+//         <div key={i} className="w-10 h-10 rounded-full border-2 border-black bg-neutral-800 overflow-hidden relative">
+//            <img src={`https://i.pravatar.cc/100?img=${i + 10}`} alt="User" className="w-full h-full object-cover" />
+//         </div>
+//       ))}
+//       <div className="w-10 h-10 rounded-full border-2 border-black bg-neutral-800 flex items-center justify-center text-[10px] font-bold text-white">
+//         +2k
+//       </div>
+//     </div>
+//     <div className="flex flex-col">
+//       <div className="flex items-center gap-1">
+//         {[1,2,3,4,5].map(i => <Star key={i} size={12} className="fill-yellow-500 text-yellow-500" />)}
+//       </div>
+//       <p className="text-xs text-gray-400"><span className="text-white font-bold">4.9/5</span> from verified students</p>
+//     </div>
+//   </div>
+// )
 
 // 2. Feature Pill
 const FeaturePill = ({ icon: Icon, text }: { icon: any, text: string }) => (
