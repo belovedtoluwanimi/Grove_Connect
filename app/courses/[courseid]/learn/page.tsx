@@ -3,50 +3,29 @@
 import React, { useState, useEffect } from 'react'
 import { 
   PlayCircle, CheckCircle2, ChevronLeft, ChevronRight, 
-  Menu, FileText, ChevronDown, Check, Loader2, ArrowLeft, AlertCircle 
+  Menu, FileText, ChevronDown, Check, Loader2, ArrowLeft, AlertTriangle 
 } from 'lucide-react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/app/utils/supabase/client'
 import { motion, AnimatePresence } from 'framer-motion'
 
-// --- TYPES ---
-type Lecture = {
-  id: string
-  title: string
-  type: 'video' | 'article'
-  videoUrl?: string
-  articleContent?: string
-}
-
-type Section = {
-  id: string
-  title: string
-  lectures: Lecture[]
-}
-
-type Course = {
-  id: string
-  title: string
-  instructor_id: string
-  curriculum_data: Section[]
-}
-
 export default function LearningPage() {
   const params = useParams()
   const router = useRouter()
   const supabase = createClient()
   
-  // Handle case where params might be undefined initially
+  // Safe param handling
   const courseId = params?.courseId as string
 
   // --- STATE ---
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const [course, setCourse] = useState<Course | null>(null)
+  const [course, setCourse] = useState<any>(null)
   const [completedLectures, setCompletedLectures] = useState<Set<string>>(new Set())
   
-  const [activeLecture, setActiveLecture] = useState<Lecture | null>(null)
+  // Navigation State
+  const [activeLecture, setActiveLecture] = useState<any>(null)
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [markingComplete, setMarkingComplete] = useState(false)
@@ -57,47 +36,49 @@ export default function LearningPage() {
 
     const init = async () => {
       try {
+        console.log("Fetching course:", courseId)
+        
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) {
-            // Use window.location for hard redirect if auth fails
-            window.location.href = '/auth' 
+            console.log("No user found, redirecting...")
+            window.location.href = '/auth'
             return
         }
 
-        // Fetch Course
+        // 1. Fetch Course
         const { data: courseData, error: courseError } = await supabase
             .from('courses')
             .select('*')
             .eq('id', courseId)
             .single()
 
-        if (courseError) throw courseError
-        if (!courseData) throw new Error("Course not found")
+        if (courseError) throw new Error(`Course Load Error: ${courseError.message}`)
+        if (!courseData) throw new Error("Course not found in database")
 
-        // Fetch Progress
+        // 2. Fetch Progress
         const { data: progressData, error: progressError } = await supabase
             .from('course_progress')
             .select('lecture_id')
             .eq('user_id', user.id)
             .eq('course_id', courseId)
 
-        const progressSet = new Set(progressData?.map((p: any) => p.lecture_id) || [])
+        if (progressError) console.error("Progress fetch warning:", progressError)
 
         setCourse(courseData)
-        setCompletedLectures(progressSet)
+        setCompletedLectures(new Set(progressData?.map((p: any) => p.lecture_id) || []))
 
-        // Initialize Active Lecture
-        // Check if curriculum exists and is an array
+        // 3. Set Active Lecture
         if (Array.isArray(courseData.curriculum_data) && courseData.curriculum_data.length > 0) {
             const firstSection = courseData.curriculum_data[0]
-            if (firstSection.lectures && firstSection.lectures.length > 0) {
-                setActiveSectionId(firstSection.id)
+            setActiveSectionId(firstSection.id)
+            if (firstSection.lectures?.length > 0) {
                 setActiveLecture(firstSection.lectures[0])
             }
         }
+
       } catch (err: any) {
-        console.error("Error loading course:", err)
-        setErrorMsg(err.message || "Failed to load course content.")
+        console.error("Critical Error:", err)
+        setErrorMsg(err.message)
       } finally {
         setLoading(false)
       }
@@ -105,13 +86,12 @@ export default function LearningPage() {
     init()
   }, [courseId, supabase])
 
-  // --- 2. ACTIONS ---
+  // --- ACTIONS ---
   const isCompleted = (id: string) => completedLectures.has(id)
 
   const findNextLecture = () => {
     if (!course || !activeLecture) return null
     let foundCurrent = false
-    // Safe check for curriculum_data
     const sections = Array.isArray(course.curriculum_data) ? course.curriculum_data : []
     
     for (const section of sections) {
@@ -127,7 +107,7 @@ export default function LearningPage() {
     if (!course || !activeLecture) return null
     let prev = null
     const sections = Array.isArray(course.curriculum_data) ? course.curriculum_data : []
-
+    
     for (const section of sections) {
         for (const lecture of section.lectures) {
             if (lecture.id === activeLecture.id) return prev
@@ -155,30 +135,36 @@ export default function LearningPage() {
     }
     setMarkingComplete(false)
     
+    // Auto-Advance
     const next = findNextLecture()
     if (next) {
         setActiveLecture(next)
         const sections = Array.isArray(course?.curriculum_data) ? course?.curriculum_data : []
-        const nextSection = sections.find((s: Section) => s.lectures.some(l => l.id === next.id))
+        const nextSection = sections.find((s: any) => s.lectures.some((l: any) => l.id === next.id))
         if (nextSection) setActiveSectionId(nextSection.id)
     }
   }
 
-  // --- 3. RENDER STATES ---
+  // --- RENDER STATES ---
   if (loading) return (
-    <div className="h-screen bg-black flex items-center justify-center text-green-500">
-        <Loader2 className="animate-spin w-10 h-10" />
+    <div className="h-screen bg-[#0A0A0A] flex flex-col items-center justify-center gap-4 text-white">
+        <Loader2 className="animate-spin text-green-500 w-10 h-10" />
+        <p className="text-zinc-500 text-sm animate-pulse">Loading Classroom...</p>
     </div>
   )
 
   if (errorMsg) return (
-    <div className="h-screen bg-black flex flex-col items-center justify-center text-white p-6">
-        <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
-        <h2 className="text-2xl font-bold mb-2">Something went wrong</h2>
-        <p className="text-zinc-400 mb-6 bg-zinc-900 p-4 rounded-lg font-mono text-sm border border-zinc-800">Error: {errorMsg}</p>
-        <Link href="/dashboard" className="px-6 py-3 bg-white text-black rounded-full font-bold hover:bg-zinc-200">
-            Return to Dashboard
-        </Link>
+    <div className="h-screen bg-[#0A0A0A] flex flex-col items-center justify-center p-6 text-white text-center">
+        <div className="bg-red-500/10 p-6 rounded-2xl border border-red-500/20 max-w-md">
+            <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <h2 className="text-xl font-bold mb-2">Unable to Load Course</h2>
+            <p className="text-red-200/80 text-sm mb-6 font-mono bg-black/20 p-3 rounded">{errorMsg}</p>
+            <Link href="/dashboard">
+                <button className="bg-white text-black px-6 py-2 rounded-full font-bold text-sm hover:bg-gray-200 transition-colors">
+                    Back to Dashboard
+                </button>
+            </Link>
+        </div>
     </div>
   )
 
@@ -232,7 +218,7 @@ export default function LearningPage() {
                         )}
                     </div>
 
-                    <div className="p-8 max-w-4xl mx-auto w-full">
+                    <div className="p-8 max-w-4xl mx-auto w-full pb-20">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b border-white/10 mb-8">
                             <div>
                                 <h2 className="text-2xl font-bold mb-2">{activeLecture.title}</h2>
@@ -283,8 +269,7 @@ export default function LearningPage() {
                 </>
             ) : (
                 <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 gap-4">
-                    <Loader2 className="animate-spin opacity-50" size={32} />
-                    <p>Loading lesson...</p>
+                    <p>Select a lecture to start</p>
                 </div>
             )}
         </div>
@@ -304,7 +289,7 @@ export default function LearningPage() {
                     </div>
                     
                     <div className="flex-1 overflow-y-auto custom-scrollbar">
-                        {Array.isArray(course?.curriculum_data) && course?.curriculum_data.map((section, idx) => (
+                        {Array.isArray(course?.curriculum_data) && course?.curriculum_data.map((section: any, idx: number) => (
                             <div key={section.id} className="border-b border-white/5">
                                 <button 
                                     onClick={() => setActiveSectionId(activeSectionId === section.id ? null : section.id)}
@@ -313,7 +298,7 @@ export default function LearningPage() {
                                     <div>
                                         <h4 className="font-bold text-sm text-zinc-200 mb-1">Section {idx + 1}: {section.title}</h4>
                                         <p className="text-[10px] text-zinc-500">
-                                            {section.lectures.filter(l => isCompleted(l.id)).length} / {section.lectures.length} Completed
+                                            {section.lectures.filter((l: any) => isCompleted(l.id)).length} / {section.lectures.length} Completed
                                         </p>
                                     </div>
                                     <ChevronDown size={16} className={`text-zinc-500 transition-transform ${activeSectionId === section.id ? 'rotate-180' : ''}`} />
@@ -321,7 +306,7 @@ export default function LearningPage() {
 
                                 {activeSectionId === section.id && (
                                     <div className="bg-black/20 pb-2">
-                                        {section.lectures.map((lecture, lIdx) => {
+                                        {section.lectures.map((lecture: any, lIdx: number) => {
                                             const isActive = activeLecture?.id === lecture.id
                                             const isDone = isCompleted(lecture.id)
                                             
