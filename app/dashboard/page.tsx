@@ -2,9 +2,8 @@
 
 import React, { useState, useEffect } from 'react'
 import { 
-  PlayCircle, Clock, Award, MoreVertical, Search, Bell, 
-  BookOpen, Calendar, Star, TrendingUp, CheckCircle2, 
-  ArrowRight, Layout, LogOut, User, Zap, Loader2
+  PlayCircle, Clock, Award, Search, Bell, 
+  BookOpen, TrendingUp, User, Zap, Loader2
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -39,7 +38,7 @@ const StudentDashboard = () => {
   const [courses, setCourses] = useState<EnrolledCourse[]>([])
   const [stats, setStats] = useState<UserStats>({ enrolled: 0, learningHours: 0, certificates: 0, streak: 0 })
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'in-progress' | 'completed' | 'saved'>('in-progress')
+  const [activeTab, setActiveTab] = useState<'in-progress' | 'completed'>('in-progress')
 
   // --- DATA ENGINE ---
   useEffect(() => {
@@ -90,11 +89,15 @@ const StudentDashboard = () => {
 
             if (percent === 100) totalCertificates++
 
+            // FIX: Safely access instructor profile (handles array or object response)
+            const instructorProfile = Array.isArray(course.profiles) ? course.profiles[0] : course.profiles;
+            const instructorName = (instructorProfile as any)?.full_name || "Grove Instructor";
+
             return {
                 id: course.id,
                 title: course.title,
                 thumbnail_url: course.thumbnail_url || "/placeholder-course.jpg",
-                instructor_name: course.profiles?.full_name || "Grove Instructor",
+                instructor_name: instructorName,
                 total_lectures: safeTotal,
                 completed_lectures: completedCount,
                 progress_percent: percent,
@@ -131,7 +134,7 @@ const StudentDashboard = () => {
       setLoading(false)
     }
     fetchData()
-  }, [router])
+  }, [router, supabase])
 
   // Filter Logic
   const displayedCourses = courses.filter(c => {
