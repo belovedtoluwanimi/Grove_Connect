@@ -11,7 +11,6 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/app/utils/supabase/client'
 import { motion } from 'framer-motion'
-import { formatDistanceToNow } from 'date-fns'
 
 // --- TYPES ---
 type EnrolledCourse = {
