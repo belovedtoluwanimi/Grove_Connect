@@ -56,7 +56,6 @@ const Hero = () => {
         {/* --- LEFT COLUMN: COPY & CTA --- */}
         <div className="flex flex-col items-start text-left justify-center h-full pb-8 lg:pb-0">
           
-          <TrustBadge />
 
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-white mb-6 leading-[1.1]">
             Master Skills. <br />
@@ -168,6 +167,8 @@ const Hero = () => {
                         </linearGradient>
                     </defs>
                 </svg>
+          <TrustBadge />
+
             </div>
         </div>
 
