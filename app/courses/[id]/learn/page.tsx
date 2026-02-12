@@ -123,22 +123,39 @@ export default function LearningPage() {
     loadVideo()
   }, [activeLectureId, course])
 
+  // ... inside LearningPage component
+
   const handleDownloadOffline = async (lecture: any) => {
       if (!lecture?.videoUrl) return
       
       setDownloadingId(lecture.id)
       try {
-          console.log("Starting download for:", lecture.title)
+          console.log("Starting secure download for:", lecture.title)
           
-          // 1. Fetch the raw data as a Blob (Forces full download, handles 206 errors)
-          const response = await fetch(lecture.videoUrl, { mode: 'cors' })
-          if (!response.ok) throw new Error('Network fetch failed')
+          // 1. Extract Bucket and Path from the URL
+          // Example URL: https://xyz.supabase.co/storage/v1/object/public/videos/lesson1.mp4
+          // We need: bucket = 'videos', path = 'lesson1.mp4'
+          const url = new URL(lecture.videoUrl)
+          const pathParts = url.pathname.split('/public/') // Split after 'public/'
           
-          const blob = await response.blob() // Download entire file to memory
+          if (pathParts.length < 2) {
+              throw new Error("Could not parse video URL structure")
+          }
           
-          // 2. Create a "Clean" Response 
-          // We manually create a new Response to strip out "Vary: *" or other 
-          // restrictive headers that cause the Cache API to crash.
+          const fullPath = pathParts[1] // e.g., "videos/lesson1.mp4"
+          const bucketName = fullPath.split('/')[0] // e.g., "videos"
+          const filePath = fullPath.split('/').slice(1).join('/') // e.g., "lesson1.mp4"
+
+          // 2. Use Supabase SDK to Download (Handles CORS/Auth automatically)
+          const { data: blob, error } = await supabase
+            .storage
+            .from(bucketName)
+            .download(filePath)
+
+          if (error) throw error
+          if (!blob) throw new Error("Download resulted in empty file")
+
+          // 3. Create Clean Response & Store
           const cleanResponse = new Response(blob, {
               status: 200,
               headers: {
@@ -147,16 +164,16 @@ export default function LearningPage() {
               }
           })
 
-          // 3. Store the clean response
           const cache = await caches.open('grove-courses-v1')
+          // We store it against the ORIGINAL URL so the player can find it later
           await cache.put(lecture.videoUrl, cleanResponse)
           
           setOfflineReadyIds(prev => new Set(prev).add(lecture.id))
-          alert("Lesson saved! It is now available offline.")
+          alert("Lesson saved! You can now watch this offline.")
           
-      } catch (e) {
+      } catch (e: any) {
           console.error("Download failed:", e)
-          alert("Could not save video. This might be a browser storage limit or network issue.")
+          alert(`Download failed: ${e.message || "Check connection"}`)
       } finally {
           setDownloadingId(null)
       }
