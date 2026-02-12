@@ -5,36 +5,33 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { 
   ArrowRight, PlayCircle, Star, CheckCircle2, 
-  TrendingUp, Award, Zap, Users 
+  TrendingUp, Award, Zap
 } from 'lucide-react'
 
 // --- REUSABLE COMPONENTS ---
+const TrustBadge = () => (
+  <div className="flex items-center gap-4 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="flex -space-x-3">
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} className="w-10 h-10 rounded-full border-2 border-black bg-neutral-800 overflow-hidden relative">
+           <img src={`https://i.pravatar.cc/100?img=${i + 10}`} alt="User" className="w-full h-full object-cover" />
+        </div>
+      ))}
+      <div className="w-10 h-10 rounded-full border-2 border-black bg-neutral-800 flex items-center justify-center text-[10px] font-bold text-white">
+        +2k
+      </div>
+    </div>
+    <div className="flex flex-col">
+      <div className="flex items-center gap-1">
+        {[1,2,3,4,5].map(i => <Star key={i} size={12} className="fill-yellow-500 text-yellow-500" />)}
+      </div>
+      <p className="text-xs text-gray-400"><span className="text-white font-bold">4.9/5</span> from verified students</p>
+    </div>
+  </div>
+)
 
-// 1. Trust Badge (Social Proof)
-// const TrustBadge = () => (
-//   <div className="flex items-center gap-4 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-//     <div className="flex -space-x-3">
-//       {[1, 2, 3, 4].map((i) => (
-//         <div key={i} className="w-10 h-10 rounded-full border-2 border-black bg-neutral-800 overflow-hidden relative">
-//            <img src={`https://i.pravatar.cc/100?img=${i + 10}`} alt="User" className="w-full h-full object-cover" />
-//         </div>
-//       ))}
-//       <div className="w-10 h-10 rounded-full border-2 border-black bg-neutral-800 flex items-center justify-center text-[10px] font-bold text-white">
-//         +2k
-//       </div>
-//     </div>
-//     <div className="flex flex-col">
-//       <div className="flex items-center gap-1">
-//         {[1,2,3,4,5].map(i => <Star key={i} size={12} className="fill-yellow-500 text-yellow-500" />)}
-//       </div>
-//       <p className="text-xs text-gray-400"><span className="text-white font-bold">4.9/5</span> from verified students</p>
-//     </div>
-//   </div>
-// )
-
-// 2. Feature Pill
 const FeaturePill = ({ icon: Icon, text }: { icon: any, text: string }) => (
-  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-gray-300 backdrop-blur-sm">
+  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-gray-300 backdrop-blur-sm hover:bg-white/10 transition-colors cursor-default">
     <Icon size={12} className="text-green-400" />
     <span>{text}</span>
   </div>
@@ -42,18 +39,20 @@ const FeaturePill = ({ icon: Icon, text }: { icon: any, text: string }) => (
 
 const Hero = () => {
   return (
-    <div className="relative w-full min-h-screen bg-black overflow-hidden flex items-center justify-center pt-20 lg:pt-0">
+    // ADDED: pt-32 to push content down below the fixed navbar
+    <div className="relative w-full min-h-screen bg-black overflow-hidden flex items-center justify-center pt-32 pb-20">
       
       {/* --- BACKGROUND EFFECTS --- */}
-      {/* Grid Pattern */}
-      <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+      <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none"></div>
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none"></div>
       
       {/* Glowing Spotlights */}
       <div className="absolute top-0 left-1/4 w-96 h-96 bg-green-500/20 rounded-full blur-[128px] pointer-events-none" />
       <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-[128px] pointer-events-none" />
 
-      <div className="container px-6 mx-auto relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+      {/* --- MAIN CONTENT CONTAINER --- */}
+      {/* Matches Navbar max-w-7xl so they align perfectly */}
+      <div className="max-w-7xl w-full px-6 relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
         
         {/* --- LEFT COLUMN: COPY & CTA --- */}
         <div className="flex flex-col items-start text-left">
@@ -78,7 +77,7 @@ const Hero = () => {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-            <Link href="/auth" className="group relative px-8 py-4 bg-white text-black rounded-full font-bold text-lg flex items-center justify-center gap-3 overflow-hidden transition-all hover:w-[105%]">
+            <Link href="/auth" className="group relative px-8 py-4 bg-white text-black rounded-full font-bold text-lg flex items-center justify-center gap-3 overflow-hidden transition-all hover:w-[105%] shadow-[0_0_20px_rgba(255,255,255,0.3)]">
               <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-gray-100 to-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
               <span className="relative">Start For Free</span>
               <ArrowRight className="relative group-hover:translate-x-1 transition-transform" size={20} />
@@ -105,7 +104,7 @@ const Hero = () => {
              initial={{ opacity: 0, x: 100, y: -50 }}
              animate={{ opacity: 1, x: 0, y: 0 }}
              transition={{ duration: 0.8, ease: "easeOut" }}
-             className="absolute top-10 right-10 w-80 bg-neutral-900/90 border border-white/10 backdrop-blur-xl p-6 rounded-2xl shadow-2xl z-20"
+             className="absolute top-10 right-10 w-80 bg-neutral-900/90 border border-white/10 backdrop-blur-xl p-6 rounded-2xl shadow-2xl z-20 hover:scale-105 transition-transform duration-500"
            >
               <div className="flex justify-between items-start mb-4">
                  <div className="p-3 bg-green-500/20 rounded-xl"><Award className="text-green-400" size={24} /></div>
@@ -126,7 +125,7 @@ const Hero = () => {
              initial={{ opacity: 0, x: -50, y: 100 }}
              animate={{ opacity: 1, x: 0, y: 40 }}
              transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
-             className="absolute bottom-20 left-10 w-80 bg-white text-black border border-white/10 p-6 rounded-2xl shadow-2xl z-30"
+             className="absolute bottom-20 left-10 w-80 bg-white text-black border border-white/10 p-6 rounded-2xl shadow-2xl z-30 hover:scale-105 transition-transform duration-500"
            >
               <div className="flex justify-between items-start mb-6">
                  <div>
