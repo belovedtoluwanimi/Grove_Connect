@@ -133,22 +133,20 @@ export default function LearningPage() {
           console.log("Starting secure download for:", lecture.title)
           
           // 1. ROBUST URL PARSING
-          // Example: https://xyz.supabase.co/storage/v1/object/public/course-content/videos/lesson1.mp4
           const urlObj = new URL(lecture.videoUrl)
           const pathSegments = urlObj.pathname.split('/') 
           
-          // Find where the storage path starts (usually after 'public' or 'sign')
-          // Segments: ["", "storage", "v1", "object", "public", "BUCKET_NAME", "folder", "file.mp4"]
+          // Find 'public' or 'sign' to locate the start of the storage path
           const typeIndex = pathSegments.findIndex(s => s === 'public' || s === 'sign')
           
           if (typeIndex === -1 || typeIndex + 2 >= pathSegments.length) {
-              throw new Error("Could not parse Supabase storage URL. Check if it's a valid Supabase link.")
+              throw new Error("Invalid Supabase URL structure")
           }
 
-          const bucketName = pathSegments[typeIndex + 1] // e.g., "course-content"
-          const filePath = pathSegments.slice(typeIndex + 2).join('/') // e.g., "videos/lesson1.mp4"
+          const bucketName = pathSegments[typeIndex + 1] 
+          const filePath = pathSegments.slice(typeIndex + 2).join('/') 
 
-          console.log(`Downloading from Bucket: ${bucketName}, Path: ${filePath}`)
+          console.log(`Bucket: ${bucketName} | Path: ${filePath}`)
 
           // 2. DOWNLOAD VIA SDK
           const { data: blob, error } = await supabase
@@ -156,31 +154,49 @@ export default function LearningPage() {
             .from(bucketName)
             .download(filePath)
 
-          if (error) {
-              console.error("Supabase SDK Error:", error)
-              throw error
-          }
-          
+          if (error) throw error
           if (!blob) throw new Error("Download resulted in empty file")
 
-          // 3. CACHE THE FILE
+          // --- FIX 1: Verify it's actually a video, not an error JSON ---
+          if (blob.type.includes('application/json') || blob.type.includes('text/')) {
+              const text = await blob.text();
+              console.error("Download returned error text instead of video:", text);
+              throw new Error("File not found or access denied (Check Bucket Permissions)");
+          }
+
+          // --- FIX 2: Check Storage Quota ---
+          if (navigator.storage && navigator.storage.estimate) {
+              const estimate = await navigator.storage.estimate();
+              // Check if we have enough space (blob.size) with a 10MB buffer
+              if (estimate.quota && estimate.usage && (estimate.quota - estimate.usage < blob.size)) {
+                  throw new Error("Not enough browser storage space to save this video.");
+              }
+          }
+
+          // 3. CACHE THE FILE (Defensive Approach)
           const cleanResponse = new Response(blob, {
               status: 200,
+              statusText: "OK",
               headers: {
                   'Content-Type': blob.type || 'video/mp4',
-                  'Content-Length': blob.size.toString()
+                  'Content-Length': blob.size.toString(),
+                  'Cache-Control': 'public, max-age=31536000, immutable'
               }
           })
 
           const cache = await caches.open('grove-courses-v1')
-          await cache.put(lecture.videoUrl, cleanResponse)
+          
+          // Use a formal Request object to avoid string encoding issues
+          const request = new Request(lecture.videoUrl)
+          await cache.put(request, cleanResponse)
           
           setOfflineReadyIds(prev => new Set(prev).add(lecture.id))
           alert("Lesson saved! You can now watch this offline.")
           
       } catch (e: any) {
           console.error("Download failed:", e)
-          alert(`Download failed: ${e.message || "Check connection"}`)
+          // Show alert with the specific error message for debugging
+          alert(`Download failed: ${e.message}`)
       } finally {
           setDownloadingId(null)
       }
