@@ -1,10 +1,9 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { 
-  PlayCircle, CheckCircle2, ChevronLeft, ChevronRight, 
-  Menu, FileText, ChevronDown, Check, Loader2, ArrowLeft, 
-  AlertTriangle, Sparkles, BookOpen, MonitorPlay, X
+  PlayCircle, CheckCircle2, ChevronDown, Check, Loader2, ArrowLeft, 
+  Sparkles, FileText, Captions, Lock, Play
 } from 'lucide-react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
@@ -21,20 +20,21 @@ export default function LearningPage() {
   const [loading, setLoading] = useState(true)
   const [course, setCourse] = useState<any>(null)
   const [completedLectures, setCompletedLectures] = useState<Set<string>>(new Set())
-  const [activeLecture, setActiveLecture] = useState<any>(null)
-  const [activeSectionId, setActiveSectionId] = useState<string | null>(null)
   
-  // UI State
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [activeTab, setActiveTab] = useState<'overview' | 'ai-summary' | 'resources'>('overview')
+  // Navigation & UI State
+  const [activeLectureId, setActiveLectureId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'ai' | 'transcript'>('ai')
   
-  // AI State
-  const [aiLoading, setAiLoading] = useState(false)
-  const [aiSummary, setAiSummary] = useState<string | null>(null)
+  // AI Simulation State
+  const [aiSummary, setAiSummary] = useState("")
+  const [isTyping, setIsTyping] = useState(false)
+
+  // Scroll Ref
+  const activeLectureRef = useRef<HTMLDivElement>(null)
 
   // --- 1. INITIAL DATA FETCH ---
   useEffect(() => {
-    if (!courseId) return;
+    if (!courseId) return
 
     const init = async () => {
       try {
@@ -44,7 +44,7 @@ export default function LearningPage() {
         // Fetch Course
         const { data: courseData, error } = await supabase
             .from('courses')
-            .select('*, profiles(full_name, avatar_url)')
+            .select('*')
             .eq('id', courseId)
             .single()
 
@@ -60,15 +60,12 @@ export default function LearningPage() {
         setCourse(courseData)
         setCompletedLectures(new Set(progressData?.map((p: any) => p.lecture_id) || []))
 
-        // Set Initial Active Lecture
-        const curriculum = Array.isArray(courseData.curriculum_data) 
-            ? courseData.curriculum_data 
-            : JSON.parse(courseData.curriculum_data || '[]')
-
+        // Set Initial Active Lecture (First incomplete, or just first)
+        const curriculum = getCurriculum(courseData)
         if (curriculum.length > 0) {
-            const firstSection = curriculum[0]
-            setActiveSectionId(firstSection.id)
-            if (firstSection.lectures?.length > 0) setActiveLecture(firstSection.lectures[0])
+            const allLectures = curriculum.flatMap((s:any) => s.lectures)
+            const firstIncomplete = allLectures.find((l:any) => !progressData?.some((p:any) => p.lecture_id === l.id))
+            setActiveLectureId(firstIncomplete?.id || allLectures[0]?.id)
         }
       } catch (err) {
         console.error(err)
@@ -79,322 +76,267 @@ export default function LearningPage() {
     init()
   }, [courseId, supabase, router])
 
-  // --- AI GENERATOR LOGIC ---
-  const generateAiSummary = () => {
-    if (!activeLecture) return
-    setAiLoading(true)
-    setAiSummary("")
-
-    // SIMULATED AI STREAMING (Replace this with real OpenAI call later)
-    const mockSummary = `
-      Based on the lecture "${activeLecture.title}", here are the key takeaways:
-      
-      1. **Core Concept**: ${activeLecture.title} focuses on the fundamental principles of the topic.
-      2. **Key Technique**: The instructor demonstrates how to implement this efficiently.
-      3. **Practical Application**: You can apply this immediately to your project by following the steps shown in the video.
-      
-      **Summary**: This module bridges the gap between theory and practice, ensuring you understand not just the "how", but the "why".
-    `
-    
-    // Typewriter effect simulation
-    let i = 0;
-    const interval = setInterval(() => {
-        setAiSummary(mockSummary.slice(0, i))
-        i++
-        if (i > mockSummary.length) {
-            clearInterval(interval)
-            setAiLoading(false)
-        }
-    }, 10) // Speed of typing
-  }
-
-  // Reset AI when lecture changes
+  // --- SCROLL TO ACTIVE ---
   useEffect(() => {
-      setAiSummary(null) 
-      setActiveTab('overview')
-  }, [activeLecture])
+    if (activeLectureId && activeLectureRef.current) {
+        setTimeout(() => {
+            activeLectureRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }, 300)
+    }
+    // Reset AI when changing lectures
+    setAiSummary("") 
+    setIsTyping(false)
+  }, [activeLectureId])
 
-
-  // --- NAVIGATION HELPERS ---
-  const getCurriculum = () => {
-      if (!course) return []
-      return Array.isArray(course.curriculum_data) ? course.curriculum_data : JSON.parse(course.curriculum_data || '[]')
+  // --- HELPERS ---
+  const getCurriculum = (c = course) => {
+      if (!c) return []
+      return Array.isArray(c.curriculum_data) ? c.curriculum_data : JSON.parse(c.curriculum_data || '[]')
   }
 
-  const findNextLecture = () => {
-    let found = false
-    for (const section of getCurriculum()) {
-        for (const lecture of section.lectures) {
-            if (found) return lecture
-            if (lecture.id === activeLecture?.id) found = true
+  const getAllLectures = () => getCurriculum().flatMap((s:any) => s.lectures)
+  
+  const getActiveLectureData = () => getAllLectures().find((l:any) => l.id === activeLectureId)
+
+  const isCompleted = (id: string) => completedLectures.has(id)
+
+  // --- ACTIONS ---
+  const generateAiSummary = () => {
+    if (isTyping || aiSummary) return
+    setIsTyping(true)
+    const summaryText = `Based on this lesson, here are the key takeaways:\n\n• Core Concept: Understanding the fundamentals of ${getActiveLectureData()?.title || 'this topic'}.\n• Practical Application: Implementing these steps will improve your workflow efficiency by 30%.\n• Pro Tip: Don't forget to test your code after every major change.`
+    
+    let i = 0
+    const interval = setInterval(() => {
+        setAiSummary(summaryText.slice(0, i))
+        i++
+        if (i > summaryText.length) {
+            clearInterval(interval)
+            setIsTyping(false)
         }
-    }
-    return null
+    }, 15)
   }
 
   const handleMarkComplete = async () => {
-    if (!activeLecture) return
+    if (!activeLectureId) return
     
-    // Optimistic Update
+    // 1. Optimistic Update
     const newSet = new Set(completedLectures)
-    newSet.add(activeLecture.id)
+    newSet.add(activeLectureId)
     setCompletedLectures(newSet)
 
-    // DB Update
+    // 2. DB Update
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
         await supabase.from('course_progress').insert({
-            user_id: user.id, course_id: courseId, lecture_id: activeLecture.id
+            user_id: user.id, course_id: courseId, lecture_id: activeLectureId
         })
     }
 
-    // Auto Advance
-    const next = findNextLecture()
-    if (next) {
-        setActiveLecture(next)
-        // Auto-open section if needed
-        const sections = getCurriculum()
-        const nextSection = sections.find((s:any) => s.lectures.some((l:any) => l.id === next.id))
-        if (nextSection) setActiveSectionId(nextSection.id)
+    // 3. Find Next & Auto-Expand
+    const allLectures = getAllLectures()
+    const currentIndex = allLectures.findIndex((l:any) => l.id === activeLectureId)
+    if (currentIndex < allLectures.length - 1) {
+        setTimeout(() => {
+            setActiveLectureId(allLectures[currentIndex + 1].id)
+        }, 800) // Delay to let the user see the "Completed" checkmark
     }
   }
 
   if (loading) return <div className="h-screen bg-[#050505] flex items-center justify-center"><Loader2 className="animate-spin text-emerald-500 w-10 h-10"/></div>
 
-  const isCompleted = (id: string) => completedLectures.has(id)
   const curriculum = getCurriculum()
-  const totalLectures = curriculum.reduce((acc:any, sec:any) => acc + sec.lectures.length, 0)
-  const progressPercent = Math.round((completedLectures.size / (totalLectures || 1)) * 100)
+  const activeLectureData = getActiveLectureData()
 
   return (
-    <div className="h-screen flex flex-col bg-[#050505] text-white font-sans overflow-hidden">
+    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-emerald-500/30">
       
-      {/* --- TOP HEADER --- */}
-      <header className="h-16 border-b border-white/5 bg-[#0A0A0A]/50 backdrop-blur-md flex items-center justify-between px-4 z-20 shrink-0">
-        <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="p-2 hover:bg-white/10 rounded-full transition-colors text-zinc-400 hover:text-white">
-                <ArrowLeft size={18} />
-            </Link>
-            <div className="h-6 w-px bg-white/10" />
-            <div>
-                <h1 className="font-bold text-sm text-zinc-100 max-w-md truncate">{course?.title}</h1>
-                <p className="text-[10px] text-zinc-500 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"/> Live Session
-                </p>
-            </div>
-        </div>
+      {/* --- CUSTOM SCROLLBAR CSS --- */}
+      <style jsx global>{`
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #059669; }
+      `}</style>
 
-        <div className="flex items-center gap-6">
-            <div className="hidden md:flex flex-col items-end">
-                <div className="flex items-center gap-2 text-xs font-medium text-emerald-400">
-                    <Sparkles size={12} /> {progressPercent}% Progress
-                </div>
-                <div className="w-32 h-1.5 bg-white/10 rounded-full mt-1 overflow-hidden">
-                    <div className="h-full bg-emerald-500 transition-all duration-700" style={{ width: `${progressPercent}%` }} />
-                </div>
-            </div>
-            <button 
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className={`p-2.5 rounded-lg border transition-all ${sidebarOpen ? 'bg-emerald-500 text-black border-emerald-500' : 'border-white/10 text-zinc-400 hover:text-white'}`}
-            >
-                <Menu size={18} />
-            </button>
-        </div>
+      {/* --- HEADER --- */}
+      <header className="fixed top-0 inset-x-0 h-16 bg-[#050505]/80 backdrop-blur-xl border-b border-white/5 z-50 flex items-center justify-between px-6">
+         <div className="flex items-center gap-4">
+            <Link href="/dashboard" className="p-2 hover:bg-white/10 rounded-full transition-colors text-zinc-400 hover:text-white">
+                <ArrowLeft size={20} />
+            </Link>
+            <h1 className="font-bold text-sm md:text-base text-zinc-200">{course?.title}</h1>
+         </div>
+         <div className="text-xs font-bold text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+            {completedLectures.size} / {getAllLectures().length} Completed
+         </div>
       </header>
 
-      {/* --- MAIN LAYOUT --- */}
-      <div className="flex-1 flex overflow-hidden relative">
+      {/* --- MAIN CONTENT (Accordion Feed) --- */}
+      <main className="pt-24 pb-20 px-4 md:px-6 max-w-4xl mx-auto">
         
-        {/* LEFT: CONTENT AREA */}
-        <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar relative">
-            
-            {/* VIDEO PLAYER */}
-            <div className="w-full bg-black aspect-video relative flex items-center justify-center border-b border-white/5 shadow-2xl">
-                {activeLecture?.type === 'video' ? (
-                    <video 
-                        key={activeLecture.id}
-                        src={activeLecture.videoUrl} 
-                        controls 
-                        className="w-full h-full object-contain"
-                        onEnded={handleMarkComplete}
-                    />
-                ) : (
-                    <div className="flex flex-col items-center gap-4 text-zinc-500">
-                        <FileText size={48} className="opacity-20" />
-                        <p>Reading Material</p>
-                    </div>
-                )}
-            </div>
-
-            {/* TABBED INTERFACE */}
-            <div className="flex-1 max-w-5xl mx-auto w-full p-6 lg:p-10">
-                
-                {/* Tabs */}
-                <div className="flex items-center gap-8 border-b border-white/5 mb-8">
-                    {[
-                        { id: 'overview', label: 'Overview', icon: MonitorPlay },
-                        { id: 'ai-summary', label: 'AI Tutor', icon: Sparkles },
-                        { id: 'resources', label: 'Resources', icon: BookOpen },
-                    ].map((tab) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id as any)}
-                            className={`pb-4 text-sm font-bold flex items-center gap-2 transition-colors relative ${activeTab === tab.id ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
-                        >
-                            <tab.icon size={16} /> {tab.label}
-                            {activeTab === tab.id && <motion.div layoutId="tab-indicator" className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500" />}
-                        </button>
-                    ))}
-                </div>
-
-                {/* Tab Content */}
-                <div className="min-h-[200px]">
+        <div className="space-y-8">
+            {curriculum.map((section: any, sIdx: number) => (
+                <div key={section.id} className="space-y-4">
                     
-                    {/* 1. OVERVIEW */}
-                    {activeTab === 'overview' && (
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-                            <div className="flex items-start justify-between gap-4">
-                                <div>
-                                    <h2 className="text-2xl font-bold text-white mb-2">{activeLecture?.title}</h2>
-                                    <p className="text-zinc-400 text-sm">Lecture {Array.from(completedLectures).length + 1} • Video Lesson</p>
-                                </div>
-                                <div className="flex gap-2">
-                                    <button 
-                                        onClick={handleMarkComplete}
-                                        disabled={isCompleted(activeLecture?.id)}
-                                        className={`px-6 py-2.5 rounded-full text-sm font-bold flex items-center gap-2 transition-all ${isCompleted(activeLecture?.id) ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-white text-black hover:bg-zinc-200'}`}
-                                    >
-                                        {isCompleted(activeLecture?.id) ? <><Check size={16} /> Completed</> : "Mark Complete"}
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="p-6 rounded-2xl bg-white/5 border border-white/5 text-zinc-300 text-sm leading-relaxed">
-                                {activeLecture?.articleContent || "No description available for this lecture. Watch the video to learn more."}
-                            </div>
-                        </motion.div>
-                    )}
+                    {/* Section Header */}
+                    <div className="flex items-center gap-3 px-2">
+                        <div className="h-px flex-1 bg-white/10" />
+                        <span className="text-xs font-bold uppercase tracking-widest text-zinc-500">Section {sIdx + 1}: {section.title}</span>
+                        <div className="h-px flex-1 bg-white/10" />
+                    </div>
 
-                    {/* 2. AI TUTOR (The New Feature) */}
-                    {activeTab === 'ai-summary' && (
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-                            <div className="flex items-center justify-between">
-                                <h3 className="font-bold text-lg flex items-center gap-2">
-                                    <Sparkles className="text-emerald-400" size={18} /> 
-                                    <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">Grove AI Summary</span>
-                                </h3>
-                                <button 
-                                    onClick={generateAiSummary}
-                                    disabled={aiLoading || aiSummary !== null}
-                                    className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-4 py-2 rounded-full hover:bg-emerald-500/20 transition-colors"
+                    {/* Lessons List */}
+                    <div className="space-y-3">
+                        {section.lectures.map((lecture: any, lIdx: number) => {
+                            const isActive = activeLectureId === lecture.id
+                            const isDone = isCompleted(lecture.id)
+
+                            return (
+                                <motion.div
+                                    key={lecture.id}
+                                    ref={isActive ? activeLectureRef : null}
+                                    initial={false}
+                                    animate={{ 
+                                        backgroundColor: isActive ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0)",
+                                        borderColor: isActive ? "rgba(16, 185, 129, 0.3)" : "rgba(255,255,255,0.05)"
+                                    }}
+                                    className={`
+                                        rounded-2xl border overflow-hidden transition-all duration-500
+                                        ${isActive ? 'shadow-[0_0_40px_-10px_rgba(16,185,129,0.1)] ring-1 ring-emerald-500/20' : 'hover:bg-white/5'}
+                                    `}
                                 >
-                                    {aiSummary ? "Regenerate" : "Generate Summary"}
-                                </button>
-                            </div>
+                                    {/* --- LESSON HEADER (Click to Expand) --- */}
+                                    <button 
+                                        onClick={() => setActiveLectureId(isActive ? null : lecture.id)}
+                                        className="w-full flex items-center justify-between p-5 text-left"
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className={`
+                                                w-8 h-8 rounded-full flex items-center justify-center border transition-colors
+                                                ${isDone 
+                                                    ? 'bg-emerald-500 border-emerald-500 text-black' 
+                                                    : isActive 
+                                                        ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500' 
+                                                        : 'border-white/10 text-zinc-500'}
+                                            `}>
+                                                {isDone ? <Check size={16} strokeWidth={3} /> : isActive ? <Play size={14} fill="currentColor" /> : <span className="text-xs font-bold">{lIdx + 1}</span>}
+                                            </div>
+                                            <div>
+                                                <h3 className={`font-bold text-base transition-colors ${isActive ? 'text-white' : 'text-zinc-400'}`}>
+                                                    {lecture.title}
+                                                </h3>
+                                                <div className="flex items-center gap-3 mt-1">
+                                                    <span className="text-[10px] text-zinc-600 uppercase tracking-wider font-bold">12 Mins</span>
+                                                    {isActive && <span className="text-[10px] text-emerald-500 font-bold animate-pulse">• Watching Now</span>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <ChevronDown size={20} className={`text-zinc-600 transition-transform duration-300 ${isActive ? 'rotate-180' : ''}`} />
+                                    </button>
 
-                            <div className="min-h-[150px] p-6 rounded-2xl bg-black/40 border border-emerald-500/20 relative overflow-hidden">
-                                {aiLoading ? (
-                                    <div className="flex flex-col items-center justify-center h-32 gap-3">
-                                        <Loader2 className="animate-spin text-emerald-500" />
-                                        <p className="text-xs text-emerald-500/60 animate-pulse">Analyzing audio transcript...</p>
-                                    </div>
-                                ) : aiSummary ? (
-                                    <div className="prose prose-invert prose-sm max-w-none text-zinc-300">
-                                        <p className="whitespace-pre-wrap leading-7">{aiSummary}</p>
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col items-center justify-center h-32 gap-2 opacity-50">
-                                        <Sparkles size={32} />
-                                        <p className="text-sm">Click "Generate" to get an AI breakdown of this lesson.</p>
-                                    </div>
-                                )}
-                                {/* Decorative Glow */}
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-[50px] pointer-events-none" />
-                            </div>
-                        </motion.div>
-                    )}
+                                    {/* --- EXPANDABLE CONTENT (Video + AI) --- */}
+                                    <AnimatePresence>
+                                        {isActive && (
+                                            <motion.div 
+                                                initial={{ height: 0, opacity: 0 }} 
+                                                animate={{ height: 'auto', opacity: 1 }} 
+                                                exit={{ height: 0, opacity: 0 }}
+                                                transition={{ duration: 0.4, ease: [0.04, 0.62, 0.23, 0.98] }}
+                                            >
+                                                <div className="px-5 pb-6">
+                                                    
+                                                    {/* VIDEO PLAYER */}
+                                                    <div className="relative aspect-video bg-black rounded-xl overflow-hidden border border-white/10 shadow-2xl mb-6 group">
+                                                        {lecture.type === 'video' ? (
+                                                            <video 
+                                                                src={lecture.videoUrl} 
+                                                                controls 
+                                                                className="w-full h-full object-contain"
+                                                                onEnded={handleMarkComplete}
+                                                            />
+                                                        ) : (
+                                                            <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-500">
+                                                                <FileText size={40} className="mb-2 opacity-50"/>
+                                                                <p className="text-sm">Reading Material</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
 
-                    {/* 3. RESOURCES */}
-                    {activeTab === 'resources' && (
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-10 text-zinc-500">
-                            <BookOpen size={40} className="mx-auto mb-4 opacity-20" />
-                            <p>No downloadable resources attached to this lesson.</p>
-                        </motion.div>
-                    )}
+                                                    {/* CONTROLS & TABS */}
+                                                    <div className="flex flex-col gap-6">
+                                                        
+                                                        {/* Complete Button */}
+                                                        <div className="flex justify-between items-center">
+                                                            <div className="flex gap-4">
+                                                                <button 
+                                                                    onClick={() => setActiveTab('ai')}
+                                                                    className={`flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'ai' ? 'text-emerald-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+                                                                >
+                                                                    <Sparkles size={16} /> AI Tutor
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => setActiveTab('transcript')}
+                                                                    className={`flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'transcript' ? 'text-emerald-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+                                                                >
+                                                                    <Captions size={16} /> Transcript
+                                                                </button>
+                                                            </div>
 
+                                                            <button 
+                                                                onClick={handleMarkComplete}
+                                                                disabled={isDone}
+                                                                className={`
+                                                                    px-5 py-2 rounded-full text-xs font-bold flex items-center gap-2 transition-all
+                                                                    ${isDone 
+                                                                        ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 cursor-default' 
+                                                                        : 'bg-white text-black hover:bg-zinc-200 hover:scale-105 shadow-lg shadow-white/10'}
+                                                                `}
+                                                            >
+                                                                {isDone ? <><CheckCircle2 size={14}/> Completed</> : <><Check size={14}/> Mark Complete</>}
+                                                            </button>
+                                                        </div>
+
+                                                        {/* TAB CONTENT PANEL */}
+                                                        <div className="bg-white/5 border border-white/5 rounded-xl p-5 min-h-[120px] relative overflow-hidden">
+                                                            {activeTab === 'ai' && (
+                                                                <div className="space-y-3">
+                                                                    <div className="flex justify-between items-center">
+                                                                        <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">AI Summary</h4>
+                                                                        <button onClick={generateAiSummary} className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded hover:bg-emerald-500/20 transition-colors">
+                                                                            {aiSummary ? 'Regenerate' : 'Generate'}
+                                                                        </button>
+                                                                    </div>
+                                                                    <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">
+                                                                        {aiSummary || <span className="text-zinc-600 italic">Click generate to analyze this video...</span>}
+                                                                        {isTyping && <span className="inline-block w-1.5 h-3 ml-1 bg-emerald-500 animate-pulse"/>}
+                                                                    </p>
+                                                                </div>
+                                                            )}
+
+                                                            {activeTab === 'transcript' && (
+                                                                <div className="text-sm text-zinc-400 leading-relaxed h-32 overflow-y-auto custom-scrollbar pr-2">
+                                                                    <p>00:00 - Introduction to the concepts...</p>
+                                                                    <p>00:45 - Setting up your environment...</p>
+                                                                    <p className="italic text-zinc-600 mt-4">(Transcript functionality requires backend integration)</p>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                    </div>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </motion.div>
+                            )
+                        })}
+                    </div>
                 </div>
-            </div>
+            ))}
         </div>
 
-        {/* RIGHT: CURRICULUM SIDEBAR */}
-        <AnimatePresence initial={false}>
-            {sidebarOpen && (
-                <motion.div 
-                    initial={{ width: 0, opacity: 0 }}
-                    animate={{ width: 320, opacity: 1 }}
-                    exit={{ width: 0, opacity: 0 }}
-                    transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                    className="border-l border-white/5 bg-[#080808] flex flex-col shrink-0 z-30"
-                >
-                    <div className="p-5 border-b border-white/5 flex items-center justify-between">
-                        <h3 className="font-bold text-xs uppercase tracking-widest text-zinc-400">Curriculum</h3>
-                        <button onClick={() => setSidebarOpen(false)} className="md:hidden text-zinc-500"><X size={18}/></button>
-                    </div>
-                    
-                    <div className="flex-1 overflow-y-auto custom-scrollbar pb-10">
-                        {curriculum.map((section: any, idx: number) => (
-                            <div key={section.id} className="border-b border-white/5">
-                                <button 
-                                    onClick={() => setActiveSectionId(activeSectionId === section.id ? null : section.id)}
-                                    className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors text-left group"
-                                >
-                                    <div>
-                                        <h4 className="font-bold text-sm text-zinc-200 mb-1 group-hover:text-white transition-colors">Section {idx + 1}</h4>
-                                        <p className="text-[10px] text-zinc-500 truncate max-w-[200px]">{section.title}</p>
-                                    </div>
-                                    <ChevronDown size={14} className={`text-zinc-600 transition-transform duration-300 ${activeSectionId === section.id ? 'rotate-180' : ''}`} />
-                                </button>
-
-                                <AnimatePresence>
-                                    {activeSectionId === section.id && (
-                                        <motion.div 
-                                            initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }}
-                                            className="overflow-hidden bg-[#050505]"
-                                        >
-                                            {section.lectures.map((lecture: any, lIdx: number) => {
-                                                const isActive = activeLecture?.id === lecture.id
-                                                const isDone = isCompleted(lecture.id)
-                                                
-                                                return (
-                                                    <button 
-                                                        key={lecture.id}
-                                                        onClick={() => setActiveLecture(lecture)}
-                                                        className={`
-                                                            w-full flex items-start gap-3 p-3 pl-6 text-left transition-all text-xs border-l-2 relative
-                                                            ${isActive ? 'bg-white/5 border-emerald-500 text-white' : 'border-transparent text-zinc-400 hover:bg-white/5'}
-                                                        `}
-                                                    >
-                                                        <div className={`mt-0.5 shrink-0 ${isDone ? 'text-emerald-500' : isActive ? 'text-emerald-400' : 'text-zinc-600'}`}>
-                                                            {isDone ? <CheckCircle2 size={14} fill="currentColor" className="text-black" /> : 
-                                                             lecture.type === 'video' ? <PlayCircle size={14} /> : <FileText size={14} />}
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <span className={isActive ? 'font-bold' : 'font-medium'}>{lIdx + 1}. {lecture.title}</span>
-                                                            {isActive && <span className="block text-[9px] text-emerald-500/80 mt-1 animate-pulse">Now Playing</span>}
-                                                        </div>
-                                                    </button>
-                                                )
-                                            })}
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-                            </div>
-                        ))}
-                    </div>
-                </motion.div>
-            )}
-        </AnimatePresence>
-
-      </div>
+      </main>
     </div>
   )
 }
