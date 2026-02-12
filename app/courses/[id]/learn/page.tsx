@@ -68,12 +68,21 @@ export default function LearningPage() {
         setCompletedLectures(new Set(progressData?.map((p: any) => p.lecture_id) || []))
 
         // 3. Set Active Lecture
-        if (Array.isArray(courseData.curriculum_data) && courseData.curriculum_data.length > 0) {
-            const firstSection = courseData.curriculum_data[0]
+        // Ensure curriculum_data exists and is an array
+        const curriculum = Array.isArray(courseData.curriculum_data) 
+            ? courseData.curriculum_data 
+            : typeof courseData.curriculum_data === 'string'
+                ? JSON.parse(courseData.curriculum_data) // Handle case where Supabase returns JSON as string
+                : [];
+
+        if (curriculum && curriculum.length > 0) {
+            const firstSection = curriculum[0]
             setActiveSectionId(firstSection.id)
             if (firstSection.lectures?.length > 0) {
                 setActiveLecture(firstSection.lectures[0])
             }
+        } else {
+            console.warn("No curriculum data found for this course.")
         }
 
       } catch (err: any) {
@@ -89,10 +98,19 @@ export default function LearningPage() {
   // --- ACTIONS ---
   const isCompleted = (id: string) => completedLectures.has(id)
 
+  const getCurriculum = () => {
+      if (!course) return []
+      return Array.isArray(course.curriculum_data) 
+        ? course.curriculum_data 
+        : typeof course.curriculum_data === 'string'
+            ? JSON.parse(course.curriculum_data) 
+            : []
+  }
+
   const findNextLecture = () => {
     if (!course || !activeLecture) return null
     let foundCurrent = false
-    const sections = Array.isArray(course.curriculum_data) ? course.curriculum_data : []
+    const sections = getCurriculum()
     
     for (const section of sections) {
         for (const lecture of section.lectures) {
@@ -106,7 +124,7 @@ export default function LearningPage() {
   const findPrevLecture = () => {
     if (!course || !activeLecture) return null
     let prev = null
-    const sections = Array.isArray(course.curriculum_data) ? course.curriculum_data : []
+    const sections = getCurriculum()
     
     for (const section of sections) {
         for (const lecture of section.lectures) {
@@ -139,7 +157,7 @@ export default function LearningPage() {
     const next = findNextLecture()
     if (next) {
         setActiveLecture(next)
-        const sections = Array.isArray(course?.curriculum_data) ? course?.curriculum_data : []
+        const sections = getCurriculum()
         const nextSection = sections.find((s: any) => s.lectures.some((l: any) => l.id === next.id))
         if (nextSection) setActiveSectionId(nextSection.id)
     }
@@ -167,6 +185,8 @@ export default function LearningPage() {
         </div>
     </div>
   )
+
+  const curriculum = getCurriculum()
 
   return (
     <div className="h-screen flex flex-col bg-[#0A0A0A] text-white overflow-hidden font-sans">
@@ -289,7 +309,7 @@ export default function LearningPage() {
                     </div>
                     
                     <div className="flex-1 overflow-y-auto custom-scrollbar">
-                        {Array.isArray(course?.curriculum_data) && course?.curriculum_data.map((section: any, idx: number) => (
+                        {curriculum.map((section: any, idx: number) => (
                             <div key={section.id} className="border-b border-white/5">
                                 <button 
                                     onClick={() => setActiveSectionId(activeSectionId === section.id ? null : section.id)}
