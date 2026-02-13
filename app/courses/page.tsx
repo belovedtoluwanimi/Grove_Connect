@@ -5,7 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { 
   Search, Star, Clock, BarChart, BookOpen, 
-  CheckCircle2, Zap, Crown, Lock
+  CheckCircle2, Loader2, ArrowRight, Zap, Crown, Lock, PlayCircle
 } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
@@ -45,6 +45,7 @@ export default function CoursesPage() {
   // State
   const [courses, setCourses] = useState<Course[]>([])
   const [exclusiveCourses, setExclusiveCourses] = useState<Course[]>([])
+  const [enrolledIds, setEnrolledIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [activeCategory, setActiveCategory] = useState("All")
@@ -54,6 +55,7 @@ export default function CoursesPage() {
     const fetchCourses = async () => {
       setLoading(true)
       try {
+        // 1. Fetch Courses
         let query = supabase
           .from('courses')
           .select(`*, profiles:instructor_id(full_name, avatar_url), reviews(rating), enrollments(count)`)
@@ -72,8 +74,8 @@ export default function CoursesPage() {
             
             // Calc Lessons/Duration
             const curriculum = typeof c.curriculum_data === 'string' ? JSON.parse(c.curriculum_data || '[]') : c.curriculum_data || []
-            const lessonCount = curriculum.reduce((acc: number, sec: any) => acc + (sec.lectures?.length || 0), 0)
-            const hours = c.duration || `${Math.max(2, Math.floor(lessonCount * 0.5))}h 30m`
+            const lessonCount = curriculum.reduce((acc: number, sec: any) => acc + (sec.lectures?.length || 0), 0) || 12
+            const hours = c.duration || "10h 30m"
 
             return {
                 id: c.id,
@@ -89,13 +91,25 @@ export default function CoursesPage() {
                 category: c.category || "General",
                 level: c.level || "All Levels",
                 total_hours: hours,
-                total_lessons: lessonCount || 12,
+                total_lessons: lessonCount,
                 is_exclusive: c.price > 100 
             }
         }) || []
 
         setCourses(formatted.filter(c => !c.is_exclusive))
-        setExclusiveCourses(formatted.filter(c => c.is_exclusive)) 
+        setExclusiveCourses(formatted.filter(c => c.is_exclusive))
+
+        // 2. Fetch User Enrollments
+        if (user) {
+            const { data: userEnrollments } = await supabase
+                .from('enrollments')
+                .select('course_id')
+                .eq('user_id', user.id)
+            if (userEnrollments) {
+                setEnrolledIds(new Set(userEnrollments.map((e: any) => e.course_id)))
+            }
+        }
+
       } catch (err) {
         console.error(err)
       } finally {
@@ -104,7 +118,16 @@ export default function CoursesPage() {
     }
     const timer = setTimeout(fetchCourses, 300)
     return () => clearTimeout(timer)
-  }, [searchTerm, activeCategory])
+  }, [searchTerm, activeCategory, user])
+
+  // --- HANDLER ---
+  const handleCourseAction = (e: React.MouseEvent, courseId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!user) router.push('/auth')
+    else if (enrolledIds.has(courseId)) router.push(`/courses/${courseId}/learn`)
+    else router.push(`/courses/${courseId}/checkout`)
+  }
 
   return (
     <main className="bg-[#050505] min-h-screen text-white font-sans selection:bg-emerald-500/30">
@@ -191,7 +214,14 @@ export default function CoursesPage() {
             </div>
         ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                {courses.map(course => <CourseCard key={course.id} course={course} />)}
+                {courses.map(course => (
+                    <CourseCard 
+                        key={course.id} 
+                        course={course} 
+                        isEnrolled={enrolledIds.has(course.id)} 
+                        onAction={handleCourseAction} 
+                    />
+                ))}
             </div>
         )}
       </section>
@@ -219,19 +249,19 @@ export default function CoursesPage() {
                 <ExclusiveCard 
                     title="Full Stack Web Development" 
                     subtitle="The complete MERN stack bootcamp." 
-                    image="https://images.unsplash.com/photo-1587620962725-abab7fe55159?q=80&w=2531&auto=format&fit=crop"
+                    image="https://images.unsplash.com/photo-1633356122544-f134324a6cee?q=80&w=2670&auto=format&fit=crop"
                     lessons="140" hours="60"
                 />
                 <ExclusiveCard 
                     title="Advanced AI & Machine Learning" 
                     subtitle="Build real neural networks from scratch." 
-                    image="https://images.unsplash.com/photo-1677442136019-21780ecad995?q=80&w=2532&auto=format&fit=crop"
+                    image="https://images.unsplash.com/photo-1620712943543-bcc4688e7485?q=80&w=2565&auto=format&fit=crop"
                     lessons="95" hours="45"
                 />
                 <ExclusiveCard 
                     title="Cinematic Filmmaking Masterclass" 
                     subtitle="Direct, shoot, and edit like a pro." 
-                    image="https://images.unsplash.com/photo-1536240478700-b869070f9279?q=80&w=2600&auto=format&fit=crop"
+                    image="https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?q=80&w=2600&auto=format&fit=crop"
                     lessons="110" hours="50"
                 />
             </div>
@@ -255,9 +285,9 @@ export default function CoursesPage() {
 
 // --- SUB-COMPONENTS ---
 
-const CourseCard = ({ course }: { course: Course }) => {
+const CourseCard = ({ course, isEnrolled, onAction }: { course: Course, isEnrolled: boolean, onAction: (e: any, id: string) => void }) => {
     return (
-        <Link href={`/courses/${course.id}`} className="block group">
+        <Link href={`/courses/${course.id}`} className="block group h-full">
             <div className="w-full bg-zinc-900/60 border border-white/10 rounded-3xl overflow-hidden hover:border-emerald-500/50 transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] flex flex-col h-full relative">
                 
                 {/* 1. IMAGE & BADGES */}
@@ -274,6 +304,13 @@ const CourseCard = ({ course }: { course: Course }) => {
                         <span className="px-3 py-1 bg-black/60 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-wider text-white shadow-lg">
                             {course.category}
                         </span>
+                    </div>
+
+                    {/* Play Button Overlay (On Hover) */}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center border border-white/20">
+                            <PlayCircle size={24} className="text-white fill-white/20" />
+                        </div>
                     </div>
                 </div>
 
@@ -318,10 +355,13 @@ const CourseCard = ({ course }: { course: Course }) => {
                     <div className="pt-4 border-t border-white/10 flex items-center justify-between">
                         <div className="flex flex-col">
                             <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Price</span>
-                            <span className="text-xl font-bold text-white">${course.price}</span>
+                            <span className="text-xl font-bold text-white">{isEnrolled ? "Owned" : `$${course.price}`}</span>
                         </div>
-                        <button className="px-4 py-2 bg-white text-black text-xs font-bold rounded-full group-hover:bg-emerald-400 group-hover:shadow-[0_0_20px_rgba(52,211,153,0.4)] transition-all">
-                            View Details
+                        <button 
+                            onClick={(e) => onAction(e, course.id)}
+                            className={`px-4 py-2 text-xs font-bold rounded-full transition-all shadow-lg flex items-center gap-2 ${isEnrolled ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 hover:bg-emerald-500 hover:text-black' : 'bg-white text-black hover:bg-emerald-400'}`}
+                        >
+                            {isEnrolled ? <><CheckCircle2 size={14} /> Resume</> : "Enroll Now"}
                         </button>
                     </div>
                 </div>

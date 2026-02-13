@@ -5,7 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { 
   Clock, BookOpen, Star, Users, ArrowRight, 
-  PlayCircle 
+  PlayCircle, CheckCircle2 
 } from 'lucide-react'
 import { createClient } from '@/app/utils/supabase/client'
 import { motion } from 'framer-motion'
@@ -32,53 +32,32 @@ type Course = {
 
 const CoursesSection = () => {
   const [courses, setCourses] = useState<Course[]>([])
+  const [enrolledIds, setEnrolledIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
   
-  // Auth & Navigation for Checkout
+  const supabase = createClient()
   const { user } = useAuth()
   const router = useRouter()
 
-  const handleEnroll = (e: React.MouseEvent, courseId: string) => {
-    e.preventDefault() // Prevent the Link from firing if clicking specific buttons
-    e.stopPropagation()
-    
-    if (!user) {
-      router.push('/auth')
-    } else {
-      router.push(`/courses/${courseId}/checkout`)
-    }
-  }
-
-  // --- FETCH DATA ---
+  // --- 1. FETCH DATA ---
   useEffect(() => {
-    const fetchCourses = async () => {
+    const init = async () => {
       try {
-        const { data, error } = await supabase
+        // A. Fetch Courses
+        const { data: coursesData } = await supabase
           .from('courses')
-          .select(`
-            *,
-            profiles:instructor_id (full_name, avatar_url),
-            reviews (rating),
-            enrollments (count)
-          `)
+          .select(`*, profiles:instructor_id (full_name, avatar_url), reviews (rating), enrollments (count)`)
           .limit(10)
 
-        if (error) throw error
-
-        if (data) {
-          const processed = data.map((c: any) => {
+        if (coursesData) {
+          const processed = coursesData.map((c: any) => {
             const ratings = c.reviews?.map((r: any) => r.rating) || []
-            const avgRating = ratings.length > 0 
-              ? (ratings.reduce((a: number, b: number) => a + b, 0) / ratings.length).toFixed(1)
-              : "New"
-
-            const curriculum = typeof c.curriculum_data === 'string' 
-                ? JSON.parse(c.curriculum_data || '[]') 
-                : c.curriculum_data || []
+            const avgRating = ratings.length ? (ratings.reduce((a: number, b: number) => a + b, 0) / ratings.length).toFixed(1) : "New"
             
-            const lessonCount = curriculum.reduce((acc: number, sec: any) => acc + (sec.lectures?.length || 0), 0)
-            const hours = c.duration || `${Math.max(2, Math.floor(lessonCount * 0.5))}h 30m`
+            // Mock Parsing for Lesson/Hours if columns don't exist
+            const curriculum = typeof c.curriculum_data === 'string' ? JSON.parse(c.curriculum_data || '[]') : c.curriculum_data || []
+            const lessonCount = curriculum.reduce((acc: number, sec: any) => acc + (sec.lectures?.length || 0), 0) || 12
+            const hours = c.duration || "10h 30m"
 
             return {
               id: c.id,
@@ -92,33 +71,58 @@ const CoursesSection = () => {
               instructor_avatar: c.profiles?.avatar_url,
               rating: Number(avgRating) || 5.0,
               review_count: ratings.length,
-              total_lessons: lessonCount || 12,
+              total_lessons: lessonCount,
               total_hours: hours,
               enrollments: c.enrollments?.[0]?.count || 0
             }
           })
-
           processed.sort((a: any, b: any) => b.enrollments - a.enrollments)
           setCourses(processed)
         }
+
+        // B. Fetch User Enrollments (If Logged In)
+        if (user) {
+            const { data: userEnrollments } = await supabase
+                .from('enrollments')
+                .select('course_id')
+                .eq('user_id', user.id)
+            
+            if (userEnrollments) {
+                setEnrolledIds(new Set(userEnrollments.map((e: any) => e.course_id)))
+            }
+        }
+
       } catch (err) {
-        console.error("Error fetching courses:", err)
+        console.error("Error:", err)
       } finally {
         setLoading(false)
       }
     }
-    fetchCourses()
-  }, [])
+    init()
+  }, [user])
+
+  // --- 2. SMART ACTION HANDLER ---
+  const handleCourseAction = (e: React.MouseEvent, courseId: string) => {
+    e.preventDefault() // Stop Link navigation
+    e.stopPropagation()
+
+    if (!user) {
+        // Case 1: Not Logged In -> Login Page
+        router.push('/auth')
+    } else if (enrolledIds.has(courseId)) {
+        // Case 2: Already Owns Course -> Learning Page
+        router.push(`/courses/${courseId}/learn`)
+    } else {
+        // Case 3: New Course -> Checkout Page
+        router.push(`/courses/${courseId}/checkout`)
+    }
+  }
 
   return (
     <section className="relative w-full py-24 bg-[#050505] overflow-hidden z-10 border-t border-white/5">
-      
-      {/* Background Decor */}
       <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-900/10 via-black to-black pointer-events-none" />
 
       <div className="max-w-[1600px] mx-auto px-6 relative z-10">
-        
-        {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
           <div>
              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-widest mb-4">
@@ -130,60 +134,50 @@ const CoursesSection = () => {
           </div>
           <Link href="/courses" className="group flex items-center gap-3 text-zinc-400 hover:text-white transition-colors">
             <span className="text-sm font-bold uppercase tracking-widest">Explore Library</span>
-            <div className="p-2 rounded-full border border-white/10 bg-white/5 group-hover:bg-white group-hover:text-black transition-all">
-                <ArrowRight size={16} />
-            </div>
+            <div className="p-2 rounded-full border border-white/10 bg-white/5 group-hover:bg-white group-hover:text-black transition-all"><ArrowRight size={16} /></div>
           </Link>
         </div>
 
-        {/* --- INFINITE SLIDER --- */}
+        {/* Slider */}
         <div className="relative w-full overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_5%,black_95%,transparent)]">
             <motion.div 
                 className="flex gap-6 w-max cursor-grab active:cursor-grabbing"
                 animate={{ x: ["0%", "-50%"] }} 
-                transition={{ 
-                    duration: 40, 
-                    ease: "linear", 
-                    repeat: Infinity 
-                }}
+                transition={{ duration: 40, ease: "linear", repeat: Infinity }}
                 whileHover={{ animationPlayState: "paused" }} 
                 style={{ width: "max-content" }}
             >
                 {[...courses, ...courses].map((course, idx) => (
-                    <CourseCard key={`${course.id}-${idx}`} course={course} onEnroll={handleEnroll} />
+                    <CourseCard 
+                        key={`${course.id}-${idx}`} 
+                        course={course} 
+                        isEnrolled={enrolledIds.has(course.id)} 
+                        onAction={handleCourseAction} 
+                    />
                 ))}
             </motion.div>
         </div>
-
       </div>
     </section>
   )
 }
 
-// --- SUB-COMPONENT: The "Best UI" Card ---
-const CourseCard = ({ course, onEnroll }: { course: Course, onEnroll: (e: any, id: string) => void }) => {
+// --- SUB-COMPONENT ---
+const CourseCard = ({ course, isEnrolled, onAction }: { course: Course, isEnrolled: boolean, onAction: (e: any, id: string) => void }) => {
     return (
         <Link href={`/courses/${course.id}`} className="block group">
             <div className="w-[340px] md:w-[380px] bg-zinc-900/60 border border-white/10 rounded-3xl overflow-hidden hover:border-emerald-500/50 transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] flex flex-col h-full relative">
                 
-                {/* 1. IMAGE & BADGES */}
+                {/* Image */}
                 <div className="relative h-52 overflow-hidden">
-                    <Image 
-                        src={course.thumbnail_url} 
-                        alt={course.title} 
-                        fill 
-                        className="object-cover transition-transform duration-700 group-hover:scale-110" 
-                    />
+                    <Image src={course.thumbnail_url} alt={course.title} fill className="object-cover transition-transform duration-700 group-hover:scale-110" />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-transparent to-transparent opacity-90" />
-                    
-                    {/* Category Badge */}
                     <div className="absolute top-4 left-4">
                         <span className="px-3 py-1 bg-black/60 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-wider text-white shadow-lg">
                             {course.category}
                         </span>
                     </div>
-
-                    {/* Play Button Overlay (On Hover) */}
+                    {/* Hover Play Button */}
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                         <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center border border-white/20">
                             <PlayCircle size={24} className="text-white fill-white/20" />
@@ -191,18 +185,12 @@ const CourseCard = ({ course, onEnroll }: { course: Course, onEnroll: (e: any, i
                     </div>
                 </div>
 
-                {/* 2. CONTENT */}
+                {/* Content */}
                 <div className="p-5 flex flex-col flex-grow">
-                    
-                    {/* Instructor Info */}
                     <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
                             <div className="w-6 h-6 rounded-full bg-zinc-800 overflow-hidden border border-white/10">
-                                {course.instructor_avatar ? (
-                                    <Image src={course.instructor_avatar} alt={course.instructor_name} width={24} height={24} />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-[8px] bg-emerald-900 text-emerald-400">T</div>
-                                )}
+                                {course.instructor_avatar ? <Image src={course.instructor_avatar} alt="" width={24} height={24} /> : <div className="w-full h-full bg-emerald-900"/>}
                             </div>
                             <span className="text-xs text-zinc-400 font-medium truncate max-w-[120px]">{course.instructor_name}</span>
                         </div>
@@ -211,34 +199,25 @@ const CourseCard = ({ course, onEnroll }: { course: Course, onEnroll: (e: any, i
                         </div>
                     </div>
 
-                    {/* Title */}
                     <h3 className="text-lg font-bold text-white mb-2 line-clamp-2 leading-tight group-hover:text-emerald-400 transition-colors">
                         {course.title}
                     </h3>
 
-                    {/* Stats Grid */}
                     <div className="grid grid-cols-2 gap-2 mt-auto mb-4">
-                        <div className="bg-white/5 rounded-lg p-2 flex items-center gap-2 border border-white/5">
-                            <BookOpen size={14} className="text-zinc-500" />
-                            <span className="text-xs text-zinc-300 font-medium">{course.total_lessons} Lessons</span>
-                        </div>
-                        <div className="bg-white/5 rounded-lg p-2 flex items-center gap-2 border border-white/5">
-                            <Clock size={14} className="text-zinc-500" />
-                            <span className="text-xs text-zinc-300 font-medium">{course.total_hours}</span>
-                        </div>
+                        <div className="bg-white/5 rounded-lg p-2 flex items-center gap-2 border border-white/5"><BookOpen size={14} className="text-zinc-500" /><span className="text-xs text-zinc-300 font-medium">{course.total_lessons} Lessons</span></div>
+                        <div className="bg-white/5 rounded-lg p-2 flex items-center gap-2 border border-white/5"><Clock size={14} className="text-zinc-500" /><span className="text-xs text-zinc-300 font-medium">{course.total_hours}</span></div>
                     </div>
 
-                    {/* Footer: Price & Enroll */}
                     <div className="pt-4 border-t border-white/10 flex items-center justify-between">
                         <div className="flex flex-col">
                             <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Price</span>
-                            <span className="text-xl font-bold text-white">${course.price}</span>
+                            <span className="text-xl font-bold text-white">{isEnrolled ? "Owned" : `$${course.price}`}</span>
                         </div>
                         <button 
-                            onClick={(e) => onEnroll(e, course.id)}
-                            className="px-4 py-2 bg-white text-black text-xs font-bold rounded-full hover:bg-emerald-400 hover:scale-105 transition-all shadow-lg"
+                            onClick={(e) => onAction(e, course.id)}
+                            className={`px-4 py-2 text-xs font-bold rounded-full transition-all shadow-lg flex items-center gap-2 ${isEnrolled ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 hover:bg-emerald-500 hover:text-black' : 'bg-white text-black hover:bg-emerald-400'}`}
                         >
-                            Enroll Now
+                            {isEnrolled ? <><CheckCircle2 size={14} /> Resume</> : "Enroll Now"}
                         </button>
                     </div>
                 </div>
