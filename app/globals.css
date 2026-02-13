@@ -1,8 +1,7 @@
 @import "tailwindcss";
 
 @layer base {
-  html, body {
-    overflow-x: hidden; /* Stops horizontal scrolling completely */
+  html, body { /* Stops horizontal scrolling completely */
     max-width: 100vw;
   }
 }
