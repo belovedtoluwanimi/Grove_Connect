@@ -78,7 +78,7 @@ const Navbar = () => {
              />
           </div>
           <span className="font-bold text-xl tracking-tight text-white hidden sm:block">
-            Grove<span className="text-green-500">Connect</span>
+            Grove<span className="text-green-500"> Connect</span>
           </span>
         </Link>
 
@@ -107,7 +107,7 @@ const Navbar = () => {
         </div>
 
         {/* 3. AUTH & ACTIONS */}
-        <div className="hidden md:flex items-center gap-4">
+        <div className="flex items-center gap-4">
           {user ? (
             <div className="flex items-center gap-4">
               <Link href="/dashboard">
