@@ -1,7 +1,19 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { Zap, Users, TrendingUp, Award } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+
+// --- DATA ---
+const ROLES = [
+  "Creators by Creators",
+  "YouTubers by YouTubers",
+  "Programmers by Programmers",
+  "Editors by Editors",
+  "Founders by Founders",
+  "Students by Students",
+  "Tutors by Tutors"
+]
 
 const features = [
   {
@@ -27,6 +39,16 @@ const features = [
 ]
 
 const FeaturesSection = () => {
+  const [index, setIndex] = useState(0)
+
+  // Cycle through roles every 3 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setIndex((prev) => (prev + 1) % ROLES.length)
+    }, 3000)
+    return () => clearInterval(timer)
+  }, [])
+
   return (
     <section className="relative w-full py-20 md:py-32 px-6 md:px-12 bg-neutral-950 border-t border-green-500/10 z-10">
       <div className="max-w-7xl mx-auto">
@@ -36,9 +58,27 @@ const FeaturesSection = () => {
           <span className="text-green-400 font-medium tracking-widest uppercase text-sm">
             Why Choose Us
           </span>
-          <h2 className="text-3xl md:text-5xl font-bold text-white mt-4 mb-6">
-            Built for Creators, by Creators.
+          
+          <h2 className="text-3xl md:text-5xl font-bold text-white mt-4 mb-6 flex flex-col md:flex-row items-center justify-center gap-2 md:gap-3">
+            <span>Built for</span>
+            
+            {/* Animated Text Container */}
+            <div className="relative h-[1.2em] w-full md:w-auto overflow-hidden min-w-[300px] flex justify-center md:justify-start">
+              <AnimatePresence mode="wait">
+                <motion.span
+                  key={index}
+                  initial={{ y: 40, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: -40, opacity: 0 }}
+                  transition={{ duration: 0.5, ease: "easeOut" }}
+                  className="absolute text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-600"
+                >
+                  {ROLES[index]}.
+                </motion.span>
+              </AnimatePresence>
+            </div>
           </h2>
+
           <p className="text-gray-400 text-lg max-w-2xl mx-auto">
             We provide the ecosystem you need to turn your passion into a sustainable career.
           </p>
