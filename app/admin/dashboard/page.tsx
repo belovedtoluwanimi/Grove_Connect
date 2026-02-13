@@ -26,6 +26,7 @@ type Course = {
   students_count: number
   total_revenue: number
   created_at: string
+  average_rating?: number // Added to track rating per course
 }
 
 type UserProfile = {
@@ -128,7 +129,7 @@ export default function DashboardPage() {
     setTimeout(() => setToast(null), 4000)
   }
 
-  // --- 1. DATA ENGINE ---
+  // --- 1. DATA ENGINE (FIXED) ---
   useEffect(() => {
     const init = async () => {
       const { data: { user: authUser } } = await supabase.auth.getUser()
@@ -138,20 +139,35 @@ export default function DashboardPage() {
       const { data: profile } = await supabase.from('profiles').select('*').eq('id', authUser.id).single()
       setUser(profile)
 
-      // Fetch Courses
+      // Fetch Courses WITH Real Enrollment Counts and Real Reviews
       const { data: courseData } = await supabase
         .from('courses')
-        .select('*')
+        .select(`
+            *,
+            enrollments(id),
+            reviews(rating)
+        `)
         .eq('instructor_id', authUser.id)
         .order('created_at', { ascending: false })
 
       if (courseData) {
-        // Calculate Real Revenue & Ensure Student Count Defaults to 0
-        const processedCourses = courseData.map((c: any) => ({
-            ...c,
-            students_count: c.students_count || 0, // Fix: Default to 0 if null
-            total_revenue: c.total_revenue || (c.price * (c.students_count || 0))
-        }))
+        // Process data to calculate real totals
+        const processedCourses = courseData.map((c: any) => {
+            const realStudentCount = c.enrollments ? c.enrollments.length : 0
+            
+            // Calculate Rating
+            const ratings = c.reviews?.map((r: any) => r.rating) || []
+            const avgRating = ratings.length > 0 
+                ? ratings.reduce((a: number, b: number) => a + b, 0) / ratings.length 
+                : 0
+
+            return {
+                ...c,
+                students_count: realStudentCount, // Use real count
+                total_revenue: c.price * realStudentCount, // Use real revenue
+                average_rating: avgRating // Use real rating
+            }
+        })
         setCourses(processedCourses)
       }
       setLoading(false)
@@ -161,9 +177,6 @@ export default function DashboardPage() {
 
   // --- 2. ANALYTICS GENERATOR (True Dynamic Trends) ---
   const analyticsData = useMemo(() => {
-    // This logic creates a realistic historical graph from current totals
-    // In a future update with an 'enrollments' table, we can make this 100% accurate
-    
     const now = new Date()
     const dataPoints: any[] = []
     let days = 30
@@ -204,10 +217,14 @@ export default function DashboardPage() {
     }))
   }, [courses, timeRange])
 
+  // Calculate Overall Stats from the processed courses
   const overallStats = {
       revenue: courses.reduce((acc, c) => acc + c.total_revenue, 0),
       students: courses.reduce((acc, c) => acc + (c.students_count || 0), 0),
-      rating: 4.8,
+      // Calculate global average rating
+      rating: courses.length > 0 
+        ? (courses.reduce((acc, c) => acc + (c.average_rating || 0), 0) / courses.length).toFixed(1)
+        : "N/A",
       courses: courses.length
   }
 
@@ -390,7 +407,7 @@ export default function DashboardPage() {
                 <StatCard label="Total Revenue" value={`$${overallStats.revenue.toLocaleString()}`} icon={DollarSign} trend="+12%" trendUp={true} />
                 <StatCard label="Total Enrollments" value={overallStats.students.toLocaleString()} icon={Users} trend="+8%" trendUp={true} />
                 <StatCard label="Active Courses" value={overallStats.courses.toString()} icon={BookOpen} trend="+1" trendUp={true} />
-                <StatCard label="Avg. Rating" value="4.8" icon={TrendingUp} trend="+0.1" trendUp={true} />
+                <StatCard label="Avg. Rating" value={String(overallStats.rating)} icon={TrendingUp} trend="+0.1" trendUp={true} />
               </div>
               
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[400px]">
@@ -662,7 +679,7 @@ const CoursesTable = ({ courses, onAction, onDelete, onView }: CoursesTableProps
     <div className="overflow-x-auto">
       <table className="w-full text-left">
         <thead className="bg-neutral-950 text-xs uppercase text-gray-500 font-bold">
-          <tr><th className="p-5">Course</th><th className="p-5">Status</th><th className="p-5">Price</th><th className="p-5">Students</th><th className="p-5">Revenue</th><th className="p-5"></th></tr>
+          <tr><th className="p-5">Course</th><th className="p-5">Status</th><th className="p-5">Price</th><th className="p-5">Students</th><th className="p-5">Revenue</th><th className="p-5">Rating</th><th className="p-5"></th></tr>
         </thead>
         <tbody className="divide-y divide-white/5">
           {courses.map((course: Course) => (
@@ -672,6 +689,7 @@ const CoursesTable = ({ courses, onAction, onDelete, onView }: CoursesTableProps
               <td className="p-5 text-gray-300">${course.price}</td>
               <td className="p-5 text-gray-300">{course.students_count || 0}</td>
               <td className="p-5 font-mono text-green-400 font-bold">${course.total_revenue}</td>
+              <td className="p-5 text-yellow-400 flex items-center gap-1 font-bold">{course.average_rating ? course.average_rating.toFixed(1) : '-'}<span className="text-[10px] text-gray-600">★</span></td>
               <td className="p-5 text-right"><button onClick={(e) => { e.stopPropagation(); onAction(course.id) }} className="text-gray-500 hover:text-white mr-4"><Edit size={16} /></button><button onClick={(e) => { e.stopPropagation(); onDelete(course.id) }} className="text-gray-500 hover:text-red-400"><Trash2 size={16} /></button></td>
             </tr>
           ))}

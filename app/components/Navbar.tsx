@@ -36,7 +36,7 @@ const Navbar = () => {
   return (
     <nav 
       className={`
-        fixed top-0 inset-x-0 z-50 h-20 transition-all duration-300
+        fixed top-0 inset-x-0 z-5 bg-black/80 backdrop-blur-3xl rounded-full h-20 transition-all duration-300
         ${scrolled || isOpen 
           ? 'bg-black/80 backdrop-blur-xl border-b border-white/5' 
           : 'bg-transparent border-b border-transparent'}
