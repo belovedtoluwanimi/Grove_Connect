@@ -5,10 +5,12 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { 
   Clock, BookOpen, Star, Users, ArrowRight, 
-  MoreHorizontal, PlayCircle 
+  PlayCircle 
 } from 'lucide-react'
 import { createClient } from '@/app/utils/supabase/client'
 import { motion } from 'framer-motion'
+import { useAuth } from '@/app/hooks/useAuth'
+import { useRouter } from 'next/navigation'
 
 // --- TYPES ---
 type Course = {
@@ -19,7 +21,6 @@ type Course = {
   level: string
   price: number
   description: string
-  // Derived / Joined Data
   instructor_name: string
   instructor_avatar: string
   rating: number
@@ -33,12 +34,26 @@ const CoursesSection = () => {
   const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
+  
+  // Auth & Navigation for Checkout
+  const { user } = useAuth()
+  const router = useRouter()
+
+  const handleEnroll = (e: React.MouseEvent, courseId: string) => {
+    e.preventDefault() // Prevent the Link from firing if clicking specific buttons
+    e.stopPropagation()
+    
+    if (!user) {
+      router.push('/auth')
+    } else {
+      router.push(`/courses/${courseId}/checkout`)
+    }
+  }
 
   // --- FETCH DATA ---
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        // Fetch courses + Instructor (profiles) + Reviews + Curriculum (for lesson count)
         const { data, error } = await supabase
           .from('courses')
           .select(`
@@ -47,28 +62,22 @@ const CoursesSection = () => {
             reviews (rating),
             enrollments (count)
           `)
-          .limit(10) // Get top 10 for the slider
+          .limit(10)
 
         if (error) throw error
 
         if (data) {
           const processed = data.map((c: any) => {
-            // 1. Calculate Ratings
             const ratings = c.reviews?.map((r: any) => r.rating) || []
             const avgRating = ratings.length > 0 
               ? (ratings.reduce((a: number, b: number) => a + b, 0) / ratings.length).toFixed(1)
               : "New"
 
-            // 2. Parse Curriculum for Duration/Lessons (Mock logic if JSON structure varies)
-            // Assuming 'curriculum_data' is a JSON array of sections
             const curriculum = typeof c.curriculum_data === 'string' 
                 ? JSON.parse(c.curriculum_data || '[]') 
                 : c.curriculum_data || []
             
             const lessonCount = curriculum.reduce((acc: number, sec: any) => acc + (sec.lectures?.length || 0), 0)
-            
-            // 3. Mock Hours (If you don't have a 'duration' column yet)
-            // Ideally, sum up video durations from DB. For now, we estimate or use DB column.
             const hours = c.duration || `${Math.max(2, Math.floor(lessonCount * 0.5))}h 30m`
 
             return {
@@ -83,13 +92,12 @@ const CoursesSection = () => {
               instructor_avatar: c.profiles?.avatar_url,
               rating: Number(avgRating) || 5.0,
               review_count: ratings.length,
-              total_lessons: lessonCount || 12, // Fallback if 0
+              total_lessons: lessonCount || 12,
               total_hours: hours,
               enrollments: c.enrollments?.[0]?.count || 0
             }
           })
 
-          // Sort by Enrollments (Popularity)
           processed.sort((a: any, b: any) => b.enrollments - a.enrollments)
           setCourses(processed)
         }
@@ -128,26 +136,21 @@ const CoursesSection = () => {
           </Link>
         </div>
 
-        {/* --- INFINITE SLIDER (Framer Motion) --- */}
+        {/* --- INFINITE SLIDER --- */}
         <div className="relative w-full overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_5%,black_95%,transparent)]">
             <motion.div 
                 className="flex gap-6 w-max cursor-grab active:cursor-grabbing"
-                animate={{ x: ["0%", "-50%"] }} // Move halfway (since we doubled the list)
+                animate={{ x: ["0%", "-50%"] }} 
                 transition={{ 
                     duration: 40, 
                     ease: "linear", 
                     repeat: Infinity 
                 }}
-                whileHover={{ animationPlayState: "paused" }} // CSS Pause Hack or use controls
+                whileHover={{ animationPlayState: "paused" }} 
                 style={{ width: "max-content" }}
-                onHoverStart={(e) => {}} // Framer motion doesn't support 'pause' natively easily without controls, 
-                                         // but usually `hover` stops interaction. 
-                                         // For simplicity, we let it slide or add a manual stop if needed.
-                                         // NOTE: True pause in Framer Motion requires useAnimation controls.
-                                         // For now, let's keep it simple. It will slide continuously.
             >
                 {[...courses, ...courses].map((course, idx) => (
-                    <CourseCard key={`${course.id}-${idx}`} course={course} />
+                    <CourseCard key={`${course.id}-${idx}`} course={course} onEnroll={handleEnroll} />
                 ))}
             </motion.div>
         </div>
@@ -158,7 +161,7 @@ const CoursesSection = () => {
 }
 
 // --- SUB-COMPONENT: The "Best UI" Card ---
-const CourseCard = ({ course }: { course: Course }) => {
+const CourseCard = ({ course, onEnroll }: { course: Course, onEnroll: (e: any, id: string) => void }) => {
     return (
         <Link href={`/courses/${course.id}`} className="block group">
             <div className="w-[340px] md:w-[380px] bg-zinc-900/60 border border-white/10 rounded-3xl overflow-hidden hover:border-emerald-500/50 transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] flex flex-col h-full relative">
@@ -171,7 +174,6 @@ const CourseCard = ({ course }: { course: Course }) => {
                         fill 
                         className="object-cover transition-transform duration-700 group-hover:scale-110" 
                     />
-                    {/* Gradient Overlay */}
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-transparent to-transparent opacity-90" />
                     
                     {/* Category Badge */}
@@ -232,8 +234,11 @@ const CourseCard = ({ course }: { course: Course }) => {
                             <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Price</span>
                             <span className="text-xl font-bold text-white">${course.price}</span>
                         </div>
-                        <button className="px-4 py-2 bg-white text-black text-xs font-bold rounded-full group-hover:bg-emerald-400 group-hover:shadow-[0_0_20px_rgba(52,211,153,0.4)] transition-all">
-                            View Details
+                        <button 
+                            onClick={(e) => onEnroll(e, course.id)}
+                            className="px-4 py-2 bg-white text-black text-xs font-bold rounded-full hover:bg-emerald-400 hover:scale-105 transition-all shadow-lg"
+                        >
+                            Enroll Now
                         </button>
                     </div>
                 </div>

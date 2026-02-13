@@ -4,16 +4,16 @@ import React, { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { 
-  Search, Star, PlayCircle, Clock, BarChart, 
-  CheckCircle2, Loader2, ArrowRight, Zap, Crown, Lock
+  Search, Star, Clock, BarChart, BookOpen, 
+  CheckCircle2, Zap, Crown, Lock
 } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
-import CTASection from '../components/CTASection' // Re-using your high-impact CTA
+import CTASection from '../components/CTASection' 
 import { useAuth } from '@/app/hooks/useAuth'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/app/utils/supabase/client'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 
 // --- CONSTANTS ---
 const CATEGORIES = ["All", "Web Development", "UI/UX Design", "Video Editing", "Marketing", "Business", "Music Production"]
@@ -22,19 +22,19 @@ const CATEGORIES = ["All", "Web Development", "UI/UX Design", "Video Editing", "
 type Course = {
   id: string
   title: string
-  instructor: string
+  instructor_name: string
   instructor_avatar?: string
   rating: number
   review_count: number
   students: number
   price: number
   original_price?: number
-  image: string
+  thumbnail_url: string
   category: string
   level: string
-  duration: string
-  lectures: number
-  is_exclusive?: boolean // For Grove+ section
+  total_hours: string
+  total_lessons: number
+  is_exclusive?: boolean 
 }
 
 export default function CoursesPage() {
@@ -65,26 +65,37 @@ export default function CoursesPage() {
         const { data, error } = await query
         if (error) throw error
 
-        const formatted: Course[] = data?.map((c: any) => ({
-            id: c.id,
-            title: c.title,
-            instructor: c.profiles?.full_name || "Grove Instructor",
-            instructor_avatar: c.profiles?.avatar_url,
-            rating: 4.8, // Mock or calc
-            review_count: c.reviews?.length || 120,
-            students: c.enrollments?.[0]?.count || 0,
-            price: c.price,
-            original_price: c.price * 1.2,
-            image: c.thumbnail_url || "/placeholder.jpg",
-            category: c.category,
-            level: c.level || "All Levels",
-            duration: c.duration || "10h 30m",
-            lectures: 24,
-            is_exclusive: c.price > 100 // Logic to determine if it's a "Pro" course
-        })) || []
+        const formatted: Course[] = data?.map((c: any) => {
+            // Calc Rating
+            const ratings = c.reviews?.map((r: any) => r.rating) || []
+            const avgRating = ratings.length ? (ratings.reduce((a:number,b:number)=>a+b,0)/ratings.length).toFixed(1) : "New"
+            
+            // Calc Lessons/Duration
+            const curriculum = typeof c.curriculum_data === 'string' ? JSON.parse(c.curriculum_data || '[]') : c.curriculum_data || []
+            const lessonCount = curriculum.reduce((acc: number, sec: any) => acc + (sec.lectures?.length || 0), 0)
+            const hours = c.duration || `${Math.max(2, Math.floor(lessonCount * 0.5))}h 30m`
+
+            return {
+                id: c.id,
+                title: c.title,
+                instructor_name: c.profiles?.full_name || "Grove Instructor",
+                instructor_avatar: c.profiles?.avatar_url,
+                rating: Number(avgRating) || 5.0,
+                review_count: ratings.length,
+                students: c.enrollments?.[0]?.count || 0,
+                price: c.price,
+                original_price: c.price * 1.2,
+                thumbnail_url: c.thumbnail_url || "/placeholder.jpg",
+                category: c.category || "General",
+                level: c.level || "All Levels",
+                total_hours: hours,
+                total_lessons: lessonCount || 12,
+                is_exclusive: c.price > 100 
+            }
+        }) || []
 
         setCourses(formatted.filter(c => !c.is_exclusive))
-        setExclusiveCourses(formatted.filter(c => c.is_exclusive)) // Separate expensive courses
+        setExclusiveCourses(formatted.filter(c => c.is_exclusive)) 
       } catch (err) {
         console.error(err)
       } finally {
@@ -244,40 +255,80 @@ export default function CoursesPage() {
 
 // --- SUB-COMPONENTS ---
 
-const CourseCard = ({ course }: { course: Course }) => (
-    <Link href={`/courses/${course.id}`} className="group relative block bg-[#0F0F0F] border border-white/5 rounded-3xl overflow-hidden hover:border-emerald-500/50 transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl">
-        {/* Image */}
-        <div className="relative h-52 overflow-hidden">
-            <Image src={course.image} alt={course.title} fill className="object-cover transition-transform duration-700 group-hover:scale-110" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0F0F0F] via-transparent to-transparent" />
-            <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md border border-white/10 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white">
-                {course.category}
-            </div>
-        </div>
-
-        {/* Content */}
-        <div className="p-6">
-            <h3 className="text-lg font-bold text-white mb-2 line-clamp-2 leading-snug group-hover:text-emerald-400 transition-colors">
-                {course.title}
-            </h3>
-            <div className="flex items-center gap-2 mb-4">
-                <div className="w-6 h-6 rounded-full bg-zinc-800 overflow-hidden relative">
-                    {course.instructor_avatar ? <Image src={course.instructor_avatar} alt="" fill className="object-cover"/> : <div className="w-full h-full bg-emerald-900"/>}
+const CourseCard = ({ course }: { course: Course }) => {
+    return (
+        <Link href={`/courses/${course.id}`} className="block group">
+            <div className="w-full bg-zinc-900/60 border border-white/10 rounded-3xl overflow-hidden hover:border-emerald-500/50 transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] flex flex-col h-full relative">
+                
+                {/* 1. IMAGE & BADGES */}
+                <div className="relative h-52 overflow-hidden">
+                    <Image 
+                        src={course.thumbnail_url} 
+                        alt={course.title} 
+                        fill 
+                        className="object-cover transition-transform duration-700 group-hover:scale-110" 
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-transparent to-transparent opacity-90" />
+                    
+                    <div className="absolute top-4 left-4">
+                        <span className="px-3 py-1 bg-black/60 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-wider text-white shadow-lg">
+                            {course.category}
+                        </span>
+                    </div>
                 </div>
-                <span className="text-xs text-zinc-400">{course.instructor}</span>
-            </div>
 
-            {/* Meta */}
-            <div className="flex items-center justify-between pt-4 border-t border-white/5">
-                <div className="flex items-center gap-4 text-xs text-zinc-500 font-medium">
-                    <div className="flex items-center gap-1"><Star size={12} className="text-yellow-500 fill-yellow-500"/> {course.rating}</div>
-                    <div className="flex items-center gap-1"><Clock size={12}/> {course.duration}</div>
+                {/* 2. CONTENT */}
+                <div className="p-5 flex flex-col flex-grow">
+                    
+                    {/* Instructor Info */}
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-zinc-800 overflow-hidden border border-white/10">
+                                {course.instructor_avatar ? (
+                                    <Image src={course.instructor_avatar} alt={course.instructor_name} width={24} height={24} />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-[8px] bg-emerald-900 text-emerald-400">T</div>
+                                )}
+                            </div>
+                            <span className="text-xs text-zinc-400 font-medium truncate max-w-[120px]">{course.instructor_name}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-yellow-500 text-xs font-bold">
+                            <Star size={12} fill="currentColor"/> {course.rating} <span className="text-zinc-600 font-normal">({course.review_count})</span>
+                        </div>
+                    </div>
+
+                    {/* Title */}
+                    <h3 className="text-lg font-bold text-white mb-2 line-clamp-2 leading-tight group-hover:text-emerald-400 transition-colors">
+                        {course.title}
+                    </h3>
+
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 gap-2 mt-auto mb-4">
+                        <div className="bg-white/5 rounded-lg p-2 flex items-center gap-2 border border-white/5">
+                            <BookOpen size={14} className="text-zinc-500" />
+                            <span className="text-xs text-zinc-300 font-medium">{course.total_lessons} Lessons</span>
+                        </div>
+                        <div className="bg-white/5 rounded-lg p-2 flex items-center gap-2 border border-white/5">
+                            <Clock size={14} className="text-zinc-500" />
+                            <span className="text-xs text-zinc-300 font-medium">{course.total_hours}</span>
+                        </div>
+                    </div>
+
+                    {/* Footer: Price & Enroll */}
+                    <div className="pt-4 border-t border-white/10 flex items-center justify-between">
+                        <div className="flex flex-col">
+                            <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Price</span>
+                            <span className="text-xl font-bold text-white">${course.price}</span>
+                        </div>
+                        <button className="px-4 py-2 bg-white text-black text-xs font-bold rounded-full group-hover:bg-emerald-400 group-hover:shadow-[0_0_20px_rgba(52,211,153,0.4)] transition-all">
+                            View Details
+                        </button>
+                    </div>
                 </div>
-                <span className="text-white font-bold text-lg">${course.price}</span>
             </div>
-        </div>
-    </Link>
-)
+        </Link>
+    )
+}
 
 const ExclusiveCard = ({ title, subtitle, image, lessons, hours }: any) => (
     <div className="group relative h-[450px] rounded-3xl overflow-hidden cursor-pointer">
