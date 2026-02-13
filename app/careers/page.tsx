@@ -1,9 +1,12 @@
 import React from 'react'
 import { ArrowRight } from 'lucide-react'
+import Navbar from '../components/Navbar'
+import Footer from '../components/Footer'
 
 export default function CareersPage() {
   return (
     <div className="pt-32 pb-20 bg-[#050505] min-h-screen text-white px-6">
+        <Navbar />
         <div className="max-w-4xl mx-auto">
             <h1 className="text-5xl font-black mb-8">Join the <span className="text-emerald-500">Grove Team</span></h1>
             <p className="text-xl text-zinc-400 mb-16">We're looking for passionate individuals to help us shape the future of creator education.</p>
@@ -20,6 +23,7 @@ export default function CareersPage() {
                 ))}
             </div>
         </div>
+        <Footer />
     </div>
   )
 }

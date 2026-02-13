@@ -1,6 +1,8 @@
 import React from 'react'
 import { Check } from 'lucide-react'
 import Link from 'next/link'
+import Navbar from '../components/Navbar'
+import Footer from '../components/Footer'
 
 const PriceCard = ({ title, price, features, recommended }: any) => (
     <div className={`p-8 rounded-3xl border flex flex-col ${recommended ? 'bg-zinc-900 border-emerald-500 relative' : 'bg-black border-white/10'}`}>
@@ -21,6 +23,7 @@ const PriceCard = ({ title, price, features, recommended }: any) => (
 export default function PricingPage() {
   return (
     <div className="pt-32 pb-20 bg-[#050505] min-h-screen text-white px-6">
+        <Navbar />
         <div className="text-center mb-16">
             <h1 className="text-4xl md:text-6xl font-black mb-4">Simple, Transparent Pricing</h1>
             <p className="text-zinc-400">Invest in your future without breaking the bank.</p>
@@ -30,6 +33,7 @@ export default function PricingPage() {
             <PriceCard title="Pro Creator" price="29" recommended features={["All courses included", "Priority support", "Certified badges", "Download access"]} />
             <PriceCard title="Team" price="99" features={["5 Pro accounts", "Team dashboard", "API Access", "Dedicated manager"]} />
         </div>
+        <Footer />
     </div>
   )
 }
