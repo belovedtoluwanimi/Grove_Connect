@@ -1,12 +1,11 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Preloader from './components/Preloader'
 import Navbar from './components/Navbar'
 import Hero from './components/Hero'
 import AboutSection from './components/AboutSection'
 import YouTubeShowcase from './components/YoutubeShowcase'
-// --- NEW IMPORTS ---
 import FeaturesSection from './components/FeaturesSection'
 import CoursesSection from './components/CoursesSection'
 import TestimonialsSection from './components/TestimonialsSection'
@@ -16,10 +15,22 @@ import Footer from './components/Footer'
 type PageStage = 'preloader' | 'intro' | 'main'
 
 const Home = () => {
+  // Default to 'preloader' initially to avoid hydration mismatch
   const [stage, setStage] = useState<PageStage>('preloader')
 
-  // Helper to skip ahead for development testing if needed
-  // const [stage, setStage] = useState<PageStage>('main') 
+  // Check session storage on mount
+  useEffect(() => {
+    const hasSeenIntro = sessionStorage.getItem('grove_intro_seen')
+    if (hasSeenIntro) {
+      setStage('main')
+    }
+  }, [])
+
+  // Function to handle entering the main site
+  const handleEnterMain = () => {
+    sessionStorage.setItem('grove_intro_seen', 'true')
+    setStage('main')
+  }
 
   return (
     <>
@@ -30,7 +41,7 @@ const Home = () => {
 
       {/* STAGE 2: INTRO / YOUTUBE SHOWCASE */}
       {stage === 'intro' && (
-        <YouTubeShowcase onEnter={() => setStage('main')} />
+        <YouTubeShowcase onEnter={handleEnterMain} />
       )}
 
       {/* STAGE 3: MAIN WEBSITE */}
