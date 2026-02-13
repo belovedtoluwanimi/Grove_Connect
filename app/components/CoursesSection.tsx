@@ -103,7 +103,7 @@ const CoursesSection = () => {
 
   // --- 2. SMART ACTION HANDLER ---
   const handleCourseAction = (e: React.MouseEvent, courseId: string) => {
-    e.preventDefault() // Stop Link navigation
+    e.preventDefault() 
     e.stopPropagation()
 
     if (!user) {
@@ -165,32 +165,33 @@ const CoursesSection = () => {
 // --- SUB-COMPONENT ---
 const CourseCard = ({ course, isEnrolled, onAction }: { course: Course, isEnrolled: boolean, onAction: (e: any, id: string) => void }) => {
     return (
-        <Link href={`/courses/${course.id}`} className="block group">
+        <div className="block group h-full">
             <div className="w-[340px] md:w-[380px] bg-zinc-900/60 border border-white/10 rounded-3xl overflow-hidden hover:border-emerald-500/50 transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] flex flex-col h-full relative">
                 
-                {/* Image */}
-                <div className="relative h-52 overflow-hidden">
+                {/* 1. IMAGE - Linked to Details */}
+                <Link href={`/courses/${course.id}`} className="relative h-52 overflow-hidden block">
                     <Image src={course.thumbnail_url} alt={course.title} fill className="object-cover transition-transform duration-700 group-hover:scale-110" />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-transparent to-transparent opacity-90" />
+                    
                     <div className="absolute top-4 left-4">
                         <span className="px-3 py-1 bg-black/60 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-wider text-white shadow-lg">
                             {course.category}
                         </span>
                     </div>
-                    {/* Hover Play Button */}
+
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                         <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center border border-white/20">
                             <PlayCircle size={24} className="text-white fill-white/20" />
                         </div>
                     </div>
-                </div>
+                </Link>
 
-                {/* Content */}
+                {/* 2. CONTENT */}
                 <div className="p-5 flex flex-col flex-grow">
                     <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
                             <div className="w-6 h-6 rounded-full bg-zinc-800 overflow-hidden border border-white/10">
-                                {course.instructor_avatar ? <Image src={course.instructor_avatar} alt="" width={24} height={24} /> : <div className="w-full h-full bg-emerald-900"/>}
+                                {course.instructor_avatar ? <Image src={course.instructor_avatar} alt="" width={24} height={24} /> : <div className="w-full h-full bg-emerald-900 flex items-center justify-center text-[8px] text-emerald-400">T</div>}
                             </div>
                             <span className="text-xs text-zinc-400 font-medium truncate max-w-[120px]">{course.instructor_name}</span>
                         </div>
@@ -199,9 +200,12 @@ const CourseCard = ({ course, isEnrolled, onAction }: { course: Course, isEnroll
                         </div>
                     </div>
 
-                    <h3 className="text-lg font-bold text-white mb-2 line-clamp-2 leading-tight group-hover:text-emerald-400 transition-colors">
-                        {course.title}
-                    </h3>
+                    {/* Title - Linked to Details */}
+                    <Link href={`/courses/${course.id}`}>
+                        <h3 className="text-lg font-bold text-white mb-2 line-clamp-2 leading-tight group-hover:text-emerald-400 transition-colors">
+                            {course.title}
+                        </h3>
+                    </Link>
 
                     <div className="grid grid-cols-2 gap-2 mt-auto mb-4">
                         <div className="bg-white/5 rounded-lg p-2 flex items-center gap-2 border border-white/5"><BookOpen size={14} className="text-zinc-500" /><span className="text-xs text-zinc-300 font-medium">{course.total_lessons} Lessons</span></div>
@@ -213,16 +217,18 @@ const CourseCard = ({ course, isEnrolled, onAction }: { course: Course, isEnroll
                             <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Price</span>
                             <span className="text-xl font-bold text-white">{isEnrolled ? "Owned" : `$${course.price}`}</span>
                         </div>
+                        
+                        {/* 3. BUTTON - Independent, triggers checkout */}
                         <button 
                             onClick={(e) => onAction(e, course.id)}
-                            className={`px-4 py-2 text-xs font-bold rounded-full transition-all shadow-lg flex items-center gap-2 ${isEnrolled ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 hover:bg-emerald-500 hover:text-black' : 'bg-white text-black hover:bg-emerald-400'}`}
+                            className={`px-4 py-2 text-xs font-bold rounded-full transition-all shadow-lg flex items-center gap-2 z-20 cursor-pointer ${isEnrolled ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 hover:bg-emerald-500 hover:text-black' : 'bg-white text-black hover:bg-emerald-400 hover:scale-105'}`}
                         >
                             {isEnrolled ? <><CheckCircle2 size={14} /> Resume</> : "Enroll Now"}
                         </button>
                     </div>
                 </div>
             </div>
-        </Link>
+        </div>
     )
 }
 
