@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  Menu, X, ShoppingCart, User, LogOut, 
+  Menu, X, User, LogOut, 
   LayoutDashboard, ChevronDown, ArrowRight 
 } from 'lucide-react';
 import Image from 'next/image';
@@ -21,7 +21,13 @@ const Navbar = () => {
 
   // Handle Scroll Effect
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
+    const handleScroll = () => {
+      // Check if window exists to avoid server-side errors
+      if (typeof window !== 'undefined') {
+        setScrolled(window.scrollY > 10);
+      }
+    };
+
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -36,16 +42,16 @@ const Navbar = () => {
   return (
     <nav 
       className={`
-        fixed top-0 inset-x-0 z-50 h-20 w-full transition-all duration-300
+        fixed top-0 left-0 right-0 z-[100] h-20 w-full transition-all duration-300
         ${scrolled || isOpen 
-          ? 'bg-[#050505]/70 backdrop-blur-md border-b border-white/5' 
+          ? 'bg-[#050505]/80 backdrop-blur-xl border-b border-white/5 shadow-lg' 
           : 'bg-transparent border-b border-transparent'}
       `}
     >
       <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
         
         {/* 1. LOGO */}
-        <Link href="/" className="flex items-center gap-3 group">
+        <Link href="/" className="flex items-center gap-3 group z-[101]">
           <div className="relative w-9 h-9 overflow-hidden rounded-xl bg-white/5 border border-white/10 p-1">
              <Image 
                src={logo}
@@ -92,7 +98,7 @@ const Navbar = () => {
                   onClick={() => setShowUserMenu(!showUserMenu)}
                   className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-full hover:bg-white/5 transition-all"
                 >
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-emerald-700 flex items-center justify-center text-xs font-bold text-white shadow-lg">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-emerald-700 flex items-center justify-center text-xs font-bold text-white shadow-lg border border-white/10">
                     {user.user_metadata.full_name?.charAt(0) || <User size={14} />}
                   </div>
                   <ChevronDown size={14} className={`text-zinc-500 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
@@ -143,23 +149,23 @@ const Navbar = () => {
         </div>
 
         {/* 4. MOBILE MENU TOGGLE */}
-        <button onClick={() => setIsOpen(!isOpen)} className="md:hidden p-2 text-white hover:bg-white/10 rounded-lg transition-colors">
+        <button onClick={() => setIsOpen(!isOpen)} className="md:hidden p-2 text-white hover:bg-white/10 rounded-lg transition-colors z-[101]">
           {isOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
 
-      {/* 5. MOBILE MENU */}
+      {/* 5. MOBILE MENU OVERLAY */}
       <AnimatePresence>
         {isOpen && (
           <motion.div 
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: '100vh' }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden fixed inset-0 top-20 bg-[#050505]/95 backdrop-blur-xl z-40 border-t border-white/10 overflow-y-auto"
+            className="md:hidden fixed inset-0 top-0 bg-[#050505] z-[90] flex flex-col pt-24"
           >
             <div className="flex flex-col p-6 space-y-6">
               {navItems.map((item: any, idx: number) => (
-                <Link key={idx} href={item.link} onClick={() => setIsOpen(false)} className="text-2xl font-bold text-zinc-400 hover:text-white transition-all">
+                <Link key={idx} href={item.link} onClick={() => setIsOpen(false)} className="text-3xl font-bold text-zinc-400 hover:text-white transition-all">
                   {item.name}
                 </Link>
               ))}
