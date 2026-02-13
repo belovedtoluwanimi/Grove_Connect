@@ -99,10 +99,11 @@ const AboutSection = () => {
             </button>
             </Link>
             
+            <Link href="https://www.youtube.com/@GroveConnect" target="_blank" rel="noopener noreferrer">
             <button className="flex items-center justify-center cursor-pointer  gap-2 text-white border border-white/20 hover:border-green-500/50 px-6 py-3 rounded-full font-medium transition-all duration-300 hover:bg-green-400/5">
               <PlayCircle className="w-4 h-4 text-green-400" />
               Free Tutorials
-            </button>
+            </button></Link>
           </div>
         </div>
 
