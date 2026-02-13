@@ -13,6 +13,7 @@ import { useAuth } from '@/app/hooks/useAuth'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/app/utils/supabase/client'
 import { motion, AnimatePresence } from 'framer-motion'
+import Link from 'next/link'
 
 // --- TYPES ---
 type Course = {
