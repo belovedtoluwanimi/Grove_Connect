@@ -9,7 +9,7 @@ import Image from 'next/image';
 import { logo, navItems } from '../assets'; 
 import Link from 'next/link';
 import { useAuth } from '@/app/hooks/useAuth'; 
-import { useRouter, usePathname } from 'next/navigation'; // Added usePathname
+import { useRouter, usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Navbar = () => {
@@ -17,19 +17,30 @@ const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const { user, supabase } = useAuth();
   const router = useRouter();
-  const pathname = usePathname(); // Get current route
+  const pathname = usePathname(); 
   const [showUserMenu, setShowUserMenu] = useState(false);
 
-  // Handle Scroll Effect
   useEffect(() => {
     const handleScroll = () => {
-      if (typeof window !== 'undefined') {
-        setScrolled(window.scrollY > 10);
-      }
+      // 1. Check Window Scroll
+      const isWindowScrolled = window.scrollY > 10;
+      
+      // 2. Check Main Container Scroll (Fallback for locked layouts)
+      const mainContainer = document.querySelector('main');
+      const isContainerScrolled = mainContainer ? mainContainer.scrollTop > 10 : false;
+
+      setScrolled(isWindowScrolled || isContainerScrolled);
     };
 
+    // Attach to both window and potential scroll containers
     window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    const mainContainer = document.querySelector('main');
+    if (mainContainer) mainContainer.addEventListener('scroll', handleScroll);
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (mainContainer) mainContainer.removeEventListener('scroll', handleScroll);
+    };
   }, []);
 
   const handleLogout = async () => {
@@ -39,7 +50,6 @@ const Navbar = () => {
     router.refresh();
   };
 
-  // Helper to check if link is active
   const isActiveLink = (link: string) => {
     if (link === '/') return pathname === '/';
     return pathname.startsWith(link);
@@ -48,9 +58,9 @@ const Navbar = () => {
   return (
     <nav 
       className={`
-        fixed top-0 left-0 right-0 z-[100] h-20 w-full transition-all duration-300
+        fixed top-0 left-0 right-0 z-[9999] h-20 w-full transition-all duration-300
         ${scrolled || isOpen 
-          ? 'bg-[#050505]/80 backdrop-blur-xl border-b border-white/5 shadow-lg' 
+          ? 'bg-[#050505]/80 backdrop-blur-md border-b border-white/5 shadow-xl' 
           : 'bg-transparent border-b border-transparent'}
       `}
     >
@@ -80,16 +90,15 @@ const Navbar = () => {
               <Link 
                 key={idx} 
                 href={item.link}
-                className={`text-sm font-medium transition-colors relative
+                className={`text-sm font-medium transition-colors relative py-2
                   ${active ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'}
                 `}
               >
                 {item.name}
-                {/* Active Indicator Dot */}
                 {active && (
                   <motion.div 
                     layoutId="navbar-indicator"
-                    className="absolute -bottom-1 left-0 right-0 h-0.5 bg-green-500 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.8)]"
+                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-500 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.8)]"
                   />
                 )}
               </Link>
@@ -99,9 +108,7 @@ const Navbar = () => {
 
         {/* 3. AUTH & ACTIONS */}
         <div className="hidden md:flex items-center gap-4">
-          
           {user ? (
-            // --- LOGGED IN STATE ---
             <div className="flex items-center gap-4">
               <Link href="/dashboard">
                 <button 
@@ -153,7 +160,6 @@ const Navbar = () => {
               </div>
             </div>
           ) : (
-            // --- LOGGED OUT STATE ---
             <div className="flex items-center gap-4">
               <Link href="/auth" className="text-sm font-medium text-zinc-300 hover:text-white transition-colors">
                 Log In
@@ -185,19 +191,11 @@ const Navbar = () => {
             className="md:hidden fixed inset-0 top-0 bg-[#050505] z-[90] flex flex-col pt-24"
           >
             <div className="flex flex-col p-6 space-y-6">
-              {navItems.map((item: any, idx: number) => {
-                const active = isActiveLink(item.link);
-                return (
-                  <Link 
-                    key={idx} 
-                    href={item.link} 
-                    onClick={() => setIsOpen(false)} 
-                    className={`text-3xl font-bold transition-all ${active ? 'text-white' : 'text-zinc-500 hover:text-white'}`}
-                  >
-                    {item.name}
-                  </Link>
-                );
-              })}
+              {navItems.map((item: any, idx: number) => (
+                <Link key={idx} href={item.link} onClick={() => setIsOpen(false)} className="text-3xl font-bold text-zinc-400 hover:text-white transition-all">
+                  {item.name}
+                </Link>
+              ))}
               <div className="w-full h-[1px] bg-white/10" />
               {!user && (
                   <Link href="/auth" onClick={() => setIsOpen(false)} className="text-xl font-bold text-white flex items-center gap-2">
