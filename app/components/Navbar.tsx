@@ -36,9 +36,9 @@ const Navbar = () => {
   return (
     <nav 
       className={`
-        fixed top-0 inset-x-0 z-5 bg-black/80 backdrop-blur-3xl rounded-full h-20 transition-all duration-300
+        fixed top-0 inset-x-0 z-50 h-20 w-full transition-all duration-300
         ${scrolled || isOpen 
-          ? 'bg-black/80 backdrop-blur-xl border-b border-white/5' 
+          ? 'bg-[#050505]/70 backdrop-blur-md border-b border-white/5' 
           : 'bg-transparent border-b border-transparent'}
       `}
     >
@@ -155,7 +155,7 @@ const Navbar = () => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: '100vh' }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden fixed inset-0 top-20 bg-black z-40 border-t border-white/10 overflow-y-auto"
+            className="md:hidden fixed inset-0 top-20 bg-[#050505]/95 backdrop-blur-xl z-40 border-t border-white/10 overflow-y-auto"
           >
             <div className="flex flex-col p-6 space-y-6">
               {navItems.map((item: any, idx: number) => (
@@ -164,7 +164,11 @@ const Navbar = () => {
                 </Link>
               ))}
               <div className="w-full h-[1px] bg-white/10" />
-              {/* Mobile Auth Buttons here... */}
+              {!user && (
+                  <Link href="/auth" onClick={() => setIsOpen(false)} className="text-xl font-bold text-white flex items-center gap-2">
+                      Get Started <ArrowRight size={20} />
+                  </Link>
+              )}
             </div>
           </motion.div>
         )}
