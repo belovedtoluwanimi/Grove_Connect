@@ -41,7 +41,7 @@ export const navItems = [
   },
   { 
     name: "Contact", 
-    link: "/#contact", 
+    link: "/contact", 
     target: "_self" 
   },
 ];
