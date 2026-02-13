@@ -6,6 +6,7 @@ import {
   Mail, MapPin, Phone, Send, Loader2, CheckCircle2, 
   MessageSquare, HelpCircle, Twitter, Linkedin, Github 
 } from 'lucide-react'
+import Navbar from '../components/Navbar'
 
 // --- BACKGROUND COMPONENTS ---
 const BackgroundEffects = () => (
@@ -48,6 +49,7 @@ export default function ContactPage() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white pt-24 pb-12 px-6 relative overflow-hidden font-sans selection:bg-emerald-500/30">
+        <Navbar />
       <BackgroundEffects />
 
       <div className="max-w-7xl mx-auto relative z-10">
