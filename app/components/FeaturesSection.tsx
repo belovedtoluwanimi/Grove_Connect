@@ -5,14 +5,15 @@ import { Zap, Users, TrendingUp, Award } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 // --- DATA ---
-const ROLES = [
-  "Creators by Creators",
-  "YouTubers by YouTubers",
-  "Programmers by Programmers",
-  "Editors by Editors",
-  "Founders by Founders",
-  "Students by Students",
-  "Tutors by Tutors"
+// Just the nouns, so we can construct "Built for [Noun] by [Noun]"
+const NOUNS = [
+  "Creators",
+  "YouTubers",
+  "Programmers",
+  "Editors",
+  "Founders",
+  "Students",
+  "Tutors"
 ]
 
 const features = [
@@ -38,13 +39,30 @@ const features = [
   }
 ]
 
+// Helper component for the animated word to keep code clean
+const AnimatedWord = ({ word }: { word: string }) => (
+  <div className="relative h-[1.2em] min-w-[2ch] inline-flex items-center overflow-hidden align-bottom">
+    <AnimatePresence mode="popLayout">
+      <motion.span
+        key={word}
+        initial={{ y: "100%" }} // Start from bottom
+        animate={{ y: 0 }}      // Slide to center
+        exit={{ y: "-100%" }}   // Slide out to top
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="block text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-600 px-1"
+      >
+        {word}
+      </motion.span>
+    </AnimatePresence>
+  </div>
+)
+
 const FeaturesSection = () => {
   const [index, setIndex] = useState(0)
 
-  // Cycle through roles every 3 seconds
   useEffect(() => {
     const timer = setInterval(() => {
-      setIndex((prev) => (prev + 1) % ROLES.length)
+      setIndex((prev) => (prev + 1) % NOUNS.length)
     }, 3000)
     return () => clearInterval(timer)
   }, [])
@@ -59,24 +77,13 @@ const FeaturesSection = () => {
             Why Choose Us
           </span>
           
-          <h2 className="text-3xl md:text-5xl font-bold text-white mt-4 mb-6 flex flex-col md:flex-row items-center justify-center gap-2 md:gap-3">
-            <span>Built for</span>
-            
-            {/* Animated Text Container */}
-            <div className="relative h-[1.2em] w-full md:w-auto overflow-hidden min-w-[300px] flex justify-center md:justify-start">
-              <AnimatePresence mode="wait">
-                <motion.span
-                  key={index}
-                  initial={{ y: 40, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  exit={{ y: -40, opacity: 0 }}
-                  transition={{ duration: 0.5, ease: "easeOut" }}
-                  className="absolute text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-600"
-                >
-                  {ROLES[index]}.
-                </motion.span>
-              </AnimatePresence>
-            </div>
+          <h2 className="text-3xl md:text-5xl font-bold text-white mt-4 mb-6 leading-tight flex flex-wrap justify-center gap-x-2 md:gap-x-3">
+            {/* The Static and Dynamic Text Line */}
+            <span className="whitespace-nowrap">Built for</span>
+            <AnimatedWord word={NOUNS[index]} />
+            <span className="whitespace-nowrap">by</span>
+            <AnimatedWord word={NOUNS[index]} />
+            <span>.</span>
           </h2>
 
           <p className="text-gray-400 text-lg max-w-2xl mx-auto">
