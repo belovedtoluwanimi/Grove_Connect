@@ -35,7 +35,7 @@ const Home = () => {
 
       {/* STAGE 3: MAIN WEBSITE */}
       {stage === 'main' && (
-        <main className="bg-black min-h-screen w-full animate-in fade-in slide-in-from-bottom-4 duration-1000 flex flex-col">
+        <main id='main' className="bg-black min-h-screen w-full animate-in fade-in slide-in-from-bottom-4 duration-1000 flex flex-col">
           <Navbar />
           
           {/* Hero Section */}

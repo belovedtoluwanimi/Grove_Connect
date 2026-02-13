@@ -16,7 +16,7 @@ export const Obong = "https://res.cloudinary.com/dxozkyy38/image/upload/v1768593
 export const navItems = [
   {
     name: "Home",
-    link: "/", 
+    link: "/main", 
     target: "_self"
   },
   { 
