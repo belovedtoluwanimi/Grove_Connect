@@ -92,20 +92,14 @@ export default function ContactPage() {
               <ContactCard 
                 icon={Mail} 
                 title="Email Us" 
-                detail="hello@groveconnect.com" 
+                detail="groveconn3ct22@gmail.com" 
                 sub="We typically reply within 2 hours." 
               />
               <ContactCard 
                 icon={Phone} 
                 title="Call Support" 
-                detail="+1 (555) 000-0000" 
+                detail="+234-9134709682" 
                 sub="Mon-Fri from 8am to 5pm." 
-              />
-              <ContactCard 
-                icon={MapPin} 
-                title="Visit Us" 
-                detail="123 Innovation Dr, Tech City" 
-                sub="Come say hello at our office HQ." 
               />
             </div>
 
