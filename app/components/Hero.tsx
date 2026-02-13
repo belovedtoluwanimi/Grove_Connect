@@ -122,7 +122,7 @@ const Hero = () => {
         {/* Trust/Social Proof */}
         <div className="mt-16 flex flex-col items-center gap-4 opacity-50 grayscale hover:grayscale-0 transition-all duration-700">
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Trusted by learners from</p>
-          <div className="flex items-center gap-8 md:gap-12">
+          <div className="flex items-center text-white/70 gap-8 md:gap-12">
              <span className="text-xl font-bold font-sans">Google</span>
              <span className="text-xl font-bold font-sans">Spotify</span>
              <span className="text-xl font-bold font-sans">Twitch</span>
