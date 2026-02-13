@@ -9,7 +9,7 @@ import Image from 'next/image';
 import { logo, navItems } from '../assets'; 
 import Link from 'next/link';
 import { useAuth } from '@/app/hooks/useAuth'; 
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation'; // Added usePathname
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Navbar = () => {
@@ -17,12 +17,12 @@ const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const { user, supabase } = useAuth();
   const router = useRouter();
+  const pathname = usePathname(); // Get current route
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   // Handle Scroll Effect
   useEffect(() => {
     const handleScroll = () => {
-      // Check if window exists to avoid server-side errors
       if (typeof window !== 'undefined') {
         setScrolled(window.scrollY > 10);
       }
@@ -37,6 +37,12 @@ const Navbar = () => {
     setShowUserMenu(false);
     router.push('/');
     router.refresh();
+  };
+
+  // Helper to check if link is active
+  const isActiveLink = (link: string) => {
+    if (link === '/') return pathname === '/';
+    return pathname.startsWith(link);
   };
 
   return (
@@ -68,15 +74,27 @@ const Navbar = () => {
 
         {/* 2. DESKTOP LINKS */}
         <div className="hidden md:flex items-center gap-8">
-          {navItems.map((item: any, idx: number) => (
-            <Link 
-              key={idx} 
-              href={item.link}
-              className="text-sm font-medium text-zinc-400 hover:text-white transition-colors"
-            >
-              {item.name}
-            </Link>
-          ))}
+          {navItems.map((item: any, idx: number) => {
+            const active = isActiveLink(item.link);
+            return (
+              <Link 
+                key={idx} 
+                href={item.link}
+                className={`text-sm font-medium transition-colors relative
+                  ${active ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'}
+                `}
+              >
+                {item.name}
+                {/* Active Indicator Dot */}
+                {active && (
+                  <motion.div 
+                    layoutId="navbar-indicator"
+                    className="absolute -bottom-1 left-0 right-0 h-0.5 bg-green-500 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.8)]"
+                  />
+                )}
+              </Link>
+            );
+          })}
         </div>
 
         {/* 3. AUTH & ACTIONS */}
@@ -86,7 +104,10 @@ const Navbar = () => {
             // --- LOGGED IN STATE ---
             <div className="flex items-center gap-4">
               <Link href="/dashboard">
-                <button className="p-2 text-zinc-400 hover:text-white transition-colors" title="My Learning">
+                <button 
+                  className={`p-2 transition-colors ${pathname.startsWith('/dashboard') ? 'text-green-400 bg-white/5 rounded-lg' : 'text-zinc-400 hover:text-white'}`} 
+                  title="My Learning"
+                >
                    <LayoutDashboard size={20} />
                 </button>
               </Link>
@@ -164,11 +185,19 @@ const Navbar = () => {
             className="md:hidden fixed inset-0 top-0 bg-[#050505] z-[90] flex flex-col pt-24"
           >
             <div className="flex flex-col p-6 space-y-6">
-              {navItems.map((item: any, idx: number) => (
-                <Link key={idx} href={item.link} onClick={() => setIsOpen(false)} className="text-3xl font-bold text-zinc-400 hover:text-white transition-all">
-                  {item.name}
-                </Link>
-              ))}
+              {navItems.map((item: any, idx: number) => {
+                const active = isActiveLink(item.link);
+                return (
+                  <Link 
+                    key={idx} 
+                    href={item.link} 
+                    onClick={() => setIsOpen(false)} 
+                    className={`text-3xl font-bold transition-all ${active ? 'text-white' : 'text-zinc-500 hover:text-white'}`}
+                  >
+                    {item.name}
+                  </Link>
+                );
+              })}
               <div className="w-full h-[1px] bg-white/10" />
               {!user && (
                   <Link href="/auth" onClick={() => setIsOpen(false)} className="text-xl font-bold text-white flex items-center gap-2">
