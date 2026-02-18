@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { ShieldCheck, User, Briefcase, ScanFace, CheckCircle2, Loader2, AlertCircle } from 'lucide-react'
 import { createClient } from '@/app/utils/supabase/client'
 import { InstructorVerification } from '../../types'
-import { Input } from '../ui-parts'
+import { Input } from '@/app/admin/create-course/components'
 
 interface Props {
   onStatusChange: (status: InstructorVerification['status']) => void
