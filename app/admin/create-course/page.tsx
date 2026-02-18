@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { 
   Save, ChevronLeft, Plus, Trash2, Video, FileText, 
   CheckCircle2, Upload, ShieldCheck, DollarSign, 
@@ -8,7 +8,8 @@ import {
   AlertCircle, Eye, Play, ImageIcon, User, Crown, 
   Calendar, MessageSquare, Briefcase, GraduationCap,
   Clock, Settings, Sparkles, Lock, ScanFace, ShieldAlert,
-  Globe, Server, Fingerprint, Wifi
+  Globe, Server, Fingerprint, Wifi, AlertTriangle, ArrowRight,
+  MonitorPlay, Map, Users
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -17,31 +18,61 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@/app/utils/supabase/client'
 
 // ----------------------------------------------------------------------
-// 1. TYPE DEFINITIONS (Strict Typing for Professional Data Structure)
+// 1. DOMAIN TYPES (Strict & Scalable)
 // ----------------------------------------------------------------------
 
 type CourseMode = 'standard' | 'premium' | null
 type Step = 'mode' | 'details' | 'curriculum' | 'mentorship' | 'pricing' | 'verification' | 'review'
 
-interface Lecture {
+// -- Curriculum / Roadmap Types --
+interface ContentItem {
   id: string
   title: string
-  type: 'video' | 'article' | 'quiz' | 'assignment'
-  content?: string // For articles or quiz JSON
+  type: 'video' | 'article' | 'quiz' | 'assignment' | 'live_session'
+  duration?: number // minutes
+  isFreePreview?: boolean
   videoUrl?: string
-  duration?: number
-  isFreePreview: boolean
+  content?: string
 }
 
-interface Section {
+interface Module {
   id: string
   title: string
-  isMilestone: boolean // Premium Feature
-  lectures: Lecture[]
+  items: ContentItem[]
   isOpen: boolean
+  // Premium Specifics
+  isMilestone?: boolean
+  milestoneGoal?: string
 }
 
+// -- Scheduling Types --
+interface TimeWindow {
+  start: string // "09:00"
+  end: string   // "17:00"
+}
+
+interface DayAvailability {
+  day: string
+  enabled: boolean
+  windows: TimeWindow[]
+}
+
+interface SchedulingConfig {
+  timezone: string
+  platform: 'google_meet' | 'zoom' | 'jitsi' | 'custom'
+  customLink?: string
+  sessionDuration: number // minutes
+  bufferTime: number // minutes
+  availability: DayAvailability[]
+  bookingRules: {
+    maxPerWeek: number
+    minLeadTime: number // hours
+  }
+}
+
+// -- Main State --
 interface CourseData {
+  // Meta
   mode: CourseMode
   title: string
   subtitle: string
@@ -49,43 +80,54 @@ interface CourseData {
   category: string
   customCategory: string
   level: string
-  price: string
-  objectives: string[]
-  curriculum: Section[]
   thumbnail: string | null
   promoVideo: string | null
-  // Premium Specifics
-  mentorshipEnabled: boolean
-  sessionDuration: string
-  availability: string[]
+  objectives: string[]
+  
+  // Content
+  modules: Module[] // Acts as Sections (Standard) or Phases (Premium)
+  
+  // Premium Config
+  premiumConfig?: {
+    format: 'cohort' | 'self_paced'
+    cohortStartDate?: string
+    communityAccess: boolean
+    prioritySupport: boolean
+    scheduling: SchedulingConfig
+  }
+
+  // Pricing
+  pricing: {
+    type: 'free' | 'one_time' | 'subscription'
+    amount: string
+    currency: string
+  }
 }
 
 // ----------------------------------------------------------------------
-// 2. CONSTANTS & MOCK DATA
+// 2. CONSTANTS
 // ----------------------------------------------------------------------
 
-const CATEGORIES = [
-  "Development", 
-  "Business", 
-  "Finance & Accounting", 
-  "IT & Software", 
-  "Office Productivity", 
-  "Personal Development", 
-  "Design", 
-  "Marketing", 
-  "Lifestyle", 
-  "Photography & Video", 
-  "Health & Fitness", 
-  "Music", 
-  "Teaching & Academics",
-  "Other"
-]
+const CATEGORIES = ["Development", "Business", "Finance", "Design", "Marketing", "Photography", "Health", "Music", "Lifestyle", "Other"]
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const DEFAULT_AVAILABILITY: DayAvailability[] = DAYS.map(d => ({ day: d, enabled: ['Mon','Wed','Fri'].includes(d), windows: [{start: '09:00', end: '17:00'}] }))
 
-const LEVELS = ["Beginner", "Intermediate", "Expert", "All Levels"]
-
-// Premium pricing starts higher
-const STANDARD_PRICES = ['Free', '19.99', '29.99', '49.99', '99.99']
-const PREMIUM_PRICES = ['199.99', '299.99', '499.99', '999.99']
+const INITIAL_DATA: CourseData = {
+  mode: null,
+  title: '',
+  subtitle: '',
+  description: '',
+  category: 'Development',
+  customCategory: '',
+  level: 'Beginner',
+  thumbnail: null,
+  promoVideo: null,
+  objectives: ['', '', ''],
+  modules: [
+    { id: 'mod-1', title: 'Introduction', items: [], isOpen: true }
+  ],
+  pricing: { type: 'one_time', amount: '', currency: 'USD' }
+}
 
 // ----------------------------------------------------------------------
 // 3. MAIN COMPONENT
@@ -96,544 +138,676 @@ export default function CourseStudio() {
   const { user } = useAuth()
   const supabase = createClient()
   
-  // --- STATE MANAGEMENT ---
+  // State
+  const [data, setData] = useState<CourseData>(INITIAL_DATA)
   const [step, setStep] = useState<Step>('mode')
   const [loading, setLoading] = useState(false)
-  const [uploading, setUploading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [lastSaved, setLastSaved] = useState<Date | null>(null)
   
-  // Verification State (The "Algorithm")
-  const [isVerified, setIsVerified] = useState(false)
-  const [verificationStep, setVerificationStep] = useState(0) 
-  const [verificationLog, setVerificationLog] = useState<string[]>([])
-  
-  // Validation Errors
-  const [publishError, setPublishError] = useState<string | null>(null)
-
-  // Main Course Data Object
-  const [data, setData] = useState<CourseData>({
-    mode: null,
-    title: '',
-    subtitle: '',
-    description: '',
-    category: 'Development',
-    customCategory: '',
-    level: 'Beginner',
-    price: '',
-    objectives: ['', '', ''],
-    curriculum: [
-      { 
-        id: Math.random().toString(36).substr(2, 9), 
-        title: 'Introduction', 
-        isMilestone: false, 
-        isOpen: true, 
-        lectures: [] 
-      }
-    ],
-    thumbnail: null,
-    promoVideo: null,
-    mentorshipEnabled: false,
-    sessionDuration: '30 Minutes',
-    availability: ['Mon', 'Wed', 'Fri']
+  // Verification State
+  const [verificationStatus, setVerificationStatus] = useState({
+    identity: false,
+    profile: false,
+    payouts: false
   })
+  
+  // Load draft from local storage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('grove_course_draft')
+    if (saved) {
+      try { setData(JSON.parse(saved)); setLastSaved(new Date()) } catch (e) {}
+    }
+  }, [])
 
-  // ----------------------------------------------------------------------
-  // 4. LOGIC HANDLERS
-  // ----------------------------------------------------------------------
+  // Auto-save effect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      localStorage.setItem('grove_course_draft', JSON.stringify(data))
+      setLastSaved(new Date())
+    }, 3000)
+    return () => clearTimeout(timer)
+  }, [data])
 
-  // A. Mode Selection Logic
+  // --- ACTIONS ---
+
   const handleModeSelect = (mode: CourseMode) => {
-    // Reset pricing defaults based on mode
-    const defaultPrice = mode === 'premium' ? '499.99' : '49.99'
-    setData(prev => ({ 
-      ...prev, 
-      mode, 
-      price: defaultPrice,
-      mentorshipEnabled: mode === 'premium' 
-    }))
+    const newData = { ...data, mode }
+    if (mode === 'premium') {
+      newData.premiumConfig = {
+        format: 'self_paced',
+        communityAccess: true,
+        prioritySupport: true,
+        scheduling: {
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          platform: 'google_meet',
+          sessionDuration: 45,
+          bufferTime: 15,
+          availability: DEFAULT_AVAILABILITY,
+          bookingRules: { maxPerWeek: 2, minLeadTime: 24 }
+        }
+      }
+      newData.pricing.amount = '499' // Default premium price
+    } else {
+      newData.pricing.amount = '49' // Default standard price
+      delete newData.premiumConfig
+    }
+    setData(newData)
     setStep('details')
   }
 
-  // B. Video Conference Tester (Jitsi Integration)
-  const handleTestMeeting = () => {
-    const roomId = `grove-secure-${Math.random().toString(36).substr(2, 9)}-${Date.now()}`
-    const meetingUrl = `https://meet.jit.si/${roomId}`
-    window.open(meetingUrl, '_blank')
-  }
-
-  // C. Security Algorithm (KYC Simulation)
-  const runSecurityCheck = () => {
-    setVerificationStep(1)
-    setVerificationLog([])
-    
-    const logs = [
-      "Initializing Biometric Scan...",
-      "Encrypting User Session...",
-      "Analyzing Facial Structure...",
-      "Connecting to Global Interpol Database...",
-      "Checking Financial Watchlists (OFAC)...",
-      "Verifying Instructor Authenticity...",
-      "Scanning for Deepfake Patterns...",
-      "Identity Confirmed: 100% Match.",
-      "Instructor Authorized."
-    ]
-
-    let i = 0
-    const interval = setInterval(() => {
-      if (i >= logs.length) {
-        clearInterval(interval)
-        setVerificationStep(3)
-        setIsVerified(true)
-      } else {
-        setVerificationLog(prev => [...prev, logs[i]])
-        if (i === 3) setVerificationStep(2)
-        i++
-      }
-    }, 800)
-  }
-
-  // D. File Upload Simulation
-  // In production, this would upload to Supabase Storage buckets
-  const handleUpload = async (file: File, type: 'thumbnail' | 'video') => {
-    setUploading(true)
-    await new Promise(resolve => setTimeout(resolve, 1500)) // Network delay
-    
-    const url = URL.createObjectURL(file) // Local preview URL
-    
-    if (type === 'thumbnail') setData(prev => ({ ...prev, thumbnail: url }))
-    else setData(prev => ({ ...prev, promoVideo: url }))
-    
-    setUploading(false)
-  }
-
-  // E. Curriculum Logic Handlers
-  const addSection = () => {
-    const newSection: Section = { 
-      id: Math.random().toString(36).substr(2, 9), 
-      title: 'New Section', 
-      isMilestone: false, 
-      isOpen: true, 
-      lectures: [] 
-    }
-    setData(p => ({...p, curriculum: [...p.curriculum, newSection]}))
-  }
-
-  const updateSection = (id: string, field: keyof Section, val: any) => {
-    setData(p => ({
-      ...p, 
-      curriculum: p.curriculum.map(s => s.id === id ? { ...s, [field]: val } : s)
-    }))
-  }
-  
-  const deleteSection = (id: string) => {
-    if(confirm("Are you sure you want to delete this section?")) {
-        setData(p => ({...p, curriculum: p.curriculum.filter(s => s.id !== id)}))
-    }
-  }
-
-  const addLecture = (sId: string) => {
-    const newLecture: Lecture = { 
-      id: Math.random().toString(36).substr(2, 9), 
-      title: 'New Lecture', 
-      type: 'video', 
-      isFreePreview: false 
-    }
-    setData(p => ({
-      ...p, 
-      curriculum: p.curriculum.map(s => s.id === sId ? { ...s, lectures: [...s.lectures, newLecture] } : s)
-    }))
-  }
-
-  const updateLecture = (sId: string, lId: string, field: keyof Lecture, val: any) => {
-    setData(p => ({
-      ...p, 
-      curriculum: p.curriculum.map(s => s.id !== sId ? s : { 
-        ...s, 
-        lectures: s.lectures.map(l => l.id === lId ? { ...l, [field]: val } : l)
-      })
-    }))
-  }
-
-  // F. Publish to Supabase
   const handlePublish = async () => {
-    if (!isVerified) {
-      setStep('verification')
-      return
-    }
-    
     setLoading(true)
-    setPublishError(null)
-
-    // Validation
-    if (!data.title || !data.description || !data.price || !data.thumbnail) {
-      setPublishError("Missing required fields. Please check Details and Pricing.")
-      setLoading(false)
-      return
-    }
-
     try {
-      // 1. Determine final category
-      const finalCategory = data.category === 'Other' ? data.customCategory : data.category
-      
-      // 2. Construct Payload
+      if (!user) throw new Error("Unauthorized")
+
+      // 1. Validate
+      const isVerified = Object.values(verificationStatus).every(Boolean)
+      if (!isVerified) {
+        setStep('verification')
+        throw new Error("Please complete verification steps.")
+      }
+
+      // 2. Prepare Payload
       const payload = {
-        instructor_id: user?.id,
+        instructor_id: user.id,
         title: data.title,
         subtitle: data.subtitle,
         description: data.description,
-        category: finalCategory,
+        category: data.category === 'Other' ? data.customCategory : data.category,
         level: data.level,
-        price: parseFloat(data.price),
-        curriculum_data: data.curriculum, // Store the JSON structure
+        price: parseFloat(data.pricing.amount) || 0,
+        currency: data.pricing.currency,
         thumbnail_url: data.thumbnail,
         promo_video_url: data.promoVideo,
-        is_premium: data.mode === 'premium', // This flag separates Exclusive courses
-        mentorship_config: data.mode === 'premium' ? {
-            enabled: data.mentorshipEnabled,
-            duration: data.sessionDuration,
-            availability: data.availability
-        } : null,
+        
+        // Architecture Separation
+        is_premium: data.mode === 'premium',
+        
+        // JSON Fields for complex data
+        curriculum_data: data.modules, // Stores Sections/Phases structure
+        program_config: data.premiumConfig || null, // Stores Scheduling/Roadmap settings
+        
         status: 'published',
         published_at: new Date().toISOString()
       }
 
-      // 3. Insert into Supabase
       const { error } = await supabase.from('courses').insert([payload])
-      
       if (error) throw error
 
-      // 4. Success Redirect
-      router.push('/dashboard/instructor') 
-
+      localStorage.removeItem('grove_course_draft')
+      router.push('/dashboard/instructor')
+      
     } catch (err: any) {
-      console.error(err)
-      // If no DB connection (Demo Mode), show error but simulate success after delay
-      setPublishError("Connection failed. (Demo: Redirecting in 1s...)")
-      setTimeout(() => router.push('/dashboard/instructor'), 1500)
+      alert(err.message || "Publishing failed")
     } finally {
       setLoading(false)
     }
   }
 
-  // ----------------------------------------------------------------------
-  // 5. RENDER LOGIC
-  // ----------------------------------------------------------------------
+  // --- RENDERERS ---
 
-  if (step === 'mode') return <ModeSelection onSelect={handleModeSelect} />
+  if (step === 'mode') return <ModeSelector onSelect={handleModeSelect} />
 
   return (
-    <div className="min-h-screen bg-black text-white flex font-sans selection:bg-emerald-500/30">
+    <div className="min-h-screen bg-[#050505] text-white flex font-sans selection:bg-emerald-500/30">
       
-      {/* SIDEBAR NAVIGATION */}
-      <aside className="w-72 bg-zinc-950 border-r border-white/10 flex flex-col p-6 sticky top-0 h-screen shrink-0">
+      {/* 1. SIDEBAR NAVIGATION */}
+      <aside className="w-72 bg-[#0a0a0a] border-r border-white/10 flex flex-col p-6 sticky top-0 h-screen shrink-0 z-20">
         <div className="mb-8">
-          <button onClick={() => setStep('mode')} className="text-zinc-500 hover:text-white flex items-center gap-2 text-sm mb-4 transition-colors">
-            <ChevronLeft size={16} /> Switch Mode
+          <button onClick={() => setStep('mode')} className="text-zinc-500 hover:text-white flex items-center gap-2 text-xs font-bold uppercase tracking-wider mb-4 transition-colors">
+            <ChevronLeft size={14} /> Back to Modes
           </button>
           <h2 className="font-bold text-lg leading-tight mb-2 line-clamp-2">{data.title || "Untitled Course"}</h2>
-          <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded border w-fit ${data.mode === 'premium' ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'}`}>
-            {data.mode} Mode
+          <span className={`text-[10px] font-black uppercase px-2 py-1 rounded border w-fit flex items-center gap-1 ${data.mode === 'premium' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'}`}>
+            {data.mode === 'premium' && <Crown size={10} fill="currentColor"/>} {data.mode} Course
           </span>
         </div>
 
         <nav className="space-y-1 flex-1">
-          <NavBtn active={step === 'details'} icon={FileText} label="Details" onClick={() => setStep('details')} />
-          <NavBtn active={step === 'curriculum'} icon={Layout} label="Curriculum" onClick={() => setStep('curriculum')} />
-          {data.mode === 'premium' && <NavBtn active={step === 'mentorship'} icon={Video} label="Mentorship" onClick={() => setStep('mentorship')} />}
+          <NavBtn active={step === 'details'} icon={FileText} label="Basic Details" onClick={() => setStep('details')} />
+          <NavBtn active={step === 'curriculum'} icon={data.mode === 'premium' ? Map : Layout} label={data.mode === 'premium' ? "Roadmap & Modules" : "Curriculum"} onClick={() => setStep('curriculum')} />
+          {data.mode === 'premium' && <NavBtn active={step === 'mentorship'} icon={Calendar} label="Scheduling & Live" onClick={() => setStep('mentorship')} />}
           <NavBtn active={step === 'pricing'} icon={DollarSign} label="Pricing" onClick={() => setStep('pricing')} />
           <div className="h-px bg-white/10 my-4" />
-          <NavBtn active={step === 'verification'} icon={ScanFace} label="Identity Check" onClick={() => setStep('verification')} alert={!isVerified} />
-          <NavBtn active={step === 'review'} icon={ShieldCheck} label="Publish" onClick={() => setStep('review')} />
+          <NavBtn active={step === 'verification'} icon={ShieldCheck} label="Verification" onClick={() => setStep('verification')} alert={!Object.values(verificationStatus).every(Boolean)} />
+          <NavBtn active={step === 'review'} icon={CheckCircle2} label="Review & Publish" onClick={() => setStep('review')} />
         </nav>
         
-        {/* Progress Bar */}
         <div className="mt-auto pt-6 border-t border-white/5">
-            <div className="flex justify-between text-xs text-zinc-500 mb-2">
-                <span>Completion</span>
-                <span>{isVerified ? '100%' : '80%'}</span>
-            </div>
-            <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
-                <div className={`h-full ${isVerified ? 'bg-emerald-500' : 'bg-zinc-600'} transition-all duration-500`} style={{width: isVerified ? '100%' : '80%'}} />
+            <div className="flex justify-between text-[10px] text-zinc-500 mb-2 uppercase font-bold tracking-wider">
+                <span>{lastSaved ? 'Saved' : 'Unsaved'}</span>
+                <span>{lastSaved?.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
             </div>
         </div>
       </aside>
 
-      {/* MAIN CONTENT AREA */}
-      <main className="flex-1 bg-black relative overflow-y-auto">
+      {/* 2. MAIN WORKSPACE */}
+      <main className="flex-1 relative overflow-y-auto bg-black">
         <div className="max-w-5xl mx-auto p-12 pb-32">
           
-          {/* STEP 1: DETAILS */}
+          {/* --- STEP 1: DETAILS --- */}
           {step === 'details' && (
-            <div className="space-y-8 animate-in fade-in">
-              <Header title="Course Details" sub="The foundation of your course." />
+            <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4">
+              <Header 
+                title="Course Essentials" 
+                sub="Lay the foundation for your student's success." 
+              />
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-6">
-                  <Input label="Title" value={data.title} onChange={v => setData({...data, title: v})} placeholder="e.g. Advanced AI Patterns" />
-                  <Input label="Subtitle" value={data.subtitle} onChange={v => setData({...data, subtitle: v})} placeholder="A short, catchy hook." />
+                  <Input label="Title" value={data.title} onChange={v => setData({...data, title: v})} placeholder="e.g. Advanced System Design" />
+                  <Input label="Subtitle" value={data.subtitle} onChange={v => setData({...data, subtitle: v})} placeholder="The hook that grabs attention." />
                   
-                  {/* Smart Sector Selector */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-zinc-400">Sector / Category</label>
+                    <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Category</label>
                     <div className="flex gap-2 flex-wrap">
                       {CATEGORIES.map(cat => (
-                        <button key={cat} onClick={() => setData({...data, category: cat})} className={`px-4 py-2 rounded-lg text-sm border transition-all ${data.category === cat ? 'bg-white text-black border-white' : 'bg-zinc-900 border-white/10 text-zinc-400'}`}>{cat}</button>
+                        <button key={cat} onClick={() => setData({...data, category: cat})} className={`px-4 py-2 rounded-lg text-sm border transition-all ${data.category === cat ? 'bg-white text-black border-white font-bold' : 'bg-zinc-900 border-white/10 text-zinc-400 hover:border-white/30'}`}>{cat}</button>
                       ))}
                     </div>
                     {data.category === 'Other' && (
-                      <input value={data.customCategory} onChange={e => setData({...data, customCategory: e.target.value})} className="w-full mt-2 bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 focus:border-emerald-500 outline-none" placeholder="Type your specific sector..." />
+                      <input value={data.customCategory} onChange={e => setData({...data, customCategory: e.target.value})} className="w-full mt-2 bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 focus:border-emerald-500 outline-none" placeholder="Specific Niche..." />
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-zinc-400">Description</label>
-                    <textarea value={data.description} onChange={e => setData({...data, description: e.target.value})} className="w-full h-40 bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-emerald-500 resize-none" />
+                    <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">What will they learn?</label>
+                    {data.objectives.map((obj, i) => (
+                      <div key={i} className="flex gap-2">
+                        <input value={obj} onChange={e => {const n = [...data.objectives]; n[i] = e.target.value; setData({...data, objectives: n})}} className="flex-1 bg-zinc-900 border border-white/10 rounded-lg px-4 py-2 text-sm" placeholder="Outcome..." />
+                        <button onClick={() => setData(p => ({...p, objectives: p.objectives.filter((_, idx) => idx !== i)}))} className="text-zinc-600 hover:text-red-500"><X size={16}/></button>
+                      </div>
+                    ))}
+                    <button onClick={() => setData(p => ({...p, objectives: [...p.objectives, '']}))} className="text-xs font-bold text-emerald-500 flex items-center gap-1 mt-1"><Plus size={14}/> Add Outcome</button>
                   </div>
                 </div>
+
                 <div className="space-y-6">
-                  <MediaUpload label="Thumbnail" type="image" url={data.thumbnail} uploading={uploading} onUpload={(f) => handleUpload(f, 'thumbnail')} />
-                  <MediaUpload label="Promo Video" type="video" url={data.promoVideo} uploading={uploading} onUpload={(f) => handleUpload(f, 'video')} />
+                  <MediaUpload label="Course Thumbnail" type="image" url={data.thumbnail} onUpload={(url) => setData({...data, thumbnail: url})} />
+                  <MediaUpload label="Promotional Video" type="video" url={data.promoVideo} onUpload={(url) => setData({...data, promoVideo: url})} />
                 </div>
               </div>
             </div>
           )}
 
-          {/* STEP 2: CURRICULUM */}
+          {/* --- STEP 2: CURRICULUM / ROADMAP --- */}
           {step === 'curriculum' && (
-            <div className="space-y-8 animate-in fade-in">
-              <div className="flex justify-between items-end">
-                <Header title="Curriculum" sub="Structure your content." />
-                <button onClick={addSection} className="bg-white text-black px-4 py-2 rounded-lg font-bold hover:bg-zinc-200 flex items-center gap-2"><Plus size={16}/> Section</button>
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+              <div className="flex justify-between items-end border-b border-white/10 pb-6">
+                <Header 
+                  title={data.mode === 'premium' ? "Program Roadmap" : "Course Curriculum"} 
+                  sub={data.mode === 'premium' ? "Structure your mentorship phases and milestones." : "Organize your lectures and sections."} 
+                />
+                <button onClick={() => setData(p => ({...p, modules: [...p.modules, { id: Date.now().toString(), title: data.mode === 'premium' ? 'New Phase' : 'New Section', items: [], isOpen: true }]}))} className="bg-white text-black px-4 py-2 rounded-lg font-bold hover:bg-zinc-200 flex items-center gap-2 text-sm">
+                  <Plus size={16}/> {data.mode === 'premium' ? 'Add Phase' : 'Add Section'}
+                </button>
               </div>
-              <div className="space-y-4">
-                {data.curriculum.map((section) => (
-                  <div key={section.id} className="bg-zinc-900/40 border border-white/10 rounded-xl overflow-hidden">
-                    <div className="p-4 flex items-center gap-4 bg-zinc-900/50 border-b border-white/5">
-                      <button onClick={() => updateSection(section.id, 'isOpen', !section.isOpen)}><ChevronDown size={20} className={`transition-transform ${section.isOpen ? '' : '-rotate-90'}`} /></button>
-                      <input value={section.title} onChange={e => updateSection(section.id, 'title', e.target.value)} className="bg-transparent font-bold text-white w-full outline-none" />
-                      {data.mode === 'premium' && (
-                        <button onClick={() => updateSection(section.id, 'isMilestone', !section.isMilestone)} className={`flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-bold uppercase ${section.isMilestone ? 'bg-yellow-500 text-black border-yellow-500' : 'border-white/10 text-zinc-500'}`}><Crown size={12} /> Milestone</button>
-                      )}
-                      <button onClick={() => deleteSection(section.id)} className="text-zinc-600 hover:text-red-500"><Trash2 size={16}/></button>
-                    </div>
-                    {section.isOpen && (
-                      <div className="p-4 space-y-2">
-                        {section.lectures.map((lec) => (
-                          <div key={lec.id} className="flex items-center gap-3 p-3 bg-zinc-800/30 rounded-lg border border-white/5">
-                            <div className="p-2 bg-zinc-800 rounded text-zinc-400">{lec.type === 'video' ? <Video size={14}/> : <FileText size={14}/>}</div>
-                            <input value={lec.title} onChange={e => updateLecture(section.id, lec.id, 'title', e.target.value)} className="bg-transparent text-sm text-white w-full outline-none" />
-                            <div className="flex gap-2">
-                                <select value={lec.type} onChange={e => updateLecture(section.id, lec.id, 'type', e.target.value)} className="bg-zinc-900 text-xs text-zinc-400 border border-white/10 rounded px-2 outline-none cursor-pointer">
-                                    <option value="video">Video</option>
-                                    <option value="article">Article</option>
-                                    {data.mode === 'premium' && <option value="assignment">Assignment</option>}
-                                    {data.mode === 'premium' && <option value="quiz">Quiz</option>}
-                                </select>
-                                <button onClick={() => updateLecture(section.id, lec.id, 'isFreePreview', !lec.isFreePreview)} className={`p-1.5 rounded ${lec.isFreePreview ? 'text-emerald-400 bg-emerald-400/10' : 'text-zinc-600 hover:text-zinc-400'}`} title="Free Preview"><Eye size={14}/></button>
-                            </div>
-                          </div>
-                        ))}
-                        <button onClick={() => addLecture(section.id)} className="w-full py-3 border border-dashed border-white/10 rounded-lg text-sm text-zinc-500 hover:text-white flex items-center justify-center gap-2"><Plus size={14}/> Add Content</button>
+
+              <div className="space-y-6">
+                {data.modules.map((mod, mIdx) => (
+                  <div key={mod.id} className="bg-zinc-900/40 border border-white/10 rounded-xl overflow-hidden">
+                    {/* Module Header */}
+                    <div className="p-4 flex items-center gap-4 bg-zinc-900/80 border-b border-white/5">
+                      <div className="flex flex-col gap-1 flex-1">
+                        <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">
+                          {data.mode === 'premium' ? `Phase ${mIdx + 1}` : `Section ${mIdx + 1}`}
+                        </span>
+                        <input 
+                          value={mod.title} 
+                          onChange={e => {
+                            const newMods = [...data.modules]; newMods[mIdx].title = e.target.value; setData({...data, modules: newMods})
+                          }}
+                          className="bg-transparent font-bold text-white text-lg w-full outline-none placeholder-zinc-700" 
+                          placeholder="Enter title..."
+                        />
                       </div>
-                    )}
+                      
+                      {data.mode === 'premium' && (
+                        <button 
+                          onClick={() => {
+                            const newMods = [...data.modules]; newMods[mIdx].isMilestone = !newMods[mIdx].isMilestone; setData({...data, modules: newMods})
+                          }}
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold uppercase transition-all ${mod.isMilestone ? 'bg-amber-500/20 text-amber-500 border-amber-500/50' : 'border-white/10 text-zinc-600 hover:border-white/30'}`}
+                        >
+                          <Crown size={12} /> Milestone
+                        </button>
+                      )}
+                      
+                      <button onClick={() => setData(p => ({...p, modules: p.modules.filter(m => m.id !== mod.id)}))} className="text-zinc-600 hover:text-red-500 p-2"><Trash2 size={16}/></button>
+                    </div>
+
+                    {/* Content Items */}
+                    <div className="p-4 space-y-3">
+                      {mod.items.map((item, iIdx) => (
+                        <div key={item.id} className="flex items-center gap-3 p-3 bg-black/40 rounded-lg border border-white/5 group hover:border-white/10 transition-colors">
+                          <div className={`p-2 rounded-md ${item.type === 'video' ? 'bg-blue-500/10 text-blue-500' : 'bg-purple-500/10 text-purple-500'}`}>
+                            {item.type === 'video' ? <Video size={14}/> : <FileText size={14}/>}
+                          </div>
+                          <input 
+                            value={item.title}
+                            onChange={e => {
+                              const newMods = [...data.modules]; newMods[mIdx].items[iIdx].title = e.target.value; setData({...data, modules: newMods})
+                            }}
+                            className="bg-transparent text-sm text-white w-full outline-none"
+                            placeholder="Lecture title..."
+                          />
+                          <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                             {/* Simplified Item Type Switcher */}
+                             <select 
+                                value={item.type}
+                                onChange={e => {
+                                  const newMods = [...data.modules]; newMods[mIdx].items[iIdx].type = e.target.value as any; setData({...data, modules: newMods})
+                                }}
+                                className="bg-zinc-800 text-xs rounded border border-white/10 text-zinc-400 outline-none"
+                             >
+                                <option value="video">Video</option>
+                                <option value="article">Article</option>
+                                <option value="assignment">Assignment</option>
+                             </select>
+                          </div>
+                        </div>
+                      ))}
+                      
+                      <button 
+                        onClick={() => {
+                          const newMods = [...data.modules]; 
+                          newMods[mIdx].items.push({ id: Date.now().toString(), title: '', type: 'video', isFreePreview: false }); 
+                          setData({...data, modules: newMods})
+                        }} 
+                        className="w-full py-3 border border-dashed border-white/10 rounded-lg text-xs font-bold uppercase text-zinc-500 hover:text-white hover:border-white/20 flex items-center justify-center gap-2 transition-all"
+                      >
+                        <Plus size={14}/> Add Content
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* STEP 3: MENTORSHIP & VIDEO */}
-          {step === 'mentorship' && (
-             <div className="space-y-8 animate-in fade-in">
-                <Header title="Live Mentorship" sub="Configure 1-on-1 sessions." />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                   <div className="bg-zinc-900 border border-white/10 rounded-2xl p-8">
-                       <div className="flex justify-between items-center mb-6">
-                           <h3 className="text-lg font-bold">Accept Bookings</h3>
-                           <button onClick={() => setData({...data, mentorshipEnabled: !data.mentorshipEnabled})} className={`w-12 h-6 rounded-full p-1 transition-colors ${data.mentorshipEnabled ? 'bg-emerald-500' : 'bg-zinc-700'}`}><div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${data.mentorshipEnabled ? 'translate-x-6' : ''}`} /></button>
+          {/* --- STEP 3: MENTORSHIP (PREMIUM ONLY) --- */}
+          {step === 'mentorship' && data.premiumConfig && (
+             <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4">
+                <Header title="Program Logistics" sub="Configure how you will deliver this premium experience." />
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                   {/* Availability Config */}
+                   <div className="bg-zinc-900/50 border border-white/10 rounded-2xl p-6 space-y-6">
+                       <h3 className="text-lg font-bold flex items-center gap-2"><Calendar size={20} className="text-amber-500"/> Weekly Availability</h3>
+                       <div className="space-y-3">
+                          {data.premiumConfig.scheduling.availability.map((dayAvail, idx) => (
+                             <div key={dayAvail.day} className={`flex items-center gap-4 p-3 rounded-xl border ${dayAvail.enabled ? 'bg-amber-500/5 border-amber-500/20' : 'bg-black/20 border-white/5 opacity-50'}`}>
+                                <div className="flex items-center gap-3 w-32">
+                                   <input 
+                                      type="checkbox" 
+                                      checked={dayAvail.enabled} 
+                                      onChange={() => {
+                                         const newConfig = {...data.premiumConfig!};
+                                         newConfig.scheduling.availability[idx].enabled = !dayAvail.enabled;
+                                         setData({...data, premiumConfig: newConfig});
+                                      }}
+                                      className="accent-amber-500 w-4 h-4"
+                                   />
+                                   <span className="font-bold text-sm">{dayAvail.day}</span>
+                                </div>
+                                {dayAvail.enabled && (
+                                   <div className="flex items-center gap-2 text-sm">
+                                      <input type="time" defaultValue={dayAvail.windows[0].start} className="bg-black border border-white/10 rounded px-2 py-1 outline-none" />
+                                      <span className="text-zinc-500">-</span>
+                                      <input type="time" defaultValue={dayAvail.windows[0].end} className="bg-black border border-white/10 rounded px-2 py-1 outline-none" />
+                                   </div>
+                                )}
+                             </div>
+                          ))}
                        </div>
-                       {data.mentorshipEnabled && (
-                           <div className="space-y-4">
-                               <label className="text-sm font-bold text-zinc-400">Available Days</label>
-                               <div className="flex gap-2 flex-wrap">
-                                   {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(day => (
-                                       <button key={day} onClick={() => { const n = data.availability.includes(day) ? data.availability.filter(d=>d!==day) : [...data.availability, day]; setData({...data, availability: n}) }} className={`w-10 h-10 rounded bg-zinc-800 text-sm font-bold hover:bg-zinc-700 ${data.availability.includes(day) ? 'bg-white text-black' : ''}`}>{day.slice(0,1)}</button>
-                                   ))}
-                               </div>
-                               <label className="text-sm font-bold text-zinc-400 mt-4 block">Session Length</label>
-                               <select value={data.sessionDuration} onChange={e => setData({...data, sessionDuration: e.target.value})} className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none">
-                                   <option>15 Minutes</option>
-                                   <option>30 Minutes</option>
-                                   <option>45 Minutes</option>
-                                   <option>60 Minutes</option>
-                               </select>
-                           </div>
-                       )}
                    </div>
-                   {/* REAL VIDEO TESTER */}
-                   <div className="bg-gradient-to-br from-zinc-900 to-black border border-white/10 rounded-2xl p-8 text-center flex flex-col items-center justify-center">
-                       <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mb-4 text-emerald-500"><Video size={32} /></div>
-                       <h3 className="font-bold text-lg text-white">Test Video Room</h3>
-                       <p className="text-sm text-zinc-400 mb-6">Launch a secure Jitsi instance to check your camera and mic.</p>
-                       <button onClick={handleTestMeeting} className="px-6 py-3 bg-emerald-500 text-black font-bold rounded-xl hover:bg-emerald-400 transition-colors">Launch Test Room</button>
+
+                   {/* Platform Config */}
+                   <div className="space-y-6">
+                       <div className="bg-zinc-900/50 border border-white/10 rounded-2xl p-6">
+                           <h3 className="text-lg font-bold flex items-center gap-2 mb-4"><Video size={20} className="text-amber-500"/> Meeting Platform</h3>
+                           <div className="space-y-4">
+                               <select 
+                                  value={data.premiumConfig.scheduling.platform}
+                                  onChange={(e) => {
+                                     const newConfig = {...data.premiumConfig!};
+                                     newConfig.scheduling.platform = e.target.value as any;
+                                     setData({...data, premiumConfig: newConfig});
+                                  }}
+                                  className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 outline-none"
+                               >
+                                  <option value="google_meet">Google Meet</option>
+                                  <option value="zoom">Zoom</option>
+                                  <option value="jitsi">Jitsi (Integrated)</option>
+                                  <option value="custom">Custom Link</option>
+                               </select>
+                               
+                               <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-1">
+                                     <label className="text-xs text-zinc-500 uppercase font-bold">Duration (Min)</label>
+                                     <input 
+                                        type="number" 
+                                        value={data.premiumConfig.scheduling.sessionDuration}
+                                        onChange={(e) => {
+                                           const newConfig = {...data.premiumConfig!};
+                                           newConfig.scheduling.sessionDuration = parseInt(e.target.value);
+                                           setData({...data, premiumConfig: newConfig});
+                                        }}
+                                        className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 outline-none" 
+                                     />
+                                  </div>
+                                  <div className="space-y-1">
+                                     <label className="text-xs text-zinc-500 uppercase font-bold">Buffer (Min)</label>
+                                     <input 
+                                        type="number" 
+                                        value={data.premiumConfig.scheduling.bufferTime}
+                                        onChange={(e) => {
+                                           const newConfig = {...data.premiumConfig!};
+                                           newConfig.scheduling.bufferTime = parseInt(e.target.value);
+                                           setData({...data, premiumConfig: newConfig});
+                                        }}
+                                        className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 outline-none" 
+                                     />
+                                  </div>
+                               </div>
+                           </div>
+                       </div>
                    </div>
                 </div>
              </div>
           )}
 
-          {/* STEP 4: PRICING */}
+          {/* --- STEP 4: PRICING --- */}
           {step === 'pricing' && (
-            <div className="space-y-8 animate-in fade-in">
-               <Header title="Course Pricing" sub="Set the value of your content." />
-               <div className="flex flex-wrap gap-4">
-                  {(data.mode === 'premium' ? [...PREMIUM_PRICES, 'Custom'] : [...STANDARD_PRICES, 'Custom']).map(p => (
-                      <button key={p} onClick={() => setData({...data, price: p === 'Custom' ? '' : p})} className={`w-32 h-32 rounded-2xl border flex flex-col items-center justify-center gap-2 ${data.price === p ? 'bg-white text-black scale-105' : 'bg-zinc-900 border-white/10 hover:bg-zinc-800'}`}>
-                          <span className="font-bold text-xl">{p === 'Custom' ? 'Custom' : p === 'Free' ? 'Free' : `$${p}`}</span>
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+               <Header title="Pricing Strategy" sub="Set the value of your content." />
+               <div className="flex flex-wrap gap-4 justify-center">
+                  {(data.mode === 'premium' ? PREMIUM_PRICES : STANDARD_PRICES).map(p => (
+                      <button 
+                        key={p} 
+                        onClick={() => setData({...data, pricing: { ...data.pricing, amount: p === 'Custom' ? '' : p }})} 
+                        className={`w-40 h-40 rounded-2xl border flex flex-col items-center justify-center gap-2 transition-all duration-300 ${data.pricing.amount === p ? 'bg-white text-black border-white scale-110 shadow-2xl' : 'bg-zinc-900/50 border-white/10 text-zinc-400 hover:bg-zinc-800 hover:border-white/20'}`}
+                      >
+                          <span className="font-black text-2xl">{p === 'Custom' ? 'Custom' : p === 'Free' ? 'Free' : `$${p}`}</span>
+                          <span className="text-[10px] uppercase font-bold tracking-widest opacity-50">USD / One-time</span>
                       </button>
                   ))}
                </div>
-               {/* Custom Input shows if price is not in the preset list OR user clicked custom */}
-               {(![...STANDARD_PRICES, ...PREMIUM_PRICES].includes(data.price)) && (
-                   <div className="max-w-xs animate-in fade-in">
-                        <label className="text-xs font-bold text-zinc-500 uppercase mb-2 block">Enter Amount ($)</label>
-                        <input type="number" value={data.price} onChange={e => setData({...data, price: e.target.value})} className="bg-zinc-900 border border-white/10 rounded-xl px-6 py-4 text-2xl font-bold w-full text-center outline-none focus:border-emerald-500" placeholder="0.00" />
+               
+               {/* Custom Input */}
+               {(![...STANDARD_PRICES, ...PREMIUM_PRICES].includes(data.pricing.amount) || data.pricing.amount === '') && (
+                   <div className="max-w-xs mx-auto animate-in fade-in">
+                        <label className="text-xs font-bold text-zinc-500 uppercase mb-2 block text-center">Custom Amount</label>
+                        <div className="relative">
+                            <span className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl font-bold text-zinc-500">$</span>
+                            <input 
+                                type="number" 
+                                value={data.pricing.amount} 
+                                onChange={e => setData({...data, pricing: { ...data.pricing, amount: e.target.value }})} 
+                                className="bg-zinc-900 border border-white/10 rounded-xl pl-12 pr-6 py-4 text-3xl font-black w-full text-center outline-none focus:border-white" 
+                                placeholder="0.00" 
+                            />
+                        </div>
                    </div>
                )}
             </div>
           )}
 
-          {/* STEP 5: SECURITY CHECK (THE ALGORITHM) */}
+          {/* --- STEP 5: PROFESSIONAL VERIFICATION --- */}
           {step === 'verification' && (
-             <div className="flex flex-col items-center justify-center py-12 animate-in fade-in">
-                <div className="relative w-32 h-32 mb-8">
-                    <div className={`absolute inset-0 rounded-full border-4 ${verificationStep === 3 ? 'border-green-500' : 'border-zinc-800'}`} />
-                    {verificationStep > 0 && verificationStep < 3 && <div className="absolute inset-0 rounded-full border-4 border-t-emerald-500 animate-spin" />}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        {verificationStep === 3 ? <CheckCircle2 size={48} className="text-green-500" /> : <ScanFace size={48} className="text-zinc-500" />}
-                    </div>
+             <div className="max-w-2xl mx-auto py-8 animate-in fade-in slide-in-from-bottom-4">
+                <Header title="Instructor Verification" sub="We verify every instructor to maintain platform integrity." />
+                
+                <div className="space-y-4">
+                    <VerificationCard 
+                        icon={ScanFace} 
+                        title="Identity Verification" 
+                        desc="Verify your government issued ID via Stripe Identity."
+                        status={verificationStatus.identity}
+                        onVerify={() => {
+                            // Simulating API Call
+                            setLoading(true);
+                            setTimeout(() => { setVerificationStatus(p => ({...p, identity: true})); setLoading(false) }, 2000)
+                        }}
+                        loading={loading}
+                    />
+                    <VerificationCard 
+                        icon={User} 
+                        title="Profile Completeness" 
+                        desc="Ensure your bio, photo, and expertise are populated."
+                        status={verificationStatus.profile}
+                        onVerify={() => setVerificationStatus(p => ({...p, profile: true}))}
+                    />
+                    <VerificationCard 
+                        icon={Briefcase} 
+                        title="Payout Onboarding" 
+                        desc="Connect a bank account to receive earnings."
+                        status={verificationStatus.payouts}
+                        onVerify={() => setVerificationStatus(p => ({...p, payouts: true}))}
+                    />
                 </div>
 
-                <h2 className="text-3xl font-bold mb-4">{isVerified ? "Identity Verified" : "Instructor Security Check"}</h2>
-                
-                {verificationStep === 0 && (
-                    <div className="text-center max-w-md">
-                        <p className="text-zinc-400 mb-8">To maintain platform integrity and prevent fraud, we scan global databases to verify your identity before you can publish.</p>
-                        <button onClick={runSecurityCheck} className="px-8 py-4 bg-white text-black font-bold rounded-full hover:scale-105 transition-transform flex items-center gap-2 mx-auto">
-                            <ShieldAlert size={20} /> Run Security Scan
-                        </button>
-                    </div>
-                )}
-
-                {verificationStep > 0 && (
-                    <div className="w-full max-w-md bg-zinc-900/50 border border-white/10 rounded-xl p-4 font-mono text-xs text-emerald-400 h-48 overflow-y-auto">
-                        {verificationLog.map((log, i) => <div key={i} className="mb-1 border-l-2 border-emerald-500/50 pl-2 animate-in fade-in slide-in-from-left-2">{`> ${log}`}</div>)}
-                        {verificationStep < 3 && <div className="animate-pulse"> Processing...</div>}
-                    </div>
-                )}
-                
-                {verificationStep === 3 && (
-                    <button onClick={() => setStep('review')} className="mt-8 px-8 py-3 bg-emerald-600 text-white font-bold rounded-full hover:bg-emerald-500 transition-colors flex items-center gap-2">
-                        Continue to Publish <ChevronRight size={16} />
-                    </button>
-                )}
+                <div className="mt-8 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-start gap-3">
+                    <ShieldCheck className="text-blue-400 shrink-0 mt-1" size={20} />
+                    <p className="text-xs text-blue-200 leading-relaxed">
+                        By proceeding, you agree to our Instructor Terms. Your course will be reviewed for quality assurance within 24 hours of publishing.
+                    </p>
+                </div>
              </div>
           )}
 
-          {/* STEP 6: REVIEW */}
+          {/* --- STEP 6: REVIEW --- */}
           {step === 'review' && (
-             <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in">
-                <Header title="Final Review" sub="Ensure everything is perfect." />
-                <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 space-y-4">
-                    <ReviewItem label="Course Title" value={data.title} valid={!!data.title} />
-                    <ReviewItem label="Pricing" value={data.price ? (data.price === 'Free' ? 'Free' : `$${data.price}`) : "Not set"} valid={!!data.price} />
-                    <ReviewItem label="Content" value={`${data.curriculum.length} Sections`} valid={data.curriculum.length > 0} />
-                    <ReviewItem label="Thumbnail" value={data.thumbnail ? "Uploaded" : "Missing"} valid={!!data.thumbnail} />
-                    <ReviewItem label="Security Check" value={isVerified ? "Passed" : "Pending"} valid={isVerified} />
-                </div>
+             <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4">
+                <Header title="Final Review" sub="Double check everything before going live." />
                 
-                {publishError && <div className="p-4 bg-red-900/20 text-red-400 rounded-lg text-sm border border-red-500/20">{publishError}</div>}
+                <div className="bg-zinc-900/50 border border-white/10 rounded-2xl overflow-hidden">
+                    <div className="p-6 border-b border-white/5 flex items-center gap-6">
+                        <div className="w-24 h-24 bg-zinc-800 rounded-xl overflow-hidden relative shrink-0">
+                            {data.thumbnail ? <img src={data.thumbnail} className="object-cover w-full h-full" /> : <div className="flex items-center justify-center h-full"><ImageIcon className="text-zinc-600"/></div>}
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold mb-1">{data.title || "Untitled Course"}</h3>
+                            <p className="text-sm text-zinc-400 mb-2">{data.subtitle}</p>
+                            <span className="text-xs font-bold uppercase bg-white/10 px-2 py-1 rounded text-zinc-300">{data.category}</span>
+                        </div>
+                        <div className="ml-auto text-right">
+                            <div className="text-2xl font-black">${data.pricing.amount}</div>
+                            <div className="text-xs text-zinc-500 uppercase font-bold">{data.mode}</div>
+                        </div>
+                    </div>
+                    <div className="p-6 grid grid-cols-2 gap-4 text-sm">
+                        <ReviewRow label="Curriculum" value={`${data.modules.length} Modules`} />
+                        <ReviewRow label="Instructor" value={user?.email || "Unknown"} />
+                        <ReviewRow label="Verification" value="Verified" active />
+                        <ReviewRow label="Payouts" value="Connected" active />
+                    </div>
+                </div>
 
-                <button onClick={handlePublish} disabled={!isVerified || loading} className="w-full py-4 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20">
-                    {loading ? <Loader2 className="animate-spin" /> : <Upload size={20} />} {isVerified ? "Publish Course" : "Complete Security Check First"}
+                <button 
+                    onClick={handlePublish} 
+                    disabled={loading}
+                    className="w-full py-4 bg-white text-black font-black uppercase tracking-widest rounded-xl hover:bg-emerald-400 transition-all shadow-[0_0_40px_-10px_rgba(255,255,255,0.3)] hover:shadow-[0_0_60px_-10px_rgba(52,211,153,0.5)] flex items-center justify-center gap-3"
+                >
+                    {loading ? <Loader2 className="animate-spin" /> : <MonitorPlay size={20} />} 
+                    Publish Course
                 </button>
              </div>
           )}
 
         </div>
       </main>
+      
+      {/* 3. LIVE PREVIEW PANEL (Desktop Only) */}
+      <aside className="hidden 2xl:block w-96 border-l border-white/10 bg-[#0a0a0a] p-8 shrink-0 sticky top-0 h-screen overflow-y-auto">
+         <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-6 flex items-center gap-2"><Eye size={14}/> Student Preview</h3>
+         
+         <div className="bg-black rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
+             <div className="aspect-video bg-zinc-900 relative">
+                 {data.thumbnail && <img src={data.thumbnail} className="w-full h-full object-cover" />}
+                 <div className="absolute inset-0 flex items-center justify-center bg-black/20"><div className="w-12 h-12 bg-white/20 backdrop-blur rounded-full flex items-center justify-center border border-white/30"><Play size={20} fill="currentColor" /></div></div>
+             </div>
+             <div className="p-5">
+                 <h2 className="font-bold text-lg leading-tight mb-2">{data.title || "Your Course Title"}</h2>
+                 <p className="text-xs text-zinc-400 line-clamp-2 mb-4">{data.subtitle || "Your catchy subtitle goes here..."}</p>
+                 
+                 <div className="flex items-center justify-between mb-4">
+                     <div className="flex items-center gap-1 text-amber-400 text-xs font-bold"><Crown size={12}/> <span>4.9</span></div>
+                     <span className="text-xs font-bold text-zinc-500">{data.level}</span>
+                 </div>
+                 
+                 <div className="py-3 border-t border-white/10 flex items-center justify-between">
+                     <span className="text-xl font-black">${data.pricing.amount || '0.00'}</span>
+                     <button className="px-4 py-1.5 bg-white text-black text-xs font-bold rounded-full">Enroll</button>
+                 </div>
+             </div>
+         </div>
+
+         {/* Stats Preview */}
+         <div className="mt-8 space-y-4">
+             <div className="p-4 rounded-xl bg-zinc-900/50 border border-white/5">
+                 <h4 className="text-xs text-zinc-500 font-bold uppercase mb-2">Estimated Earnings</h4>
+                 <div className="flex items-end gap-2">
+                     <span className="text-2xl font-bold text-emerald-500">$0.00</span>
+                     <span className="text-xs text-zinc-600 mb-1">/ month</span>
+                 </div>
+             </div>
+         </div>
+      </aside>
+
     </div>
   )
 }
 
 // ----------------------------------------------------------------------
-// 6. HELPER COMPONENTS (Typed)
+// 4. SUB-COMPONENTS
 // ----------------------------------------------------------------------
 
-type HeaderProps = { title: string; sub?: string }
-const Header = ({ title, sub }: HeaderProps) => (
-  <div className="mb-6">
-    <h1 className="text-3xl font-bold mb-1">{title}</h1>
-    <p className="text-zinc-400">{sub}</p>
-  </div>
+const Header = ({title, sub}: {title:string, sub:string}) => (
+  <div><h1 className="text-3xl font-bold mb-2 tracking-tight">{title}</h1><p className="text-zinc-400 text-lg">{sub}</p></div>
 )
 
-type InputProps = {
-  label: string
-  value: string
-  onChange: (v: string) => void
-  placeholder?: string
-}
-const Input = ({ label, value, onChange, placeholder }: InputProps) => (
+const Input = ({label, value, onChange, placeholder}: any) => (
   <div className="space-y-2">
-    <label className="text-sm font-medium text-zinc-400">{label}</label>
-    <input value={value} onChange={e => onChange(e.target.value)} className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-emerald-500" placeholder={placeholder} />
+    <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">{label}</label>
+    <input value={value} onChange={e => onChange(e.target.value)} className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-emerald-500 transition-all text-white placeholder-zinc-700" placeholder={placeholder} />
   </div>
 )
 
-type NavBtnProps = {
-  active?: boolean
-  icon: React.ComponentType<any>
-  label: string
-  onClick?: () => void
-  alert?: boolean
-}
-const NavBtn = ({ active, icon: Icon, label, onClick, alert }: NavBtnProps) => (
-  <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${active ? 'bg-white text-black' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}>
-    <Icon size={18} /> <span className="text-sm font-medium flex-1 text-left">{label}</span> {alert && <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />}
+const NavBtn = ({ active, icon: Icon, label, onClick, alert }: any) => (
+  <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-sm font-medium ${active ? 'bg-white text-black shadow-lg shadow-white/5' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}>
+    <Icon size={18} /> <span className="flex-1 text-left">{label}</span> {alert && <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />}
   </button>
 )
 
-type MediaUploadProps = {
-  label: string
-  type: 'image' | 'video'
-  url: string | null
-  uploading: boolean
-  onUpload: (file: File) => void
+const MediaUpload = ({ label, type, url, onUpload }: any) => {
+    const [uploading, setUploading] = useState(false)
+    const handleFile = async (e: any) => {
+        if (!e.target.files[0]) return
+        setUploading(true)
+        // Simulate upload
+        await new Promise(r => setTimeout(r, 1500))
+        onUpload(URL.createObjectURL(e.target.files[0]))
+        setUploading(false)
+    }
+    return (
+        <div className="space-y-2">
+            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">{label}</label>
+            <label className="aspect-video bg-zinc-900 border border-dashed border-white/20 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-white/40 transition-all relative overflow-hidden group">
+                {url ? (
+                    type === 'video' ? <video src={url} className="w-full h-full object-cover" /> : <img src={url} className="w-full h-full object-cover" />
+                ) : (
+                    <div className="text-center group-hover:scale-105 transition-transform">
+                        <div className="w-10 h-10 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-3">
+                            {uploading ? <Loader2 className="animate-spin text-zinc-500"/> : <Upload size={18} className="text-zinc-500"/>}
+                        </div>
+                        <span className="text-xs text-zinc-500 font-bold uppercase">{uploading ? 'Uploading...' : `Click to Upload ${type}`}</span>
+                    </div>
+                )}
+                <input type="file" className="hidden" accept={type === 'video' ? "video/*" : "image/*"} onChange={handleFile} />
+            </label>
+        </div>
+    )
 }
-const MediaUpload = ({ label, type, url, uploading, onUpload }: MediaUploadProps) => (
-  <div className="space-y-2">
-    <label className="text-sm font-medium text-zinc-400">{label}</label>
-    <label className="aspect-video bg-zinc-900 border border-dashed border-white/20 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 transition-all relative overflow-hidden group">
-      {url ? (type === 'video' ? <video src={url} className="w-full h-full object-cover" controls /> : <img src={url} className="w-full h-full object-cover" />) : <div className="text-center group-hover:scale-105 transition-transform"><div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-2">{uploading ? <Loader2 className="animate-spin"/> : <Upload size={18}/>}</div><span className="text-xs text-zinc-500 font-bold uppercase">Upload</span></div>}
-      <input type="file" className="hidden" accept={type === 'video' ? "video/*" : "image/*"} onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])} />
-    </label>
-  </div>
+
+const VerificationCard = ({ icon: Icon, title, desc, status, onVerify, loading }: any) => (
+    <div className="bg-zinc-900 border border-white/10 p-5 rounded-xl flex items-center gap-4">
+        <div className={`w-12 h-12 rounded-full flex items-center justify-center ${status ? 'bg-emerald-500/20 text-emerald-500' : 'bg-white/5 text-zinc-500'}`}>
+            {status ? <CheckCircle2 size={24}/> : <Icon size={24}/>}
+        </div>
+        <div className="flex-1">
+            <h4 className="font-bold text-sm text-white">{title}</h4>
+            <p className="text-xs text-zinc-400">{desc}</p>
+        </div>
+        {!status && (
+            <button onClick={onVerify} disabled={loading} className="px-4 py-2 bg-white text-black text-xs font-bold rounded-lg hover:bg-zinc-200 disabled:opacity-50">
+                {loading ? <Loader2 size={14} className="animate-spin"/> : "Verify"}
+            </button>
+        )}
+    </div>
 )
 
-type ReviewItemProps = { label: string; value: string; valid: boolean }
-const ReviewItem = ({ label, value, valid }: ReviewItemProps) => (
-  <div className="flex justify-between items-center py-2 border-b border-white/5 last:border-0">
-    <span className="text-zinc-400 text-sm">{label}</span>
-    <div className="flex items-center gap-2"><span className={`text-sm font-medium ${valid ? 'text-white' : 'text-red-400'}`}>{value}</span>{valid ? <CheckCircle2 size={16} className="text-emerald-500"/> : <AlertCircle size={16} className="text-red-500"/>}</div>
-  </div>
+const ReviewRow = ({ label, value, active }: any) => (
+    <div className="flex justify-between py-1">
+        <span className="text-zinc-500">{label}</span>
+        <span className={`font-medium ${active ? 'text-emerald-500' : 'text-white'}`}>{value}</span>
+    </div>
 )
 
-const ModeSelection = ({ onSelect }: { onSelect: (m: CourseMode) => void }) => (
-  <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
-    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-zinc-800/30 via-black to-black pointer-events-none" />
-    <h1 className="text-5xl font-black mb-4 relative z-10">Select Course Mode</h1>
-    <p className="text-zinc-400 text-lg mb-12 relative z-10">Choose how you want to deliver value to your students.</p>
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl w-full relative z-10">
-      <div onClick={() => onSelect('standard')} className="bg-zinc-900/50 border border-white/10 p-8 rounded-3xl cursor-pointer hover:bg-zinc-900 hover:border-emerald-500 transition-all group"><div className="w-14 h-14 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-500 mb-6 group-hover:scale-110 transition-transform"><Video size={32}/></div><h3 className="text-2xl font-bold mb-2">Standard</h3><p className="text-zinc-400">Self-paced video lessons. Perfect for tutorials, guides, and masterclasses.</p></div>
-      <div onClick={() => onSelect('premium')} className="bg-gradient-to-b from-yellow-900/20 to-black border border-yellow-500/30 p-8 rounded-3xl cursor-pointer hover:border-yellow-500 transition-all group relative"><div className="absolute top-4 right-4 bg-yellow-500 text-black text-[10px] font-black px-2 py-1 rounded">PRO</div><div className="w-14 h-14 bg-yellow-500/10 rounded-2xl flex items-center justify-center text-yellow-500 mb-6 group-hover:scale-110 transition-transform"><Crown size={32}/></div><h3 className="text-2xl font-bold mb-2">Premium</h3><p className="text-zinc-400">High-ticket cohort or mentorship program. Includes 1-on-1 video sessions and assignments.</p></div>
+const ModeSelector = ({ onSelect }: { onSelect: (m: CourseMode) => void }) => (
+  <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
+    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-black to-black pointer-events-none" />
+    
+    <div className="text-center mb-16 relative z-10 space-y-4">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-bold uppercase tracking-widest text-zinc-400">
+            <Sparkles size={12}/> Creator Studio
+        </div>
+        <h1 className="text-5xl md:text-7xl font-black tracking-tight">Create your Legacy</h1>
+        <p className="text-zinc-400 text-lg max-w-xl mx-auto">Choose a format that suits your teaching style. You can manage multiple courses of different types.</p>
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl w-full relative z-10 px-4">
+      {/* Standard Card */}
+      <div onClick={() => onSelect('standard')} className="group relative p-8 rounded-3xl bg-[#0a0a0a] border border-white/10 hover:border-emerald-500/50 cursor-pointer transition-all hover:-translate-y-2 overflow-hidden">
+          <div className="absolute top-0 right-0 p-32 bg-emerald-500/5 blur-3xl rounded-full group-hover:bg-emerald-500/10 transition-colors pointer-events-none" />
+          <div className="relative z-10">
+              <div className="w-14 h-14 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-500 mb-6 border border-emerald-500/20">
+                  <MonitorPlay size={28} />
+              </div>
+              <h3 className="text-2xl font-bold mb-2">Standard Course</h3>
+              <p className="text-zinc-400 text-sm leading-relaxed mb-6">
+                  Pre-recorded video lessons, quizzes, and articles. Students learn at their own pace. Ideal for passive income.
+              </p>
+              <ul className="space-y-2 mb-8">
+                  {['Self-Paced Learning', 'Unlimited Students', 'Video & Text Content'].map(i => (
+                      <li key={i} className="flex items-center gap-2 text-xs font-bold text-zinc-300"><CheckCircle2 size={14} className="text-emerald-500"/> {i}</li>
+                  ))}
+              </ul>
+              <span className="text-emerald-500 text-sm font-bold flex items-center gap-2 group-hover:gap-4 transition-all">Select Standard <ArrowRight size={16}/></span>
+          </div>
+      </div>
+
+      {/* Premium Card */}
+      <div onClick={() => onSelect('premium')} className="group relative p-8 rounded-3xl bg-gradient-to-b from-[#110e05] to-[#0a0a0a] border border-amber-500/20 hover:border-amber-500 cursor-pointer transition-all hover:-translate-y-2 overflow-hidden">
+          <div className="absolute top-0 right-0 p-32 bg-amber-500/5 blur-3xl rounded-full group-hover:bg-amber-500/10 transition-colors pointer-events-none" />
+          <div className="absolute top-4 right-4 bg-amber-500 text-black text-[10px] font-black px-3 py-1 rounded uppercase tracking-widest">Exclusive</div>
+          
+          <div className="relative z-10">
+              <div className="w-14 h-14 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500 mb-6 border border-amber-500/20">
+                  <Crown size={28} />
+              </div>
+              <h3 className="text-2xl font-bold mb-2 text-white">Premium Program</h3>
+              <p className="text-zinc-400 text-sm leading-relaxed mb-6">
+                  High-ticket mentorship or cohort. Includes 1-on-1 video calls, structured roadmaps, and assignments.
+              </p>
+              <ul className="space-y-2 mb-8">
+                  {['Live 1:1 Mentorship', 'High-Ticket Pricing', 'Milestone Roadmap'].map(i => (
+                      <li key={i} className="flex items-center gap-2 text-xs font-bold text-zinc-300"><CheckCircle2 size={14} className="text-amber-500"/> {i}</li>
+                  ))}
+              </ul>
+              <span className="text-amber-500 text-sm font-bold flex items-center gap-2 group-hover:gap-4 transition-all">Select Premium <ArrowRight size={16}/></span>
+          </div>
+      </div>
     </div>
   </div>
 )
