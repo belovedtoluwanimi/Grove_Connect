@@ -1,26 +1,27 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { 
   Video, FileText, CheckCircle2, Upload, Layout, ChevronDown, 
   Trash2, Plus, Calendar, Clock, Map, User, Briefcase, 
-  ShieldCheck, Loader2, ScanFace, X, MonitorPlay, Crown
+  ShieldCheck, Loader2, ScanFace, Crown, MonitorPlay, Eye, X, AlertCircle
 } from 'lucide-react'
-import { CourseData, INITIAL_AVAILABILITY } from './types'
+import { CourseData, ContentItem, Module, InstructorVerification } from './types'
+import { createClient } from '@/app/utils/supabase/client'
 
-// --- UI PRIMITIVES ---
+// --- 1. UI PRIMITIVES ---
 
 export const Input = ({ label, value, onChange, placeholder, type = 'text', error }: any) => (
   <div className="space-y-2 w-full">
-    <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">{label}</label>
+    {label && <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">{label}</label>}
     <input 
       type={type}
       value={value} 
       onChange={e => onChange(e.target.value)} 
       className={`w-full bg-zinc-900 border ${error ? 'border-red-500' : 'border-white/10'} rounded-xl px-4 py-3 outline-none focus:border-emerald-500 transition-all text-white placeholder-zinc-700`} 
-      placeholder={placeholder} 
+      placeholder={placeholder}
     />
-    {error && <p className="text-red-500 text-xs">{error}</p>}
+    {error && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle size={12}/> {error}</p>}
   </div>
 )
 
@@ -30,7 +31,7 @@ export const MediaUpload = ({ label, type, url, onUpload }: { label: string, typ
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.[0]) return
     setUploading(true)
-    // Simulate upload delay
+    // Simulate upload delay - replace with real supabase upload logic
     await new Promise(r => setTimeout(r, 1500))
     onUpload(URL.createObjectURL(e.target.files[0]))
     setUploading(false)
@@ -50,7 +51,7 @@ export const MediaUpload = ({ label, type, url, onUpload }: { label: string, typ
             <span className="text-xs text-zinc-500 font-bold uppercase">{uploading ? 'Uploading...' : `Click to Upload ${type}`}</span>
           </div>
         )}
-        <input type="file" className="hidden" accept={type === 'video' ? "video/*" : "image/*"} onChange={handleFile} />
+        <input type="file" className="hidden" accept={type === 'video' ? "video/*" : "image/*"} onChange={handleFile} disabled={uploading} />
       </label>
     </div>
   )
@@ -62,7 +63,18 @@ export const NavBtn = ({ active, icon: Icon, label, onClick, alert }: any) => (
   </button>
 )
 
-// --- STEPS ---
+export const Header = ({title, sub}: {title:string, sub:string}) => (
+  <div><h1 className="text-3xl font-bold mb-2 tracking-tight">{title}</h1><p className="text-zinc-400 text-lg">{sub}</p></div>
+)
+
+export const ReviewRow = ({ label, value, active }: any) => (
+    <div className="flex justify-between py-1">
+        <span className="text-zinc-500">{label}</span>
+        <span className={`font-medium ${active ? 'text-emerald-500' : 'text-white'}`}>{value}</span>
+    </div>
+)
+
+// --- 2. STEP COMPONENTS ---
 
 export const ModeStep = ({ onSelect }: { onSelect: (m: 'standard' | 'premium') => void }) => (
   <div className="min-h-[60vh] flex flex-col items-center justify-center text-center space-y-12">
@@ -71,21 +83,19 @@ export const ModeStep = ({ onSelect }: { onSelect: (m: 'standard' | 'premium') =
         <p className="text-zinc-400 text-lg">Choose how you want to deliver value.</p>
     </div>
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl px-4">
-      {/* Standard */}
       <div onClick={() => onSelect('standard')} className="group p-8 rounded-3xl bg-[#0a0a0a] border border-white/10 hover:border-emerald-500/50 cursor-pointer transition-all hover:-translate-y-2 text-left relative overflow-hidden">
           <div className="absolute top-0 right-0 p-20 bg-emerald-500/5 blur-3xl rounded-full" />
           <div className="w-14 h-14 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-500 mb-6 border border-emerald-500/20"><MonitorPlay size={28} /></div>
           <h3 className="text-2xl font-bold mb-2">Standard Course</h3>
-          <p className="text-zinc-400 text-sm mb-6">Pre-recorded video lessons. Students learn at their own pace. Ideal for tutorials and guides.</p>
+          <p className="text-zinc-400 text-sm mb-6">Pre-recorded video lessons. Students learn at their own pace.</p>
           <span className="text-emerald-500 text-sm font-bold flex items-center gap-2">Select Standard &rarr;</span>
       </div>
-      {/* Premium */}
       <div onClick={() => onSelect('premium')} className="group p-8 rounded-3xl bg-gradient-to-b from-[#110e05] to-[#0a0a0a] border border-amber-500/20 hover:border-amber-500 cursor-pointer transition-all hover:-translate-y-2 text-left relative overflow-hidden">
           <div className="absolute top-0 right-0 p-20 bg-amber-500/5 blur-3xl rounded-full" />
           <div className="absolute top-4 right-4 bg-amber-500 text-black text-[10px] font-black px-3 py-1 rounded uppercase">Exclusive</div>
           <div className="w-14 h-14 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500 mb-6 border border-amber-500/20"><Crown size={28} /></div>
           <h3 className="text-2xl font-bold mb-2 text-white">Premium Program</h3>
-          <p className="text-zinc-400 text-sm mb-6">High-ticket mentorship. Includes 1-on-1 calls, structured roadmap, and assignments.</p>
+          <p className="text-zinc-400 text-sm mb-6">High-ticket mentorship. Includes 1-on-1 calls & roadmap.</p>
           <span className="text-amber-500 text-sm font-bold flex items-center gap-2">Select Premium &rarr;</span>
       </div>
     </div>
@@ -116,7 +126,7 @@ export const CurriculumStep = ({ data, setData }: { data: CourseData, setData: a
       <div className="flex justify-between items-end border-b border-white/10 pb-6">
         <div>
           <h1 className="text-3xl font-bold mb-2">{data.mode === 'premium' ? "Program Roadmap" : "Course Curriculum"}</h1>
-          <p className="text-zinc-400">{data.mode === 'premium' ? "Define phases and milestones for your students." : "Organize your lectures into sections."}</p>
+          <p className="text-zinc-400">{data.mode === 'premium' ? "Define phases and milestones." : "Organize your lectures."}</p>
         </div>
         <button 
           onClick={() => setData((prev: CourseData) => ({...prev, modules: [...prev.modules, { id: Date.now().toString(), title: '', items: [], isOpen: true, isMilestone: false }]}))}
@@ -217,10 +227,10 @@ export const CurriculumStep = ({ data, setData }: { data: CourseData, setData: a
 export const SchedulingStep = ({ data, setData }: { data: CourseData, setData: any }) => {
   if (!data.premiumConfig) return null
 
-  const updateConfig = (field: string, val: any) => {
+  const updateConfig = (key: string, val: any) => {
     setData((prev: CourseData) => ({
       ...prev,
-      premiumConfig: { ...prev.premiumConfig!, scheduling: { ...prev.premiumConfig!.scheduling, [field]: val } }
+      premiumConfig: { ...prev.premiumConfig!, scheduling: { ...prev.premiumConfig!.scheduling, [key]: val } }
     }))
   }
 
@@ -256,19 +266,19 @@ export const SchedulingStep = ({ data, setData }: { data: CourseData, setData: a
                         />
                         <span className="w-24 font-bold text-sm">{day.day}</span>
                         {day.enabled && (
-                           <div className="flex items-center gap-2 text-sm">
+                           <div className="flex items-center gap-2">
                               <input 
                                 type="time" 
                                 value={day.windows[0].start} 
                                 onChange={(e) => updateAvailability(idx, 'start', e.target.value)}
-                                className="bg-black border border-white/10 rounded px-2 py-1 outline-none"
+                                className="bg-black border border-white/10 rounded px-2 py-1 text-sm outline-none"
                               />
                               <span className="text-zinc-500">-</span>
                               <input 
                                 type="time" 
                                 value={day.windows[0].end} 
                                 onChange={(e) => updateAvailability(idx, 'end', e.target.value)}
-                                className="bg-black border border-white/10 rounded px-2 py-1 outline-none"
+                                className="bg-black border border-white/10 rounded px-2 py-1 text-sm outline-none"
                               />
                            </div>
                         )}
@@ -333,16 +343,33 @@ export const SchedulingStep = ({ data, setData }: { data: CourseData, setData: a
 }
 
 export const VerificationStep = ({ onComplete }: { onComplete: () => void }) => {
-  const [status, setStatus] = useState({ identity: false, profile: false, payout: false })
+  const [status, setStatus] = useState<InstructorVerification['status']>('idle')
+  const [loading, setLoading] = useState(false)
+  const supabase = createClient()
   
-  const verify = (key: keyof typeof status) => {
-    setStatus(prev => {
-        const next = { ...prev, [key]: true }
-        if (Object.values(next).every(Boolean)) {
-            setTimeout(onComplete, 1000)
+  useEffect(() => {
+    // Check if user is already verified in DB
+    const check = async () => {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+            // For now, simulate check. In real app, query 'instructor_verifications' table.
+            // setStatus('verified') 
         }
-        return next
-    })
+    }
+    check()
+  }, [])
+
+  const verify = (key: string) => {
+    if (key === 'identity') setLoading(true)
+    
+    // Simulate verification delay
+    setTimeout(() => {
+        if (key === 'identity') {
+            setStatus('verified')
+            setLoading(false)
+            onComplete()
+        }
+    }, 2000)
   }
 
   return (
@@ -351,54 +378,24 @@ export const VerificationStep = ({ onComplete }: { onComplete: () => void }) => 
         <p className="text-zinc-400 text-center mb-8">Complete these steps to unlock publishing.</p>
         
         <div className="space-y-4">
-            <VerifyCard 
-                icon={ScanFace} 
-                title="Identity Verification" 
-                desc="Upload a government ID to confirm your identity." 
-                done={status.identity} 
-                onClick={() => verify('identity')} 
-            />
-            <VerifyCard 
-                icon={User} 
-                title="Profile Completion" 
-                desc="Ensure your bio, photo, and expertise are set." 
-                done={status.profile} 
-                onClick={() => verify('profile')} 
-            />
-            <VerifyCard 
-                icon={Briefcase} 
-                title="Payout Method" 
-                desc="Connect a Stripe or Bank account for earnings." 
-                done={status.payout} 
-                onClick={() => verify('payout')} 
-            />
+            <div className="bg-zinc-900 border border-white/10 p-6 rounded-xl flex items-center gap-6">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${status === 'verified' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-white/5 text-zinc-500'}`}>
+                    {status === 'verified' ? <CheckCircle2 size={24}/> : <ScanFace size={24}/>}
+                </div>
+                <div className="flex-1">
+                    <h4 className="font-bold text-white">Identity Verification</h4>
+                    <p className="text-xs text-zinc-400">Verify your government issued ID.</p>
+                </div>
+                <button 
+                    onClick={() => verify('identity')}
+                    disabled={status === 'verified' || loading}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${status === 'verified' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-white text-black hover:bg-zinc-200'}`}
+                >
+                    {loading ? <Loader2 size={12} className="animate-spin"/> : null}
+                    {status === 'verified' ? 'Verified' : 'Verify Now'}
+                </button>
+            </div>
         </div>
     </div>
   )
 }
-
-const VerifyCard = ({ icon: Icon, title, desc, done, onClick }: any) => (
-    <div className="bg-zinc-900 border border-white/10 p-6 rounded-xl flex items-center gap-6">
-        <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${done ? 'bg-emerald-500/20 text-emerald-500' : 'bg-white/5 text-zinc-500'}`}>
-            {done ? <CheckCircle2 size={24}/> : <Icon size={24}/>}
-        </div>
-        <div className="flex-1">
-            <h4 className="font-bold text-white">{title}</h4>
-            <p className="text-xs text-zinc-400">{desc}</p>
-        </div>
-        <button 
-            onClick={onClick}
-            disabled={done}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${done ? 'bg-emerald-500/10 text-emerald-500' : 'bg-white text-black hover:bg-zinc-200'}`}
-        >
-            {done ? 'Verified' : 'Verify Now'}
-        </button>
-    </div>
-)
-
-export const ReviewRow = ({ label, value, active }: any) => (
-    <div className="flex justify-between py-1">
-        <span className="text-zinc-500">{label}</span>
-        <span className={`font-medium ${active ? 'text-emerald-500' : 'text-white'}`}>{value}</span>
-    </div>
-)

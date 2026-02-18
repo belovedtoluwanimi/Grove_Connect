@@ -6,10 +6,10 @@ export interface ContentItem {
   id: string
   title: string
   type: 'video' | 'article' | 'quiz' | 'assignment' | 'live_session'
-  videoUrl?: string
-  content?: string // For article text or assignment instructions
   duration?: number // minutes
   isFreePreview: boolean
+  videoUrl?: string
+  content?: string // For article text or assignment instructions
   isUploading?: boolean // UI state
 }
 
@@ -85,4 +85,53 @@ export interface CourseData {
     amount: string
     currency: string
   }
+}
+
+// --- CONSTANTS (Required for page.tsx) ---
+
+export const CATEGORIES = [
+  "Development", 
+  "Business", 
+  "Finance", 
+  "Design", 
+  "Marketing", 
+  "Photography", 
+  "Health", 
+  "Music", 
+  "Lifestyle", 
+  "Other"
+]
+
+export const STANDARD_PRICES = ['Free', '19', '49', '99', 'Custom']
+export const PREMIUM_PRICES = ['199', '499', '999', 'Custom']
+
+export const INITIAL_AVAILABILITY: DaySchedule[] = [
+  'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'
+].map(day => ({
+  day,
+  enabled: ['Mon', 'Wed', 'Fri'].includes(day),
+  windows: [{ start: '09:00', end: '17:00' }]
+}))
+
+export const INITIAL_DATA: CourseData = {
+  mode: null,
+  title: '',
+  subtitle: '',
+  description: '',
+  category: 'Development',
+  customCategory: '',
+  level: 'Beginner',
+  thumbnail: null,
+  promoVideo: null,
+  objectives: ['', '', ''],
+  modules: [
+    { 
+      id: 'mod-init', 
+      title: 'Introduction', 
+      items: [], 
+      isOpen: true, 
+      isMilestone: false 
+    }
+  ],
+  pricing: { type: 'one_time', amount: '', currency: 'USD' }
 }
