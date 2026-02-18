@@ -112,6 +112,10 @@ const CATEGORIES = ["Development", "Business", "Finance", "Design", "Marketing",
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const DEFAULT_AVAILABILITY: DayAvailability[] = DAYS.map(d => ({ day: d, enabled: ['Mon','Wed','Fri'].includes(d), windows: [{start: '09:00', end: '17:00'}] }))
 
+// Pricing options used in the UI
+const STANDARD_PRICES: string[] = ['Free', '19', '49', '99', 'Custom']
+const PREMIUM_PRICES: string[] = ['199', '499', '999', 'Custom']
+
 const INITIAL_DATA: CourseData = {
   mode: null,
   title: '',
@@ -687,7 +691,14 @@ const Header = ({title, sub}: {title:string, sub:string}) => (
   <div><h1 className="text-3xl font-bold mb-2 tracking-tight">{title}</h1><p className="text-zinc-400 text-lg">{sub}</p></div>
 )
 
-const Input = ({label, value, onChange, placeholder}: any) => (
+type InputProps = {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+}
+
+const Input = ({label, value, onChange, placeholder}: InputProps) => (
   <div className="space-y-2">
     <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">{label}</label>
     <input value={value} onChange={e => onChange(e.target.value)} className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-emerald-500 transition-all text-white placeholder-zinc-700" placeholder={placeholder} />
@@ -700,34 +711,40 @@ const NavBtn = ({ active, icon: Icon, label, onClick, alert }: any) => (
   </button>
 )
 
-const MediaUpload = ({ label, type, url, onUpload }: any) => {
-    const [uploading, setUploading] = useState(false)
-    const handleFile = async (e: any) => {
-        if (!e.target.files[0]) return
-        setUploading(true)
-        // Simulate upload
-        await new Promise(r => setTimeout(r, 1500))
-        onUpload(URL.createObjectURL(e.target.files[0]))
-        setUploading(false)
-    }
-    return (
-        <div className="space-y-2">
-            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">{label}</label>
-            <label className="aspect-video bg-zinc-900 border border-dashed border-white/20 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-white/40 transition-all relative overflow-hidden group">
-                {url ? (
-                    type === 'video' ? <video src={url} className="w-full h-full object-cover" /> : <img src={url} className="w-full h-full object-cover" />
-                ) : (
-                    <div className="text-center group-hover:scale-105 transition-transform">
-                        <div className="w-10 h-10 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-3">
-                            {uploading ? <Loader2 className="animate-spin text-zinc-500"/> : <Upload size={18} className="text-zinc-500"/>}
-                        </div>
-                        <span className="text-xs text-zinc-500 font-bold uppercase">{uploading ? 'Uploading...' : `Click to Upload ${type}`}</span>
-                    </div>
-                )}
-                <input type="file" className="hidden" accept={type === 'video' ? "video/*" : "image/*"} onChange={handleFile} />
-            </label>
-        </div>
-    )
+type MediaUploadProps = {
+  label: string
+  type: 'image' | 'video'
+  url: string | null
+  onUpload: (url: string) => void
+}
+
+const MediaUpload = ({ label, type, url, onUpload }: MediaUploadProps) => {
+  const [uploading, setUploading] = useState(false)
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !e.target.files[0]) return
+    setUploading(true)
+    await new Promise(r => setTimeout(r, 1500))
+    onUpload(URL.createObjectURL(e.target.files[0]))
+    setUploading(false)
+  }
+  return (
+    <div className="space-y-2">
+      <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">{label}</label>
+      <label className="aspect-video bg-zinc-900 border border-dashed border-white/20 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-white/40 transition-all relative overflow-hidden group">
+        {url ? (
+          type === 'video' ? <video src={url} className="w-full h-full object-cover" /> : <img src={url} className="w-full h-full object-cover" />
+        ) : (
+          <div className="text-center group-hover:scale-105 transition-transform">
+            <div className="w-10 h-10 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-3">
+              {uploading ? <Loader2 className="animate-spin text-zinc-500"/> : <Upload size={18} className="text-zinc-500"/>}
+            </div>
+            <span className="text-xs text-zinc-500 font-bold uppercase">{uploading ? 'Uploading...' : `Click to Upload ${type}`}</span>
+          </div>
+        )}
+        <input type="file" className="hidden" accept={type === 'video' ? "video/*" : "image/*"} onChange={handleFile} />
+      </label>
+    </div>
+  )
 }
 
 const VerificationCard = ({ icon: Icon, title, desc, status, onVerify, loading }: any) => (
