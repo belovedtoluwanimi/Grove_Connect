@@ -6,10 +6,11 @@ export interface ContentItem {
   id: string
   title: string
   type: 'video' | 'article' | 'quiz' | 'assignment' | 'live_session'
+  videoUrl?: string
+  content?: string // For article text or assignment instructions
   duration?: number // minutes
   isFreePreview: boolean
-  videoUrl?: string
-  content?: string // For text content
+  isUploading?: boolean // UI state
 }
 
 export interface Module {
@@ -17,12 +18,11 @@ export interface Module {
   title: string
   items: ContentItem[]
   isOpen: boolean
-  // Premium specifics
   isMilestone: boolean
   milestoneGoal?: string
 }
 
-// --- SCHEDULING TYPES ---
+// --- SCHEDULING TYPES (Premium) ---
 export interface TimeWindow {
   start: string
   end: string
@@ -34,30 +34,29 @@ export interface DaySchedule {
   windows: TimeWindow[]
 }
 
-export interface PremiumConfig {
-  format: 'cohort' | 'self_paced'
-  features: {
-    oneOnOne: boolean
-    prioritySupport: boolean
-    assignments: boolean
-    community: boolean
-  }
-  scheduling: {
-    timezone: string
-    platform: 'google_meet' | 'zoom' | 'jitsi' | 'custom'
-    customLink?: string
-    sessionDuration: number // minutes
-    bufferTime: number // minutes
-    availability: DaySchedule[]
-    bookingRules: {
-      maxPerWeek: number
-      minLeadTime: number // hours
-    }
+export interface SchedulingConfig {
+  timezone: string
+  platform: 'google_meet' | 'zoom' | 'jitsi' | 'custom'
+  customLink?: string
+  sessionDuration: number // minutes
+  bufferTime: number // minutes
+  availability: DaySchedule[]
+  bookingRules: {
+    maxPerWeek: number
+    minLeadTime: number // hours
   }
 }
 
-// --- MAIN STATE ---
+// --- VERIFICATION TYPES ---
+export interface InstructorVerification {
+  status: 'idle' | 'pending' | 'verified' | 'rejected'
+  submittedAt?: string
+  notes?: string
+}
+
+// --- MAIN COURSE STATE ---
 export interface CourseData {
+  id?: string // Optional, if editing existing
   mode: CourseMode
   title: string
   subtitle: string
@@ -69,11 +68,16 @@ export interface CourseData {
   promoVideo: string | null
   objectives: string[]
   
-  // Curriculum (Standard) or Roadmap (Premium)
+  // Curriculum
   modules: Module[]
   
-  // Premium Only Config
-  premiumConfig?: PremiumConfig
+  // Premium Config
+  premiumConfig?: {
+    format: 'cohort' | 'self_paced'
+    communityAccess: boolean
+    prioritySupport: boolean
+    scheduling: SchedulingConfig
+  }
 
   // Pricing
   pricing: {
@@ -82,11 +86,3 @@ export interface CourseData {
     currency: string
   }
 }
-
-export const INITIAL_AVAILABILITY: DaySchedule[] = [
-  'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'
-].map(day => ({
-  day,
-  enabled: ['Mon', 'Wed', 'Fri'].includes(day),
-  windows: [{ start: '09:00', end: '17:00' }]
-}))
