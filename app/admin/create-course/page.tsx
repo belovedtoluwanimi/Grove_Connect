@@ -995,21 +995,65 @@ function ResourceManager({ resources, onChange }: { resources: ResourceItem[], o
 
 function LandingPageStep({ data, setData, onContinue }: { data: CourseData, setData: any, onContinue: () => void }) {
   const { addToast } = useToast()
+  const supabase = createClient() // Added Supabase client
+  
+  // Added loading states for the uploads
+  const [isUploadingThumb, setIsUploadingThumb] = useState(false)
+  const [isUploadingPromo, setIsUploadingPromo] = useState(false)
 
   const handleThumbUpload = async (e: any) => {
-    if(!e.target.files[0]) return
-    addToast('Uploading Image...', 'info')
-    await new Promise(r=>setTimeout(r, 1000))
-    setData({...data, thumbnailUrl: URL.createObjectURL(e.target.files[0])})
-    addToast('Image attached', 'success')
+    const file = e.target.files?.[0]
+    if(!file) return
+    
+    setIsUploadingThumb(true)
+    addToast('Uploading Image to server...', 'info')
+    
+    try {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `thumbnail-${Math.random().toString(36).substring(2)}.${fileExt}`
+      
+      // Upload to your 'course-media' bucket
+      const { error } = await supabase.storage.from('course-media').upload(fileName, file)
+      if (error) throw error
+
+      // Get the permanent public URL
+      const { data: publicData } = supabase.storage.from('course-media').getPublicUrl(fileName)
+      
+      setData({...data, thumbnail: publicData.publicUrl})
+      addToast('Image uploaded successfully!', 'success')
+    } catch (err: any) {
+      console.error(err)
+      addToast(err.message || 'Failed to upload image.', 'error')
+    } finally {
+      setIsUploadingThumb(false)
+    }
   }
 
   const handlePromoUpload = async (e: any) => {
-    if(!e.target.files[0]) return
-    addToast('Uploading Promo Video...', 'info')
-    await new Promise(r=>setTimeout(r, 2000))
-    setData({...data, promoVideoUrl: URL.createObjectURL(e.target.files[0])})
-    addToast('Promo Video attached', 'success')
+    const file = e.target.files?.[0]
+    if(!file) return
+    
+    setIsUploadingPromo(true)
+    addToast('Uploading Promo Video... Please wait.', 'info')
+    
+    try {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `promo-${Math.random().toString(36).substring(2)}.${fileExt}`
+      
+      // Upload to your 'course-media' bucket
+      const { error } = await supabase.storage.from('course-media').upload(fileName, file)
+      if (error) throw error
+
+      const { data: publicData } = supabase.storage.from('course-media').getPublicUrl(fileName)
+      
+      setData({...data, promoVideo: publicData.publicUrl})
+      addToast('Promo Video uploaded successfully!', 'success')
+    } catch (err: any) {
+      console.error(err)
+      addToast(err.message || 'Failed to upload video.', 'error')
+    } finally {
+      setIsUploadingPromo(false)
+    }
   }
 
   return (
@@ -1034,7 +1078,6 @@ function LandingPageStep({ data, setData, onContinue }: { data: CourseData, setD
         <div className="space-y-2">
            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Course Description</label>
            <div className="bg-zinc-900/80 border border-white/10 rounded-xl overflow-hidden focus-within:border-purple-500 transition-colors">
-              {/* Fake Rich Text Toolbar */}
               <div className="flex items-center gap-2 px-4 py-2 border-b border-white/10 bg-black/20 text-zinc-400">
                  <button className="p-1.5 hover:bg-white/10 rounded"><Bold size={14}/></button>
                  <button className="p-1.5 hover:bg-white/10 rounded"><Italic size={14}/></button>
@@ -1078,12 +1121,12 @@ function LandingPageStep({ data, setData, onContinue }: { data: CourseData, setD
               <label className="flex flex-col items-center justify-center w-full aspect-video bg-zinc-900/80 border-2 border-dashed border-white/10 rounded-xl cursor-pointer hover:border-purple-500 transition-all overflow-hidden relative group">
                   {data.thumbnail ? <img src={data.thumbnail} className="w-full h-full object-cover"/> : (
                       <div className="text-center group-hover:scale-105 transition-transform">
-                          <ImageIcon className="text-zinc-500 mx-auto mb-2" size={32}/>
-                          <span className="text-xs font-bold text-zinc-400">Upload Image</span>
+                          {isUploadingThumb ? <Loader2 className="animate-spin text-zinc-500 mx-auto mb-2" size={32}/> : <ImageIcon className="text-zinc-500 mx-auto mb-2" size={32}/>}
+                          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">{isUploadingThumb ? 'Uploading...' : 'Upload Image'}</span>
                           <p className="text-[10px] text-zinc-600 mt-1">750x422 pixels; .jpg, .jpeg, .png</p>
                       </div>
                   )}
-                  <input type="file" accept="image/*" className="hidden" onChange={handleThumbUpload} />
+                  <input type="file" accept="image/*" className="hidden" onChange={handleThumbUpload} disabled={isUploadingThumb} />
               </label>
            </div>
            
@@ -1093,12 +1136,12 @@ function LandingPageStep({ data, setData, onContinue }: { data: CourseData, setD
               <label className="flex flex-col items-center justify-center w-full aspect-video bg-zinc-900/80 border-2 border-dashed border-white/10 rounded-xl cursor-pointer hover:border-purple-500 transition-all overflow-hidden relative group">
                   {data.promoVideo ? <video src={data.promoVideo} className="w-full h-full object-cover" controls/> : (
                       <div className="text-center group-hover:scale-105 transition-transform">
-                          <Video className="text-zinc-500 mx-auto mb-2" size={32}/>
-                          <span className="text-xs font-bold text-zinc-400">Upload Video</span>
+                          {isUploadingPromo ? <Loader2 className="animate-spin text-zinc-500 mx-auto mb-2" size={32}/> : <Video className="text-zinc-500 mx-auto mb-2" size={32}/>}
+                          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">{isUploadingPromo ? 'Uploading...' : 'Upload Video'}</span>
                           <p className="text-[10px] text-zinc-600 mt-1">Students are 5X more likely to enroll.</p>
                       </div>
                   )}
-                  <input type="file" accept="video/*" className="hidden" onChange={handlePromoUpload} />
+                  <input type="file" accept="video/*" className="hidden" onChange={handlePromoUpload} disabled={isUploadingPromo} />
               </label>
            </div>
         </div>
