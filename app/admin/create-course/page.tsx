@@ -1012,12 +1012,12 @@ function LandingPageStep({ data, setData, onContinue }: { data: CourseData, setD
       const fileExt = file.name.split('.').pop()
       const fileName = `thumbnail-${Math.random().toString(36).substring(2)}.${fileExt}`
       
-      // Upload to your 'course-media' bucket
-      const { error } = await supabase.storage.from('course-media').upload(fileName, file)
+      // Upload to your 'course-content' bucket
+      const { error } = await supabase.storage.from('course-content').upload(fileName, file)
       if (error) throw error
 
       // Get the permanent public URL
-      const { data: publicData } = supabase.storage.from('course-media').getPublicUrl(fileName)
+      const { data: publicData } = supabase.storage.from('course-content').getPublicUrl(fileName)
       
       setData({...data, thumbnail: publicData.publicUrl})
       addToast('Image uploaded successfully!', 'success')
@@ -1040,11 +1040,11 @@ function LandingPageStep({ data, setData, onContinue }: { data: CourseData, setD
       const fileExt = file.name.split('.').pop()
       const fileName = `promo-${Math.random().toString(36).substring(2)}.${fileExt}`
       
-      // Upload to your 'course-media' bucket
-      const { error } = await supabase.storage.from('course-media').upload(fileName, file)
+      // Upload to your 'course-content' bucket
+      const { error } = await supabase.storage.from('course-content').upload(fileName, file)
       if (error) throw error
 
-      const { data: publicData } = supabase.storage.from('course-media').getPublicUrl(fileName)
+      const { data: publicData } = supabase.storage.from('course-content').getPublicUrl(fileName)
       
       setData({...data, promoVideo: publicData.publicUrl})
       addToast('Promo Video uploaded successfully!', 'success')
