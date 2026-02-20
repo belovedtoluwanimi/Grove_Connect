@@ -12,6 +12,9 @@ import {
   ImageIcon
 } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/app/hooks/useAuth' 
+import { createClient } from '@/app/utils/supabase/client'
 
 // --- 1. TOAST SYSTEM (Built-in) ---
 type ToastType = 'success' | 'error' | 'info'
@@ -23,7 +26,7 @@ const ToastProvider = ({ children }: { children: React.ReactNode }) => {
   const addToast = (message: string, type: ToastType = 'success') => {
     const id = Math.random().toString(36).substr(2, 9)
     setToasts(prev => [...prev, { id, message, type }])
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000)
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000)
   }
   return (
     <ToastContext.Provider value={{ addToast }}>
@@ -77,6 +80,9 @@ interface Module {
 }
 
 interface CourseData {
+  priceTier: number
+  currency: string
+  id?: string // NEW: Database tracking ID
   objectives: string[]
   prerequisites: string[]
   audienceLevel: string
@@ -131,13 +137,20 @@ export default function CreateCoursePage() {
 
 function CourseBuilder() {
   const { addToast } = useToast()
+  const router = useRouter()
+  const { user } = useAuth()
+  const supabase = createClient()
   
   // State for Phases
   const [phase, setPhase] = useState<Phase>('plan')
   const [activeStep, setActiveStep] = useState<Step>('intended-learners')
+  const [isSavingDraft, setIsSavingDraft] = useState(false)
+  const [isPublishing, setIsPublishing] = useState(false)
   
   // State for Entire Course
   const [data, setData] = useState<CourseData>({
+    priceTier: 0,
+    currency: 'USD',
     objectives: ['', '', '', ''], // Minimum 4
     prerequisites: [''],
     audienceLevel: '',
@@ -146,8 +159,90 @@ function CourseBuilder() {
     thumbnail: null, promoVideo: null, pricing: { amount: '', currency: 'USD' }, welcomeMessage: '', congratsMessage: ''
   })
 
-  const handleSave = () => {
-    addToast('Changes saved to draft successfully!', 'success')
+  // --- SUPABASE DATABASE INTEGRATION ---
+  const saveToSupabase = async (status: 'draft' | 'published') => {
+    if (!user) throw new Error("Authentication required. Please log in.")
+
+    const payload = {
+      ...(data.id ? { id: data.id } : {}), // Upsert row if ID exists
+      instructor_id: user.id,
+      title: data.title || 'Untitled Draft',
+      subtitle: data.subtitle,
+      description: data.description,
+      language: data.language,
+      category: data.category,
+      subcategory: data.subcategory,
+      primary_topic: data.primaryTopic,
+      level: data.audienceLevel,
+      thumbnail_url: data.thumbnail,
+      promo_video_url: data.promoVideo,
+      price: parseFloat(data.pricing?.amount || '0'),
+      currency: data.pricing?.currency || 'USD',
+      welcome_message: data.welcomeMessage,
+      congrats_message: data.congratsMessage,
+      objectives: data.objectives.filter(o => o.trim() !== ''),
+      prerequisites: data.prerequisites.filter(p => p.trim() !== ''),
+      curriculum_data: data.modules,
+      status: status,
+      updated_at: new Date().toISOString(),
+      ...(status === 'published' ? { published_at: new Date().toISOString() } : {})
+    }
+
+    const { data: savedData, error } = await supabase.from('courses').upsert(payload).select().single()
+    if (error) throw error
+    return savedData
+  }
+
+  const handleSaveDraft = async () => {
+    setIsSavingDraft(true)
+    try {
+      const savedRow = await saveToSupabase('draft')
+      if (savedRow && !data.id) {
+        setData(prev => ({ ...prev, id: savedRow.id })) // Bind to new DB row
+      }
+      addToast('Draft saved successfully! You can resume from your dashboard.', 'success')
+    } catch (e: any) {
+      addToast(e.message || 'Failed to save draft.', 'error')
+    } finally {
+      setIsSavingDraft(false)
+    }
+  }
+
+  const handlePublish = async () => {
+    // 1. STRICT VALIDATION
+    const filledObjectives = data.objectives.filter(o => o.trim() !== '')
+    if (filledObjectives.length < 4) return addToast("Provide at least 4 learning objectives (Plan Phase).", "error")
+    
+    const filledPrereqs = data.prerequisites.filter(p => p.trim() !== '')
+    if (filledPrereqs.length < 1) return addToast("Provide at least 1 prerequisite (Plan Phase).", "error")
+    
+    if (!data.audienceLevel) return addToast("Select a target audience level (Plan Phase).", "error")
+    
+    if (data.modules.length === 0 || data.modules[0].items.length === 0) {
+      return addToast("Curriculum must have at least 1 section and 1 lecture (Create Phase).", "error")
+    }
+
+    if (!data.title?.trim()) { setPhase('publish'); setActiveStep('landing-page'); return addToast("Course Title is required.", "error") }
+    if (!data.subtitle?.trim()) { setPhase('publish'); setActiveStep('landing-page'); return addToast("Course Subtitle is required.", "error") }
+    if (!data.description?.trim()) { setPhase('publish'); setActiveStep('landing-page'); return addToast("Course Description is required.", "error") }
+    if (!data.category?.trim()) { setPhase('publish'); setActiveStep('landing-page'); return addToast("Category is required.", "error") }
+    if (!data.primaryTopic?.trim()) { setPhase('publish'); setActiveStep('landing-page'); return addToast("Primary Topic is required.", "error") }
+    if (!data.thumbnail) { setPhase('publish'); setActiveStep('landing-page'); return addToast("Course Image is required.", "error") }
+    if (!data.pricing?.amount) { setPhase('publish'); setActiveStep('pricing'); return addToast("Pricing tier is required.", "error") }
+
+    // 2. SUBMIT TO DB
+    setIsPublishing(true)
+    try {
+      await saveToSupabase('published')
+      addToast('Course submitted for review successfully! Redirecting...', 'success')
+      setTimeout(() => {
+        router.push('/dashboard/instructor')
+      }, 2000)
+    } catch (e: any) {
+      addToast(e.message || 'Failed to publish course.', 'error')
+    } finally {
+      setIsPublishing(false)
+    }
   }
 
   const navigateToCreatePhase = () => {
@@ -227,15 +322,9 @@ function CourseBuilder() {
         </div>
 
         <div className="p-6 border-t border-white/5 bg-black/20">
-          {phase === 'publish' && activeStep === 'course-messages' ? (
-             <button onClick={() => addToast('Course submitted for review!', 'success')} className="w-full py-3 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-400 transition-all shadow-[0_0_20px_rgba(52,211,153,0.3)] flex items-center justify-center gap-2">
-               <Rocket size={18}/> Submit for Review
-             </button>
-          ) : (
-            <button onClick={handleSave} className="w-full py-3 bg-white text-black font-bold rounded-xl hover:bg-zinc-200 transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.3)]">
-              Save Draft
-            </button>
-          )}
+          <button onClick={handleSaveDraft} disabled={isSavingDraft || isPublishing} className="w-full py-3 bg-white text-black font-bold rounded-xl hover:bg-zinc-200 transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.3)] flex items-center justify-center gap-2">
+            {isSavingDraft ? <Loader2 size={18} className="animate-spin"/> : "Save Draft"}
+          </button>
         </div>
       </aside>
 
@@ -255,7 +344,7 @@ function CourseBuilder() {
             {/* Phase 3 */}
             {activeStep === 'landing-page' && <LandingPageStep key="s6" data={data} setData={setData} onContinue={() => setActiveStep('pricing')} />}
             {activeStep === 'pricing' && <PricingStep key="s7" data={data} setData={setData} onContinue={() => setActiveStep('course-messages')} />}
-            {activeStep === 'course-messages' && <CourseMessagesStep key="s8" data={data} setData={setData} />}
+            {activeStep === 'course-messages' && <CourseMessagesStep key="s8" data={data} setData={setData} onPublish={handlePublish} isPublishing={isPublishing} />}
           </AnimatePresence>
         </div>
       </main>
@@ -297,7 +386,7 @@ function IntendedLearnersStep({ data, setData }: { data: CourseData, setData: an
   }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-12">
       <div>
         <h1 className="text-3xl font-bold mb-2">Intended Learners</h1>
         <p className="text-zinc-400 text-lg">The descriptions you write here will help students decide if your course is the right one for them.</p>
@@ -313,7 +402,7 @@ function IntendedLearnersStep({ data, setData }: { data: CourseData, setData: an
             {data.objectives.map((obj, idx) => (
               <motion.div key={idx} initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="flex gap-3 group">
                 <div className="flex-1 relative">
-                  <input value={obj} onChange={e => handleObjChange(idx, e.target.value)} placeholder="Example: Build a full-stack Next.js application from scratch" className="w-full bg-zinc-900/50 border border-white/10 rounded-xl px-4 py-3.5 text-sm outline-none focus:border-blue-500 focus:bg-zinc-900 transition-all text-white placeholder-zinc-700" />
+                  <input value={obj} onChange={e => handleObjChange(idx, e.target.value)} placeholder="Example: Build a full-stack application from scratch" className="w-full bg-zinc-900/50 border border-white/10 rounded-xl px-4 py-3.5 text-sm outline-none focus:border-blue-500 focus:bg-zinc-900 transition-all text-white placeholder-zinc-700" />
                 </div>
                 <button onClick={() => removeObj(idx)} className="w-12 flex items-center justify-center text-zinc-600 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"><Trash2 size={18}/></button>
               </motion.div>
@@ -369,7 +458,7 @@ function CourseStructureStep() {
   const { addToast } = useToast()
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-12">
       <div>
         <h1 className="text-3xl font-bold mb-2">Course Structure & Guidelines</h1>
         <p className="text-zinc-400 text-lg">Planning your course carefully creates a clear learning path for students and makes filming easier for you.</p>
@@ -502,7 +591,7 @@ function SetupTestVideoStep({ onContinue }: { onContinue: () => void }) {
           ) : (
             <div className="bg-zinc-900/60 border border-white/10 rounded-3xl p-6 flex flex-col h-full backdrop-blur-md">
               <h3 className="font-bold text-lg mb-2">Submit a 2-minute test</h3>
-              <p className="text-xs text-zinc-400 mb-6">Record yourself speaking about any topic for 1-2 minutes using your intended setup.</p>
+              <p className="text-xs text-zinc-400 mb-6">Record yourself speaking about any topic for 1-2 minutes using your intended setup. (Optional)</p>
               
               {!fileUrl ? (
                 <label className="flex-1 min-h-[200px] border-2 border-dashed border-white/20 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 hover:bg-white/5 transition-all group">
@@ -528,7 +617,7 @@ function SetupTestVideoStep({ onContinue }: { onContinue: () => void }) {
                       <X size={14} />
                     </button>
                   </div>
-                  <button onClick={handleSubmitReview} className="w-full py-4 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-400 transition-all flex items-center justify-center gap-2 mt-auto shadow-lg shadow-white/5">
+                  <button onClick={handleSubmitReview} className="w-full py-4 bg-white text-black font-bold rounded-xl hover:bg-emerald-400 transition-all flex items-center justify-center gap-2 mt-auto shadow-lg shadow-white/5">
                     <Send size={18} /> Send for Expert Review
                   </button>
                 </div>
@@ -539,7 +628,7 @@ function SetupTestVideoStep({ onContinue }: { onContinue: () => void }) {
       </div>
 
       <div className="pt-12 mt-12 border-t border-white/10 flex justify-end">
-         <button onClick={() => { addToast('Welcome to Phase 2: Creation Workspace!', 'info'); onContinue(); }} className="px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-lg rounded-xl shadow-[0_0_40px_-10px_rgba(59,130,246,0.5)] transition-all flex items-center gap-3 hover:scale-105">
+         <button onClick={() => { addToast('Welcome to Phase 2: Creation Workspace!', 'info'); onContinue(); }} className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-black text-lg rounded-xl shadow-[0_0_40px_-10px_rgba(59,130,246,0.5)] transition-all flex items-center gap-3 hover:scale-105">
             Continue to Create Course <ArrowRight size={24} />
          </button>
       </div>
@@ -547,10 +636,11 @@ function SetupTestVideoStep({ onContinue }: { onContinue: () => void }) {
   )
 }
 
-// --- PHASE 2: CREATE YOUR CONTENT ---
+// ============================================================================
+// 5. PHASE 2 COMPONENTS
+// ============================================================================
 
 function FilmAndEditStep() {
-  const { addToast } = useToast()
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-12">
       <div>
@@ -884,7 +974,7 @@ function ResourceManager({ resources, onChange }: { resources: ResourceItem[], o
             </div>
             
             <div className="space-y-3">
-              {resources.length === 0 && <p className="text-sm text-zinc-500">No resources attached to this lecture.</p>}
+              {resources.length === 0 && <p className="text-sm text-zinc-500">No resources attached to this lecture. Students love downloadable files!</p>}
               {resources.map((r, i) => (
                   <div key={r.id} className="flex items-center gap-4 bg-black/60 p-4 rounded-xl border border-white/10 group hover:border-white/20 transition-colors">
                       <div className="p-2 bg-zinc-900 rounded-lg">{r.type === 'file' ? <FileText size={20} className="text-blue-500"/> : r.type === 'link' ? <LinkIcon size={20} className="text-emerald-500"/> : <FileCode size={20} className="text-purple-500"/>}</div>
@@ -900,7 +990,7 @@ function ResourceManager({ resources, onChange }: { resources: ResourceItem[], o
 }
 
 // ============================================================================
-// 6. PHASE 3: PUBLISH COMPONENTS (NEW)
+// 6. PHASE 3: PUBLISH COMPONENTS 
 // ============================================================================
 
 function LandingPageStep({ data, setData, onContinue }: { data: CourseData, setData: any, onContinue: () => void }) {
@@ -910,7 +1000,7 @@ function LandingPageStep({ data, setData, onContinue }: { data: CourseData, setD
     if(!e.target.files[0]) return
     addToast('Uploading Image...', 'info')
     await new Promise(r=>setTimeout(r, 1000))
-    setData({...data, thumbnail: URL.createObjectURL(e.target.files[0])})
+    setData({...data, thumbnailUrl: URL.createObjectURL(e.target.files[0])})
     addToast('Image attached', 'success')
   }
 
@@ -918,7 +1008,7 @@ function LandingPageStep({ data, setData, onContinue }: { data: CourseData, setD
     if(!e.target.files[0]) return
     addToast('Uploading Promo Video...', 'info')
     await new Promise(r=>setTimeout(r, 2000))
-    setData({...data, promoVideo: URL.createObjectURL(e.target.files[0])})
+    setData({...data, promoVideoUrl: URL.createObjectURL(e.target.files[0])})
     addToast('Promo Video attached', 'success')
   }
 
@@ -971,7 +1061,7 @@ function LandingPageStep({ data, setData, onContinue }: { data: CourseData, setD
              </select>
            </div>
            <div className="space-y-2">
-             <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Subcategory</label>
+             <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Subcategory (Optional)</label>
              <input value={data.subcategory || ''} onChange={e => setData({...data, subcategory: e.target.value})} placeholder="e.g. Next.js" className="w-full bg-zinc-900/80 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-purple-500 text-sm" />
            </div>
         </div>
@@ -988,8 +1078,8 @@ function LandingPageStep({ data, setData, onContinue }: { data: CourseData, setD
               <label className="flex flex-col items-center justify-center w-full aspect-video bg-zinc-900/80 border-2 border-dashed border-white/10 rounded-xl cursor-pointer hover:border-purple-500 transition-all overflow-hidden relative group">
                   {data.thumbnail ? <img src={data.thumbnail} className="w-full h-full object-cover"/> : (
                       <div className="text-center group-hover:scale-105 transition-transform">
-                          <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-3 text-zinc-400"><ImageIcon size={24}/></div>
-                          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Upload Image</span>
+                          <ImageIcon className="text-zinc-500 mx-auto mb-2" size={32}/>
+                          <span className="text-xs font-bold text-zinc-400">Upload Image</span>
                           <p className="text-[10px] text-zinc-600 mt-1">750x422 pixels; .jpg, .jpeg, .png</p>
                       </div>
                   )}
@@ -1003,8 +1093,8 @@ function LandingPageStep({ data, setData, onContinue }: { data: CourseData, setD
               <label className="flex flex-col items-center justify-center w-full aspect-video bg-zinc-900/80 border-2 border-dashed border-white/10 rounded-xl cursor-pointer hover:border-purple-500 transition-all overflow-hidden relative group">
                   {data.promoVideo ? <video src={data.promoVideo} className="w-full h-full object-cover" controls/> : (
                       <div className="text-center group-hover:scale-105 transition-transform">
-                          <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-3 text-zinc-400"><Video size={24}/></div>
-                          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Upload Video</span>
+                          <Video className="text-zinc-500 mx-auto mb-2" size={32}/>
+                          <span className="text-xs font-bold text-zinc-400">Upload Video</span>
                           <p className="text-[10px] text-zinc-600 mt-1">Students are 5X more likely to enroll.</p>
                       </div>
                   )}
@@ -1021,7 +1111,7 @@ function LandingPageStep({ data, setData, onContinue }: { data: CourseData, setD
 }
 
 function PricingStep({ data, setData, onContinue }: { data: CourseData, setData: any, onContinue: () => void }) {
-  const activeCurrency = CURRENCIES.find(c => c.code === data.pricing?.currency) || CURRENCIES[0]
+  const activeCurrency = CURRENCIES.find(c => c.code === data.currency) || CURRENCIES[0]
   
   // Convert base USD tiers to selected currency
   const localizedTiers = BASE_TIERS.map(tier => ({
@@ -1042,8 +1132,8 @@ function PricingStep({ data, setData, onContinue }: { data: CourseData, setData:
         <div className="space-y-3 max-w-sm">
            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-2"><Globe size={14}/> Currency</label>
            <select 
-              value={data.pricing?.currency || 'USD'} 
-              onChange={e => setData({...data, pricing: { ...(data.pricing || { amount: '', currency: 'USD' }), currency: e.target.value }})} 
+              value={data.currency} 
+              onChange={e => setData({...data, currency: e.target.value})} 
               className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 outline-none cursor-pointer hover:border-purple-500 transition-colors font-bold text-lg"
            >
               {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} - {c.name}</option>)}
@@ -1055,11 +1145,11 @@ function PricingStep({ data, setData, onContinue }: { data: CourseData, setData:
            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Price Tier</label>
            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {localizedTiers.map(tier => {
-                 const isSelected = data.pricing?.amount === tier.usd.toString()
+                 const isSelected = data.priceTier === tier.usd
                  return (
                  <button 
                     key={tier.usd} 
-                    onClick={() => setData({...data, pricing: { ...(data.pricing || { amount: '', currency: 'USD' }), amount: tier.usd.toString() }})} 
+                    onClick={() => setData({...data, priceTier: tier.usd})} 
                     className={`p-6 rounded-2xl border flex flex-col items-center justify-center gap-1 transition-all ${
                         isSelected ? 'bg-purple-500/20 border-purple-500 text-purple-400 shadow-[0_0_20px_rgba(168,85,247,0.2)] scale-[1.02]' : 'bg-zinc-900/50 border-white/10 hover:border-white/30 hover:bg-zinc-900 text-zinc-300'
                     }`}
@@ -1082,20 +1172,7 @@ function PricingStep({ data, setData, onContinue }: { data: CourseData, setData:
   )
 }
 
-function CourseMessagesStep({ data, setData }: { data: CourseData, setData: any }) {
-  const { addToast } = useToast()
-
-  const handleFinalSubmit = () => {
-    // Basic Validation Check before fake submission
-    if(!data.title) return addToast("Please set a course title in Landing Page step.", "error")
-    
-    addToast("Course submitted for review! Redirecting...", "success")
-    setTimeout(() => {
-        // Redirect to dashboard logic here
-        window.location.href = '/dashboard/instructor'
-    }, 2000)
-  }
-
+function CourseMessagesStep({ data, setData, onPublish, isPublishing }: { data: CourseData, setData: any, onPublish: () => void, isPublishing: boolean }) {
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-12">
       <div>
@@ -1131,8 +1208,8 @@ function CourseMessagesStep({ data, setData }: { data: CourseData, setData: any 
 
       {/* THE BIG SUBMIT BUTTON */}
       <div className="pt-8">
-         <button onClick={handleFinalSubmit} className="w-full py-5 bg-emerald-600 text-white font-black text-xl uppercase tracking-widest rounded-xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-3 shadow-[0_0_50px_rgba(168,85,247,0.4)]">
-            <Rocket size={24}/> Submit for Review
+         <button onClick={onPublish} disabled={isPublishing} className="w-full py-5 bg-purple-600 text-white font-black text-xl uppercase tracking-widest rounded-xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-3 shadow-[0_0_50px_rgba(168,85,247,0.4)] disabled:opacity-50">
+            {isPublishing ? <Loader2 className="animate-spin" size={24}/> : <Rocket size={24}/>} Submit for Review
          </button>
          <p className="text-center text-xs text-zinc-500 mt-4">By submitting, you agree to the Grove Academy Instructor Terms of Service.</p>
       </div>
