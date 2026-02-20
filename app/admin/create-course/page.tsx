@@ -1,10 +1,11 @@
 'use client'
 
-import React, { useState, useEffect, createContext, useContext } from 'react'
+import React, { useState, createContext, useContext } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Users, LayoutTemplate, FileVideo, BookOpen, Target, AlertCircle, 
-  CheckCircle2, X, Plus, Trash2, Info, ArrowRight, ShieldCheck, PlayCircle, Lightbulb
+  CheckCircle2, X, Plus, Trash2, Info, Lightbulb, PlayCircle, ShieldCheck,
+  Camera, Mic, Sun, HeartHandshake, UploadCloud, Send, Loader2
 } from 'lucide-react'
 
 // --- 1. TOAST SYSTEM (Built-in) ---
@@ -45,7 +46,7 @@ const ToastProvider = ({ children }: { children: React.ReactNode }) => {
 export const useToast = () => useContext(ToastContext)
 
 // --- 2. TYPES & INITIAL STATE ---
-type Step = 'intended-learners' | 'course-structure' | 'setup-curriculum' // Extensible
+type Step = 'intended-learners' | 'course-structure' | 'setup-test-video' | 'setup-curriculum' 
 interface CourseData {
   objectives: string[]
   prerequisites: string[]
@@ -65,16 +66,16 @@ function CourseBuilder() {
   const [activeStep, setActiveStep] = useState<Step>('intended-learners')
   const { addToast } = useToast()
   
-  // State for "Intended Learners"
+  // State for "Plan Your Course"
   const [data, setData] = useState<CourseData>({
-    objectives: ['', '', '', ''], // Minimum 4 as requested
+    objectives: ['', '', '', ''], // Minimum 4
     prerequisites: [''],
     audienceLevel: ''
   })
 
   // Mock Save Function
   const handleSave = () => {
-    addToast('Changes saved successfully!', 'success')
+    addToast('Changes saved to draft successfully!', 'success')
   }
 
   return (
@@ -96,6 +97,7 @@ function CourseBuilder() {
             <nav className="space-y-1">
               <SidebarItem active={activeStep === 'intended-learners'} icon={Users} label="Intended Learners" onClick={() => setActiveStep('intended-learners')} />
               <SidebarItem active={activeStep === 'course-structure'} icon={LayoutTemplate} label="Course Structure" onClick={() => setActiveStep('course-structure')} />
+              <SidebarItem active={activeStep === 'setup-test-video'} icon={Camera} label="Setup & Test Video" onClick={() => setActiveStep('setup-test-video')} />
             </nav>
           </div>
 
@@ -118,9 +120,10 @@ function CourseBuilder() {
 
       {/* --- MAIN WORKSPACE --- */}
       <main className="flex-1 overflow-y-auto bg-black relative">
-        <div className="max-w-4xl mx-auto p-12 pb-32">
+        <div className="max-w-5xl mx-auto p-12 pb-32">
           {activeStep === 'intended-learners' && <IntendedLearnersStep data={data} setData={setData} />}
           {activeStep === 'course-structure' && <CourseStructureStep />}
+          {activeStep === 'setup-test-video' && <SetupTestVideoStep />}
         </div>
       </main>
     </div>
@@ -272,7 +275,6 @@ function CourseStructureStep() {
       <div className="pt-8 border-t border-white/5">
         <h3 className="text-xl font-bold mb-6">Instructor Resources</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          
           <a href="#" onClick={(e) => {e.preventDefault(); addToast('Opening Video Guide...', 'info')}} className="p-6 bg-zinc-900/40 border border-white/5 rounded-2xl hover:bg-zinc-900 hover:border-white/20 transition-all group">
             <PlayCircle className="text-rose-500 mb-4 group-hover:scale-110 transition-transform" size={28}/>
             <h4 className="font-bold text-white mb-2">How to create a course</h4>
@@ -290,8 +292,133 @@ function CourseStructureStep() {
             <h4 className="font-bold text-white mb-2">Instructor Community</h4>
             <p className="text-xs text-zinc-500">Join Discord to ask questions and get feedback on your structure.</p>
           </a>
-
         </div>
+      </div>
+    </motion.div>
+  )
+}
+
+// STEP 3: SETUP & TEST VIDEO
+function SetupTestVideoStep() {
+  const { addToast } = useToast()
+  const [fileUrl, setFileUrl] = useState<string | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [isSubmitted, setIsSubmitted] = useState(false)
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    
+    setIsUploading(true)
+    // Simulate upload delay
+    await new Promise(r => setTimeout(r, 2000))
+    setFileUrl(URL.createObjectURL(file))
+    setIsUploading(false)
+    addToast('Test video uploaded successfully!', 'success')
+  }
+
+  const handleSubmitReview = () => {
+    setIsSubmitted(true)
+    addToast('Test video sent to experts! Expect feedback within 48 hours.', 'success')
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
+      <div>
+        <h1 className="text-3xl font-bold mb-2">Setup & Test Video</h1>
+        <p className="text-zinc-400 text-lg">Get early feedback on your audio, lighting, and camera setup before you record your entire course.</p>
+      </div>
+
+      {/* Empathetic Reassurance Banner */}
+      <div className="bg-gradient-to-r from-indigo-900/30 to-purple-900/10 border border-indigo-500/20 p-6 rounded-2xl flex items-start gap-4">
+        <HeartHandshake className="text-indigo-400 shrink-0 mt-1" size={28} />
+        <div>
+          <h3 className="font-bold text-indigo-100 text-lg mb-1">You don't need to be a pro!</h3>
+          <p className="text-sm text-indigo-200/80 leading-relaxed">
+            Many of our most successful instructors started by recording on their smartphones in their living rooms. 
+            You don't need expensive equipment or heavy editing skills. Our expert review team is here to guide you, 
+            provide constructive tips, and ensure your students can hear and see you clearly. <b>We are here to help, not criticize.</b>
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+        
+        {/* Left Column: Tips */}
+        <div className="lg:col-span-3 space-y-6">
+          <h3 className="text-xl font-bold mb-4">What our experts look for:</h3>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-zinc-900/50 p-5 rounded-2xl border border-white/5">
+              <Mic className="text-emerald-400 mb-3" size={24} />
+              <h4 className="font-bold mb-1">Clear Audio</h4>
+              <p className="text-xs text-zinc-400">Audio is the most important part! Minimize echo and background noise. A cheap lapel mic works wonders.</p>
+            </div>
+            
+            <div className="bg-zinc-900/50 p-5 rounded-2xl border border-white/5">
+              <Sun className="text-amber-400 mb-3" size={24} />
+              <h4 className="font-bold mb-1">Good Lighting</h4>
+              <p className="text-xs text-zinc-400">Ensure your face is well-lit. Face a window or use a ring light. Avoid strong backlighting (don't sit with a window behind you).</p>
+            </div>
+            
+            <div className="bg-zinc-900/50 p-5 rounded-2xl border border-white/5">
+              <Camera className="text-blue-400 mb-3" size={24} />
+              <h4 className="font-bold mb-1">Camera Framing</h4>
+              <p className="text-xs text-zinc-400">Keep the camera steady at eye level. Shoot in landscape mode (horizontal) in at least 720p resolution.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Upload & Submit */}
+        <div className="lg:col-span-2">
+          {isSubmitted ? (
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="h-full bg-emerald-900/20 border border-emerald-500/30 rounded-3xl p-8 flex flex-col items-center justify-center text-center">
+              <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mb-4">
+                <CheckCircle2 size={32} />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Video Submitted!</h3>
+              <p className="text-sm text-emerald-200/70">
+                Our team is currently reviewing your setup. We will email you personalized feedback within <b>48 hours</b>.
+              </p>
+            </motion.div>
+          ) : (
+            <div className="bg-zinc-900 border border-white/10 rounded-3xl p-6 flex flex-col h-full">
+              <h3 className="font-bold text-lg mb-2">Submit a 2-minute test</h3>
+              <p className="text-xs text-zinc-400 mb-6">Record yourself speaking about any topic for 1-2 minutes using your intended setup.</p>
+              
+              {!fileUrl ? (
+                <label className="flex-1 min-h-[200px] border-2 border-dashed border-white/20 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 hover:bg-white/5 transition-all group">
+                  {isUploading ? (
+                    <div className="flex flex-col items-center">
+                      <Loader2 className="animate-spin text-emerald-500 mb-2" size={28} />
+                      <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Uploading...</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center text-zinc-500 group-hover:text-emerald-400 transition-colors">
+                      <UploadCloud size={32} className="mb-3" />
+                      <span className="text-sm font-bold">Select Video File</span>
+                      <span className="text-xs mt-1 opacity-70">MP4 or MOV (Max 500MB)</span>
+                    </div>
+                  )}
+                  <input type="file" accept="video/*" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
+                </label>
+              ) : (
+                <div className="flex-1 flex flex-col">
+                  <div className="w-full aspect-video bg-black rounded-xl overflow-hidden mb-4 border border-white/10 relative">
+                    <video src={fileUrl} className="w-full h-full object-cover" controls />
+                    <button onClick={() => setFileUrl(null)} className="absolute top-2 right-2 p-1.5 bg-black/60 rounded-lg hover:bg-red-500 transition-colors text-white backdrop-blur">
+                      <X size={14} />
+                    </button>
+                  </div>
+                  <button onClick={handleSubmitReview} className="w-full py-4 bg-white text-black font-bold rounded-xl hover:bg-emerald-400 transition-all flex items-center justify-center gap-2 mt-auto shadow-lg shadow-white/5">
+                    <Send size={18} /> Send for Expert Review
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
       </div>
     </motion.div>
   )
