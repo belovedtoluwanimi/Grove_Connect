@@ -228,7 +228,7 @@ function CourseBuilder() {
 
         <div className="p-6 border-t border-white/5 bg-black/20">
           {phase === 'publish' && activeStep === 'course-messages' ? (
-             <button onClick={() => addToast('Course submitted for review!', 'success')} className="w-full py-3 bg-emerald-500 text-black font-bold rounded-xl hover:bg-emerald-400 transition-all shadow-[0_0_20px_rgba(52,211,153,0.3)] flex items-center justify-center gap-2">
+             <button onClick={() => addToast('Course submitted for review!', 'success')} className="w-full py-3 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-400 transition-all shadow-[0_0_20px_rgba(52,211,153,0.3)] flex items-center justify-center gap-2">
                <Rocket size={18}/> Submit for Review
              </button>
           ) : (
@@ -528,7 +528,7 @@ function SetupTestVideoStep({ onContinue }: { onContinue: () => void }) {
                       <X size={14} />
                     </button>
                   </div>
-                  <button onClick={handleSubmitReview} className="w-full py-4 bg-white text-black font-bold rounded-xl hover:bg-emerald-400 transition-all flex items-center justify-center gap-2 mt-auto shadow-lg shadow-white/5">
+                  <button onClick={handleSubmitReview} className="w-full py-4 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-400 transition-all flex items-center justify-center gap-2 mt-auto shadow-lg shadow-white/5">
                     <Send size={18} /> Send for Expert Review
                   </button>
                 </div>
@@ -539,7 +539,7 @@ function SetupTestVideoStep({ onContinue }: { onContinue: () => void }) {
       </div>
 
       <div className="pt-12 mt-12 border-t border-white/10 flex justify-end">
-         <button onClick={() => { addToast('Welcome to Phase 2: Creation Workspace!', 'info'); onContinue(); }} className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-black text-lg rounded-xl shadow-[0_0_40px_-10px_rgba(59,130,246,0.5)] transition-all flex items-center gap-3 hover:scale-105">
+         <button onClick={() => { addToast('Welcome to Phase 2: Creation Workspace!', 'info'); onContinue(); }} className="px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-lg rounded-xl shadow-[0_0_40px_-10px_rgba(59,130,246,0.5)] transition-all flex items-center gap-3 hover:scale-105">
             Continue to Create Course <ArrowRight size={24} />
          </button>
       </div>
@@ -687,7 +687,7 @@ function CurriculumStep({ data, setData, onContinue }: { data: CourseData, setDa
       </div>
 
       <div className="pt-12 mt-12 border-t border-white/10 flex justify-end">
-         <button onClick={() => { addToast('Welcome to Phase 3: Publish!', 'info'); onContinue(); }} className="px-8 py-4 bg-purple-600 hover:bg-purple-500 text-white font-black text-lg rounded-xl shadow-[0_0_40px_-10px_rgba(168,85,247,0.5)] transition-all flex items-center gap-3 hover:scale-105">
+         <button onClick={() => { addToast('Welcome to Phase 3: Publish!', 'info'); onContinue(); }} className="px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-lg rounded-xl shadow-[0_0_40px_-10px_rgba(168,85,247,0.5)] transition-all flex items-center gap-3 hover:scale-105">
             Continue to Publish Phase <ArrowRight size={24} />
          </button>
       </div>
@@ -1131,7 +1131,7 @@ function CourseMessagesStep({ data, setData }: { data: CourseData, setData: any 
 
       {/* THE BIG SUBMIT BUTTON */}
       <div className="pt-8">
-         <button onClick={handleFinalSubmit} className="w-full py-5 bg-purple-600 text-white font-black text-xl uppercase tracking-widest rounded-xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-3 shadow-[0_0_50px_rgba(168,85,247,0.4)]">
+         <button onClick={handleFinalSubmit} className="w-full py-5 bg-emerald-600 text-white font-black text-xl uppercase tracking-widest rounded-xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-3 shadow-[0_0_50px_rgba(168,85,247,0.4)]">
             <Rocket size={24}/> Submit for Review
          </button>
          <p className="text-center text-xs text-zinc-500 mt-4">By submitting, you agree to the Grove Academy Instructor Terms of Service.</p>
