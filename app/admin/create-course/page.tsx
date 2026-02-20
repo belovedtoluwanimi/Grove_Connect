@@ -228,7 +228,7 @@ function CourseBuilder() {
     if (!data.category?.trim()) { setPhase('publish'); setActiveStep('landing-page'); return addToast("Category is required.", "error") }
     if (!data.primaryTopic?.trim()) { setPhase('publish'); setActiveStep('landing-page'); return addToast("Primary Topic is required.", "error") }
     if (!data.thumbnail) { setPhase('publish'); setActiveStep('landing-page'); return addToast("Course Image is required.", "error") }
-    if (!data.pricing?.amount) { setPhase('publish'); setActiveStep('pricing'); return addToast("Pricing tier is required.", "error") }
+   if (data.priceTier === undefined || data.priceTier === null) { setPhase('publish'); setActiveStep('pricing'); return addToast("Pricing tier is required.", "error") }
 
     // 2. SUBMIT TO DB
     setIsPublishing(true)
@@ -1175,7 +1175,7 @@ function PricingStep({ data, setData, onContinue }: { data: CourseData, setData:
         <div className="space-y-3 max-w-sm">
            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-2"><Globe size={14}/> Currency</label>
            <select 
-              value={data.currency} 
+              value={data.currency || 'USD'} 
               onChange={e => setData({...data, currency: e.target.value})} 
               className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 outline-none cursor-pointer hover:border-purple-500 transition-colors font-bold text-lg"
            >
@@ -1188,7 +1188,8 @@ function PricingStep({ data, setData, onContinue }: { data: CourseData, setData:
            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Price Tier</label>
            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {localizedTiers.map(tier => {
-                 const isSelected = data.priceTier === tier.usd
+                 // Strictly compare numbers so the button highlights correctly
+                 const isSelected = Number(data.priceTier) === tier.usd
                  return (
                  <button 
                     key={tier.usd} 
