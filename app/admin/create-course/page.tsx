@@ -11,6 +11,7 @@ import {
   ChevronLeft, Video, Eye, Globe, DollarSign, MessageSquare, Rocket, Bold, Italic, List, AlignLeft,
   ImageIcon
 } from 'lucide-react'
+import Link from 'next/link'
 
 // --- 1. TOAST SYSTEM (Built-in) ---
 type ToastType = 'success' | 'error' | 'info'
@@ -180,9 +181,11 @@ function CourseBuilder() {
       {/* --- SIDEBAR --- */}
       <aside className="w-72 border-r border-white/10 flex flex-col h-screen sticky top-0 shrink-0 z-10 bg-black/40 backdrop-blur-xl">
         <div className="p-6 border-b border-white/5">
+         <Link href="/admin/dashboard" className="text-white hover:text-emerald-400 transition-colors">
           <button className="text-zinc-500 hover:text-white flex items-center gap-2 text-xs font-bold uppercase tracking-wider mb-6 transition-colors">
             Back to Dashboard
           </button>
+          </Link>
           <div className="flex items-center gap-2 mb-1">
             <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border 
               ${phase === 'plan' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' 
