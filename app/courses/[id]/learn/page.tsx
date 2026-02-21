@@ -1,484 +1,425 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { 
-  PlayCircle, CheckCircle2, ChevronDown, Check, Loader2, ArrowLeft, 
-  Sparkles, FileText, Download, WifiOff, Star, Shield, 
-  Captions, Lock, Trash2, Send
-} from 'lucide-react'
-import Link from 'next/link'
-import Image from 'next/image'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/app/utils/supabase/client'
-import { motion, AnimatePresence } from 'framer-motion'
-import { set, get } from 'idb-keyval' // npm install idb-keyval
-import Footer from '../../../components/Footer' 
+import { 
+  PlayCircle, CheckCircle2, Circle, FileText, Presentation, ListChecks, 
+  ChevronLeft, ChevronDown, ChevronUp, Bot, Send, Search, Download, Link as LinkIcon, 
+  FileCode, Sparkles, Loader2, Maximize, MessageSquare,
+  X,
+  ArrowRight
+} from 'lucide-react'
 
-// --- TYPES ---
-type Review = {
-    id: string
-    rating: number
-    comment: string
-    created_at: string
-    user_id: string
-    profiles: { full_name: string, avatar_url: string }
+// --- TYPES (Matching our Course Creator) ---
+interface QuizQuestion { id: string; question: string; options: string[]; correctIndex: number; }
+interface ResourceItem { id: string; type: 'file' | 'link' | 'code'; title: string; url: string; }
+interface ContentItem {
+  id: string; title: string; type: 'video' | 'video_slide' | 'article' | 'quiz' | 'practice_test';
+  videoUrl?: string; slideUrl?: string; content?: string; quizData?: QuizQuestion[];
+  resources: ResourceItem[]; isOpen?: boolean;
 }
+interface Module { id: string; title: string; items: ContentItem[]; isOpen?: boolean; }
+interface Course { id: string; title: string; curriculum_data: Module[]; instructor_id: string; }
 
-export default function LearningPage() {
+export default function ClassroomPage() {
   const params = useParams()
   const router = useRouter()
   const supabase = createClient()
-  const courseId = params?.id as string
-
-  // --- STATE ---
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [course, setCourse] = useState<any>(null)
-  const [completedLectures, setCompletedLectures] = useState<Set<string>>(new Set())
-  const [activeLectureId, setActiveLectureId] = useState<string | null>(null)
   
-  // Tabs State (AI / Transcript)
-  const [activeTab, setActiveTab] = useState<'ai' | 'transcript'>('ai')
+  // State
+  const [course, setCourse] = useState<Course | null>(null)
+  const [loading, setLoading] = useState(true)
+  
+  // Navigation State
+  const [activeModIdx, setActiveModIdx] = useState(0)
+  const [activeItemIdx, setActiveItemIdx] = useState(0)
+  const [completedItems, setCompletedItems] = useState<Set<string>>(new Set())
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  
+  // Tools State
+  const [activeTab, setActiveTab] = useState<'overview' | 'resources' | 'ai'>('overview')
+  const [aiMessages, setAiMessages] = useState<{role: 'user'|'ai', text: string}[]>([
+    { role: 'ai', text: "Hi! I'm your Grove AI Tutor. Need help understanding this lecture? Ask me anything!" }
+  ])
+  const [aiInput, setAiInput] = useState('')
+  const [isAiTyping, setIsAiTyping] = useState(false)
+  const chatEndRef = useRef<HTMLDivElement>(null)
 
-  // Offline State
-  const [downloadingId, setDownloadingId] = useState<string | null>(null)
-  const [offlineReadyIds, setOfflineReadyIds] = useState<Set<string>>(new Set())
-  const [localVideoUrl, setLocalVideoUrl] = useState<string | null>(null)
-
-  // AI State
-  const [aiSummary, setAiSummary] = useState("")
-  const [isAiLoading, setIsAiLoading] = useState(false)
-
-  // Reviews State
-  const [reviews, setReviews] = useState<Review[]>([])
-  const [userRating, setUserRating] = useState(0)
-  const [userComment, setUserComment] = useState("")
-  const [isPostingReview, setIsPostingReview] = useState(false)
-
-  // Refs
-  const activeLectureRef = useRef<HTMLDivElement>(null)
-  const curriculumRef = useRef<HTMLDivElement>(null)
-
-  // --- 1. DATA FETCHING ---
+  // Fetch Course
   useEffect(() => {
-    if (!courseId) return
-
-    const init = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        // Allow offline access if previously cached, else redirect
-        if (!user && !navigator.onLine) {
-             console.log("Offline mode detected")
-        } else if (!user) {
-             return router.push('/auth')
-        }
-        setUser(user)
-
-        // A. Fetch Course Details
-        const { data: courseData, error } = await supabase
-            .from('courses')
-            .select('*, profiles(full_name, avatar_url, bio)') 
-            .eq('id', courseId)
-            .single()
-
-        if (error || !courseData) throw new Error("Course load failed")
-        setCourse(courseData)
-
-        // B. Fetch Progress
-        if (user) {
-            const { data: progressData } = await supabase
-                .from('course_progress')
-                .select('lecture_id')
-                .eq('user_id', user.id)
-                .eq('course_id', courseId)
-            setCompletedLectures(new Set(progressData?.map((p: any) => p.lecture_id) || []))
-        }
-
-        // C. Fetch Reviews
-        const { data: reviewsData } = await supabase
-            .from('reviews')
-            .select('*, profiles(full_name, avatar_url)')
-            .eq('course_id', courseId)
-            .order('created_at', { ascending: false })
-        
-        setReviews(reviewsData || [])
-
-        // D. Initialize Active Lecture
-        const curriculum = getCurriculum(courseData)
-        if (curriculum.length > 0) {
-            const allLectures = curriculum.flatMap((s:any) => s.lectures)
-            const firstIncomplete = allLectures.find((l:any) => !completedLectures.has(l.id))
-            setActiveLectureId(firstIncomplete?.id || allLectures[0]?.id)
-            
-            // Check Offline Status
-            checkOfflineAvailability(allLectures)
-        }
-
-      } catch (err) {
-        console.error(err)
-      } finally {
-        setLoading(false)
+    const fetchCourse = async () => {
+      if (!params.courseId) return
+      const { data, error } = await supabase.from('courses').select('*').eq('id', params.courseId).single()
+      if (data) {
+        // Ensure all modules are open by default in the sidebar
+        const parsedCurriculum = (data.curriculum_data || []).map((m: Module) => ({...m, isOpen: true}))
+        setCourse({ ...data, curriculum_data: parsedCurriculum })
       }
+      setLoading(false)
     }
-    init()
-  }, [courseId, supabase, router])
+    fetchCourse()
+  }, [params.courseId])
 
-  // --- 2. OFFLINE MANAGER (IndexedDB) ---
-  const checkOfflineAvailability = async (allLectures: any[]) => {
-      const readyIds = new Set<string>()
-      for (const lecture of allLectures) {
-          // Check if file exists in IndexedDB
-          const blob = await get(`video-${lecture.id}`)
-          if (blob) readyIds.add(lecture.id)
-      }
-      setOfflineReadyIds(readyIds)
+  // Scroll AI Chat to bottom
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }) }, [aiMessages])
+
+  if (loading) return <div className="min-h-screen bg-[#050505] flex items-center justify-center"><Loader2 className="animate-spin text-emerald-500" size={48} /></div>
+  if (!course) return <div className="min-h-screen bg-[#050505] text-white flex items-center justify-center">Course not found.</div>
+
+  const activeModule = course.curriculum_data[activeModIdx]
+  const activeItem = activeModule?.items[activeItemIdx]
+
+  // Calculate Progress
+  const totalItems = course.curriculum_data.reduce((acc, mod) => acc + mod.items.length, 0)
+  const progressPercent = totalItems === 0 ? 0 : Math.round((completedItems.size / totalItems) * 100)
+
+  const toggleComplete = (id: string) => {
+    const newSet = new Set(completedItems)
+    if (newSet.has(id)) newSet.delete(id)
+    else newSet.add(id)
+    setCompletedItems(newSet)
   }
 
-  // Load video from DB or Network
-  useEffect(() => {
-    const loadVideo = async () => {
-        setLocalVideoUrl(null)
-        setAiSummary("") // Reset AI on change
-        if (!activeLectureId) return
-
-        // 1. Try Secure Storage
-        const blob = await get(`video-${activeLectureId}`)
-        if (blob) {
-            console.log("Playing from secure offline storage")
-            setLocalVideoUrl(URL.createObjectURL(blob))
-        } 
+  const handleNext = () => {
+    if(!activeItem) return
+    toggleComplete(activeItem.id) // Auto-complete on next
+    if (activeItemIdx < activeModule.items.length - 1) {
+      setActiveItemIdx(prev => prev + 1)
+    } else if (activeModIdx < course.curriculum_data.length - 1) {
+      setActiveModIdx(prev => prev + 1)
+      setActiveItemIdx(0)
     }
-    loadVideo()
-  }, [activeLectureId])
-
-  const handleDownloadOffline = async (lecture: any) => {
-      if (!lecture?.videoUrl) return
-      setDownloadingId(lecture.id)
-      
-      try {
-          // Fetch blob (bypassing CORS if possible/configured correctly)
-          const response = await fetch(lecture.videoUrl, { mode: 'cors' })
-          if (!response.ok) throw new Error('Network error')
-          
-          const blob = await response.blob()
-          
-          // Save to IndexedDB (Secure, App-Only)
-          await set(`video-${lecture.id}`, blob)
-          
-          setOfflineReadyIds(prev => new Set(prev).add(lecture.id))
-          alert("Securely saved! You can watch this offline.")
-      } catch (e: any) {
-          console.error("Download failed:", e)
-          alert("Download failed. Check internet connection.")
-      } finally {
-          setDownloadingId(null)
-      }
   }
 
-  // --- 3. AI SUMMARY (Real API Connection) ---
-  const generateAiSummary = async () => {
-      if (isAiLoading || aiSummary) return
-      setIsAiLoading(true)
+  const handleAiSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if(!aiInput.trim()) return
+    
+    const userText = aiInput
+    setAiMessages(prev => [...prev, {role: 'user', text: userText}])
+    setAiInput('')
+    setIsAiTyping(true)
+    setActiveTab('ai') // Force open AI tab
 
-      try {
-          // Call your backend API route (You need to create app/api/ai-summary/route.ts)
-          // For now, we simulate the 'connect' delay if the API isn't ready
-          /*
-          const res = await fetch('/api/ai-summary', {
-              method: 'POST',
-              body: JSON.stringify({ 
-                  lectureId: activeLectureId, 
-                  transcript: getActiveLectureData()?.transcript // assuming transcript exists
-              })
-          })
-          const data = await res.json()
-          setAiSummary(data.summary)
-          */
-
-          // SIMULATION (Remove this block when API is ready)
-          setTimeout(() => {
-              const lec = getActiveLectureData()
-              setAiSummary(`**Key Takeaways for ${lec?.title}:**\n\n1. The core concept involves understanding state management.\n2. Use the 'useEffect' hook to handle side effects cleanly.\n3. Optimizing for offline use requires robust caching strategies.\n\n*Generated by Grove AI*`)
-              setIsAiLoading(false)
-          }, 1500)
-
-      } catch (error) {
-          console.error("AI Error:", error)
-          setIsAiLoading(false)
-      }
+    // MOCK AI CALL - Replace this with your actual /api/chat route fetching OpenAI
+    setTimeout(() => {
+      setAiMessages(prev => [...prev, {
+        role: 'ai', 
+        text: `That's a great question about "${activeItem?.title}". Based on this specific lecture, here is a detailed breakdown to help you understand better...` 
+      }])
+      setIsAiTyping(false)
+    }, 1500)
   }
-
-  // --- 4. REVIEWS LOGIC ---
-  const handlePostReview = async () => {
-      if (userRating === 0) return alert("Please select a rating")
-      setIsPostingReview(true)
-
-      const newReview = {
-          user_id: user.id,
-          course_id: courseId,
-          rating: userRating,
-          comment: userComment,
-      }
-
-      const { data, error } = await supabase
-          .from('reviews')
-          .insert(newReview)
-          .select('*, profiles(full_name, avatar_url)')
-          .single()
-
-      if (!error && data) {
-          setReviews([data, ...reviews])
-          setUserComment("")
-          setUserRating(0)
-      } else {
-          alert("Failed to post review.")
-      }
-      setIsPostingReview(false)
-  }
-
-  // --- HELPERS ---
-  const getCurriculum = (c = course) => c ? (Array.isArray(c.curriculum_data) ? c.curriculum_data : JSON.parse(c.curriculum_data || '[]')) : []
-  const getAllLectures = () => getCurriculum().flatMap((s:any) => s.lectures)
-  const getActiveLectureData = () => getAllLectures().find((l:any) => l.id === activeLectureId)
-  const isCompleted = (id: string) => completedLectures.has(id)
-  const instructor = Array.isArray(course?.profiles) ? course.profiles[0] : course?.profiles
-
-  const handleMarkComplete = async () => {
-    if (!activeLectureId) return
-    setCompletedLectures(prev => new Set(prev).add(activeLectureId))
-    if (user) {
-        await supabase.from('course_progress').insert({ user_id: user.id, course_id: courseId, lecture_id: activeLectureId })
-    }
-    // Auto-advance
-    const all = getAllLectures()
-    const idx = all.findIndex((l:any) => l.id === activeLectureId)
-    if (idx < all.length - 1) setTimeout(() => setActiveLectureId(all[idx + 1].id), 800)
-  }
-
-  if (loading) return <div className="h-screen bg-[#050505] flex items-center justify-center"><Loader2 className="animate-spin text-emerald-500 w-10 h-10"/></div>
-
-  const progressPercent = Math.round((completedLectures.size / (getAllLectures().length || 1)) * 100)
-  const averageRating = reviews.length ? (reviews.reduce((a, b) => a + b.rating, 0) / reviews.length).toFixed(1) : "New"
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-emerald-500/30">
+    <div className="h-screen flex flex-col bg-[#050505] text-white font-sans overflow-hidden selection:bg-emerald-500/30 relative">
       
-      {/* 1. HERO SECTION */}
-      <section className="relative h-[85vh] w-full flex items-end pb-20">
-         <div className="absolute inset-0 z-0">
-             <Image src={course?.thumbnail_url || "/placeholder.jpg"} alt={course?.title} fill className="object-cover opacity-50" priority />
-             <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/80 to-black/30" />
+      {/* --- CINEMATIC BACKGROUND --- */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+         <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-emerald-900/20 blur-[150px] rounded-full mix-blend-screen" />
+         <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-blue-900/20 blur-[150px] rounded-full mix-blend-screen" />
+         <div className="absolute inset-0 bg-black/60 backdrop-blur-3xl" />
+      </div>
+
+      {/* --- TOP NAVBAR --- */}
+      <header className="h-16 border-b border-white/5 bg-white/[0.02] backdrop-blur-xl flex items-center justify-between px-6 z-20 shrink-0">
+        <div className="flex items-center gap-4">
+          <button onClick={() => router.push('/dashboard')} className="p-2 hover:bg-white/10 rounded-full transition-colors text-zinc-400 hover:text-white"><ChevronLeft size={20}/></button>
+          <div className="h-6 w-px bg-white/10" />
+          <h1 className="font-bold truncate max-w-md">{course.title}</h1>
+        </div>
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3">
+             <div className="w-32 h-2 bg-zinc-900 rounded-full overflow-hidden border border-white/5">
+                <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${progressPercent}%` }} />
+             </div>
+             <span className="text-xs font-bold text-emerald-500">{progressPercent}%</span>
+          </div>
+          <button onClick={() => setActiveTab('ai')} className="px-4 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full text-xs font-bold flex items-center gap-2 hover:bg-blue-500/20 transition-all">
+            <Sparkles size={14}/> Ask AI Tutor
+          </button>
+        </div>
+      </header>
+
+      <div className="flex-1 flex overflow-hidden z-10 relative">
+        
+        {/* --- MAIN CONTENT AREA --- */}
+        <main className="flex-1 flex flex-col min-w-0 overflow-y-auto custom-scrollbar">
+          
+          {/* Content Renderer Layer */}
+          <div className="w-full bg-black/40 aspect-video max-h-[70vh] border-b border-white/5 relative flex items-center justify-center overflow-hidden">
+             {!activeItem ? (
+                 <div className="text-zinc-500">Select a lesson to begin.</div>
+             ) : (
+                 <ContentRenderer item={activeItem} onComplete={handleNext} />
+             )}
+          </div>
+
+          {/* Bottom Tabs & Details Layer */}
+          <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 p-6 lg:p-10 max-w-7xl mx-auto w-full">
+             
+             {/* Left Column: Context Tabs */}
+             <div className="lg:col-span-2 space-y-6">
+                <div className="flex gap-6 border-b border-white/5 text-sm font-bold uppercase tracking-wider">
+                   <button onClick={() => setActiveTab('overview')} className={`pb-3 transition-colors ${activeTab === 'overview' ? 'border-b-2 border-emerald-500 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>Overview</button>
+                   <button onClick={() => setActiveTab('resources')} className={`pb-3 transition-colors flex items-center gap-2 ${activeTab === 'resources' ? 'border-b-2 border-emerald-500 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>Resources <span className="bg-white/10 px-1.5 rounded-full text-[10px]">{activeItem?.resources?.length || 0}</span></button>
+                </div>
+                
+                <div className="animate-in fade-in slide-in-from-bottom-4">
+                  {activeTab === 'overview' && (
+                     <div className="space-y-4">
+                        <h2 className="text-2xl font-bold">{activeItem?.title}</h2>
+                        <p className="text-zinc-400 leading-relaxed max-w-3xl">In this module, we will explore the core concepts of the selected topic. Pay close attention to the practical examples demonstrated in the material. If you get stuck, remember you can ask your AI Tutor on the right!</p>
+                     </div>
+                  )}
+                  {activeTab === 'resources' && (
+                     <div className="space-y-3">
+                        {(!activeItem?.resources || activeItem.resources.length === 0) && <p className="text-zinc-500 italic">No downloadable resources attached to this lesson.</p>}
+                        {activeItem?.resources?.map(res => (
+                           <a key={res.id} href={res.url} target="_blank" rel="noreferrer" className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition-colors group">
+                              <div className="flex items-center gap-4">
+                                 <div className="p-3 bg-black/50 rounded-xl text-zinc-400 group-hover:text-emerald-400 transition-colors">
+                                    {res.type === 'file' ? <FileText size={20}/> : res.type === 'code' ? <FileCode size={20}/> : <LinkIcon size={20}/>}
+                                 </div>
+                                 <div><h4 className="font-bold text-sm">{res.title || 'Untitled Resource'}</h4><p className="text-xs text-zinc-500 uppercase">{res.type}</p></div>
+                              </div>
+                              <Download size={18} className="text-zinc-600 group-hover:text-white transition-colors"/>
+                           </a>
+                        ))}
+                     </div>
+                  )}
+                </div>
+             </div>
+
+             {/* Right Column: AI Tutor Panel */}
+             <div className="lg:col-span-1 h-[500px] flex flex-col bg-white/[0.02] border border-white/10 rounded-3xl backdrop-blur-2xl overflow-hidden shadow-2xl">
+                <div className="p-4 bg-gradient-to-r from-blue-900/40 to-purple-900/40 border-b border-white/10 flex items-center gap-3">
+                   <div className="p-2 bg-blue-500/20 text-blue-400 rounded-lg"><Bot size={20}/></div>
+                   <div><h3 className="font-bold text-sm">Grove AI Tutor</h3><p className="text-[10px] text-blue-300/70 uppercase tracking-widest">Context-Aware Assistant</p></div>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+                   {aiMessages.map((msg, i) => (
+                      <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                         <div className={`max-w-[85%] p-3 rounded-2xl text-sm leading-relaxed ${msg.role === 'user' ? 'bg-emerald-600 text-white rounded-br-sm' : 'bg-white/10 text-zinc-200 border border-white/5 rounded-bl-sm'}`}>
+                            {msg.text}
+                         </div>
+                      </div>
+                   ))}
+                   {isAiTyping && (
+                      <div className="flex justify-start"><div className="p-3 bg-white/10 border border-white/5 rounded-2xl rounded-bl-sm flex gap-1"><div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce"/><div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce delay-75"/><div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce delay-150"/></div></div>
+                   )}
+                   <div ref={chatEndRef} />
+                </div>
+
+                <div className="p-3 bg-black/40 border-t border-white/5">
+                   <form onSubmit={handleAiSubmit} className="flex gap-2">
+                      <input value={aiInput} onChange={e=>setAiInput(e.target.value)} placeholder="Ask about this lecture..." className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm outline-none focus:border-blue-500 transition-colors placeholder-zinc-600 text-white" />
+                      <button type="submit" disabled={!aiInput.trim() || isAiTyping} className="p-2 bg-blue-600 text-white rounded-xl hover:bg-blue-500 transition-colors disabled:opacity-50"><Send size={18}/></button>
+                   </form>
+                </div>
+             </div>
+
+          </div>
+        </main>
+
+        {/* --- CURRICULUM SIDEBAR --- */}
+        <AnimatePresence>
+          {sidebarOpen && (
+             <motion.aside initial={{ width: 0, opacity: 0 }} animate={{ width: 350, opacity: 1 }} exit={{ width: 0, opacity: 0 }} className="h-full border-l border-white/5 bg-black/40 backdrop-blur-xl flex flex-col shrink-0">
+               <div className="p-6 border-b border-white/5 flex items-center justify-between">
+                  <h3 className="font-black text-lg">Curriculum</h3>
+                  <button onClick={() => setSidebarOpen(false)} className="text-zinc-500 hover:text-white p-1"><Maximize size={18}/></button>
+               </div>
+               
+               <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                  {course.curriculum_data.map((mod, mIdx) => (
+                    <div key={mod.id} className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden">
+                       <button onClick={() => {
+                          const newCourse = {...course}; 
+                          newCourse.curriculum_data[mIdx].isOpen = !mod.isOpen; 
+                          setCourse(newCourse)
+                       }} className="w-full p-4 flex items-center justify-between bg-black/20 hover:bg-white/5 transition-colors">
+                          <div className="flex flex-col items-start text-left">
+                             <span className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold mb-1">Section {mIdx + 1}</span>
+                             <span className="font-bold text-sm text-zinc-200">{mod.title}</span>
+                          </div>
+                          {mod.isOpen ? <ChevronUp size={16} className="text-zinc-500"/> : <ChevronDown size={16} className="text-zinc-500"/>}
+                       </button>
+
+                       <AnimatePresence>
+                          {mod.isOpen && (
+                             <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden">
+                                {mod.items.map((item, iIdx) => {
+                                   const isSelected = activeModIdx === mIdx && activeItemIdx === iIdx
+                                   const isCompleted = completedItems.has(item.id)
+                                   const Icon = item.type === 'video' ? PlayCircle : item.type === 'article' ? FileText : item.type === 'video_slide' ? Presentation : ListChecks
+                                   
+                                   return (
+                                     <div key={item.id} onClick={() => {setActiveModIdx(mIdx); setActiveItemIdx(iIdx)}} className={`w-full p-3 pl-4 flex items-start gap-3 cursor-pointer transition-colors border-l-2 ${isSelected ? 'bg-emerald-500/10 border-emerald-500' : 'border-transparent hover:bg-white/5'}`}>
+                                        <button onClick={(e) => {e.stopPropagation(); toggleComplete(item.id)}} className="mt-0.5 shrink-0 text-zinc-500 hover:text-emerald-400 transition-colors">
+                                           {isCompleted ? <CheckCircle2 size={16} className="text-emerald-500"/> : <Circle size={16}/>}
+                                        </button>
+                                        <div className="flex flex-col text-left">
+                                           <span className={`text-sm ${isSelected ? 'font-bold text-emerald-100' : 'text-zinc-400'}`}>{item.title}</span>
+                                           <span className="flex items-center gap-1 text-[10px] text-zinc-600 uppercase mt-1"><Icon size={10}/> {item.type.replace('_', ' ')}</span>
+                                        </div>
+                                     </div>
+                                   )
+                                })}
+                             </motion.div>
+                          )}
+                       </AnimatePresence>
+                    </div>
+                  ))}
+               </div>
+             </motion.aside>
+          )}
+        </AnimatePresence>
+
+        {/* Sidebar Toggle Button (when closed) */}
+        {!sidebarOpen && (
+          <button onClick={() => setSidebarOpen(true)} className="absolute top-4 right-4 z-30 p-3 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl text-zinc-400 hover:text-white hover:border-emerald-500 transition-all backdrop-blur-xl">
+             <ListChecks size={20} />
+          </button>
+        )}
+
+      </div>
+    </div>
+  )
+}
+
+// --- SUB-COMPONENT: Dynamic Content Renderer ---
+function ContentRenderer({ item, onComplete }: { item: ContentItem, onComplete: () => void }) {
+  
+  if (item.type === 'video' || item.type === 'video_slide') {
+    return (
+      <div className="w-full h-full flex bg-black relative group">
+         {/* Video Area */}
+         <div className="flex-1 flex items-center justify-center bg-black relative">
+            {item.videoUrl ? (
+               <video src={item.videoUrl} controls autoPlay className="w-full h-full object-contain" onEnded={onComplete} />
+            ) : (
+               <div className="text-center text-zinc-600"><PlayCircle size={48} className="mx-auto mb-4 opacity-50"/><p>No video source attached.</p></div>
+            )}
          </div>
-         <div className="absolute top-0 left-0 w-full p-6 flex justify-between items-center z-50">
-            <Link href="/dashboard" className="p-3 bg-black/20 backdrop-blur-md rounded-full border border-white/10 hover:bg-white/10 transition-all text-white"><ArrowLeft size={20} /></Link>
-            <div className="flex items-center gap-3 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
-                <span className="text-xs font-bold text-emerald-400">{progressPercent}% Complete</span>
-                <div className="w-20 h-1 bg-white/20 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${progressPercent}%` }} /></div>
+         
+         {/* Split Slide Area (if applicable) */}
+         {item.type === 'video_slide' && (
+            <div className="w-1/2 border-l border-white/10 bg-zinc-900 flex items-center justify-center p-4">
+               {item.slideUrl ? (
+                  <iframe src={`${item.slideUrl}#toolbar=0`} className="w-full h-full rounded-xl bg-white" title="Presentation Slide" />
+               ) : (
+                  <div className="text-center text-zinc-600"><Presentation size={48} className="mx-auto mb-4 opacity-50"/><p>No slide attached.</p></div>
+               )}
+            </div>
+         )}
+      </div>
+    )
+  }
+
+  if (item.type === 'article') {
+    return (
+      <div className="w-full h-full bg-zinc-900/50 overflow-y-auto p-10 lg:p-16 custom-scrollbar">
+         <div className="max-w-3xl mx-auto space-y-6">
+            <h1 className="text-4xl font-black mb-8">{item.title}</h1>
+            {/* Extremely simple Markdown/Text renderer */}
+            <div className="text-zinc-300 leading-relaxed text-lg whitespace-pre-wrap font-serif">
+               {item.content || <span className="italic text-zinc-600">No article content written yet.</span>}
+            </div>
+            <div className="pt-12 border-t border-white/10 mt-12 flex justify-end">
+               <button onClick={onComplete} className="px-8 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-500 transition-colors flex items-center gap-2">Mark as Complete <CheckCircle2 size={18}/></button>
             </div>
          </div>
-         <div className="relative z-10 px-6 md:px-12 max-w-7xl mx-auto w-full">
-             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
-                 <div className="flex gap-2 mb-4">
-                    <span className="px-3 py-1 bg-emerald-500 text-black text-xs font-bold uppercase tracking-wider rounded-md">{course?.category || 'Masterclass'}</span>
-                    <span className="px-3 py-1 bg-yellow-500/20 text-yellow-400 text-xs font-bold uppercase tracking-wider rounded-md flex items-center gap-1"><Star size={12} fill="currentColor"/> {averageRating}</span>
-                 </div>
-                 <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-tight max-w-4xl">{course?.title}</h1>
-                 <button onClick={() => curriculumRef.current?.scrollIntoView({ behavior: 'smooth' })} className="group bg-white text-black px-8 py-4 rounded-full font-bold text-lg flex items-center gap-3 hover:bg-emerald-400 transition-all shadow-[0_0_30px_rgba(255,255,255,0.2)]">
-                    <PlayCircle size={24} fill="black" /> Resume Learning
-                 </button>
-             </motion.div>
-         </div>
-      </section>
+      </div>
+    )
+  }
 
-      {/* 2. CURRICULUM FEED */}
-      <section ref={curriculumRef} className="max-w-5xl mx-auto px-4 md:px-6 py-20 relative z-20">
-        <h2 className="text-2xl font-bold mb-8 flex items-center gap-3"><FileText className="text-emerald-500" /> Course Curriculum</h2>
-        
-        <div className="space-y-8">
-            {getCurriculum().map((section: any, sIdx: number) => (
-                <div key={section.id} className="space-y-4">
-                    <div className="flex items-center gap-4 py-2 sticky top-0 bg-[#050505]/95 backdrop-blur-md z-30 border-b border-white/5">
-                        <span className="text-4xl font-black text-white/5">0{sIdx + 1}</span>
-                        <div><h3 className="font-bold text-lg text-zinc-200">{section.title}</h3><p className="text-xs text-zinc-500 uppercase tracking-widest">{section.lectures.length} Lessons</p></div>
-                    </div>
-                    <div className="space-y-4 pl-0 md:pl-12">
-                        {section.lectures.map((lecture: any, lIdx: number) => {
-                            const isActive = activeLectureId === lecture.id
-                            const isDone = isCompleted(lecture.id)
-                            const isOffline = offlineReadyIds.has(lecture.id)
-                            const isDownloading = downloadingId === lecture.id
+  if (item.type === 'quiz' || item.type === 'practice_test') {
+    return <QuizRenderer quizData={item.quizData || []} onComplete={onComplete} />
+  }
 
-                            return (
-                                <motion.div
-                                    key={lecture.id}
-                                    ref={isActive ? activeLectureRef : null}
-                                    initial={false}
-                                    animate={{ backgroundColor: isActive ? "#0F0F0F" : "transparent", borderColor: isActive ? "rgba(16, 185, 129, 0.3)" : "rgba(255,255,255,0.05)" }}
-                                    className={`rounded-2xl border overflow-hidden transition-all duration-500 ${isActive ? 'shadow-2xl' : 'hover:bg-white/5'}`}
-                                >
-                                    {/* Header */}
-                                    <div onClick={() => setActiveLectureId(isActive ? null : lecture.id)} className="w-full flex items-center justify-between p-6 cursor-pointer">
-                                        <div className="flex items-center gap-5">
-                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${isDone ? 'bg-emerald-600 border-emerald-600 text-white' : isActive ? 'border-emerald-500 text-emerald-500' : 'border-white/10 text-zinc-500'}`}>
-                                                {isDone ? <Check size={20} strokeWidth={3} /> : <span className="font-bold">{lIdx + 1}</span>}
-                                            </div>
-                                            <div>
-                                                <h4 className={`font-bold text-lg ${isActive ? 'text-white' : 'text-zinc-400'}`}>{lecture.title}</h4>
-                                                {isActive && <span className="text-xs text-emerald-500 font-bold animate-pulse">Now Playing</span>}
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-4">
-                                            {isOffline && <WifiOff size={16} className="text-emerald-500" />}
-                                            <ChevronDown size={20} className={`text-zinc-600 transition-transform ${isActive ? 'rotate-180' : ''}`} />
-                                        </div>
-                                    </div>
+  return <div className="text-zinc-500">Unsupported content type.</div>
+}
 
-                                    {/* Expanded Content */}
-                                    <AnimatePresence>
-                                        {isActive && (
-                                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
-                                                <div className="px-6 pb-8">
-                                                    
-                                                    {/* Video Player */}
-                                                    <div className="relative aspect-video bg-black rounded-xl overflow-hidden border border-white/10 shadow-2xl mb-6">
-                                                        {lecture.type === 'video' ? (
-                                                            <video 
-                                                                src={localVideoUrl || lecture.videoUrl} 
-                                                                controls 
-                                                                controlsList="nodownload" 
-                                                                onContextMenu={(e) => e.preventDefault()}
-                                                                className="w-full h-full object-contain"
-                                                                onEnded={handleMarkComplete}
-                                                            />
-                                                        ) : <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-500 bg-zinc-900"><FileText size={48}/><p>Reading Material</p></div>}
-                                                    </div>
+// --- SUB-COMPONENT: Interactive Quiz Engine ---
+function QuizRenderer({ quizData, onComplete }: { quizData: QuizQuestion[], onComplete: () => void }) {
+  const [currentQ, setCurrentQ] = useState(0)
+  const [selected, setSelected] = useState<number | null>(null)
+  const [showAnswer, setShowAnswer] = useState(false)
+  const [score, setScore] = useState(0)
 
-                                                    {/* Actions & Tools */}
-                                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                                        
-                                                        {/* Tools (AI & Transcript) */}
-                                                        <div className="lg:col-span-2 bg-white/5 rounded-xl p-5 border border-white/5">
-                                                            <div className="flex gap-4 border-b border-white/10 pb-2 mb-3">
-                                                                <button onClick={() => setActiveTab('ai')} className={`text-xs font-bold uppercase flex items-center gap-2 pb-1 ${activeTab === 'ai' ? 'text-emerald-400 border-b-2 border-emerald-400' : 'text-zinc-500'}`}><Sparkles size={14}/> AI Tutor</button>
-                                                                <button onClick={() => setActiveTab('transcript')} className={`text-xs font-bold uppercase flex items-center gap-2 pb-1 ${activeTab === 'transcript' ? 'text-emerald-400 border-b-2 border-emerald-400' : 'text-zinc-500'}`}><Captions size={14}/> Transcript</button>
-                                                            </div>
-                                                            
-                                                            {activeTab === 'ai' && (
-                                                                <>
-                                                                    <div className="text-sm text-zinc-300 leading-relaxed min-h-[60px] whitespace-pre-wrap max-h-40 overflow-y-auto custom-scrollbar">
-                                                                        {isAiLoading ? <span className="flex items-center gap-2 text-emerald-500"><Loader2 className="animate-spin" size={14}/> Analyzing lecture...</span> : aiSummary || "Click generate to get an AI summary of this lesson."}
-                                                                    </div>
-                                                                    <button onClick={generateAiSummary} disabled={isAiLoading} className="mt-3 text-[10px] bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded transition-colors w-full text-center">
-                                                                        {aiSummary ? 'Regenerate Summary' : 'Generate AI Summary'}
-                                                                    </button>
-                                                                </>
-                                                            )}
+  if (!quizData || quizData.length === 0) return <div className="text-zinc-500">No questions in this quiz.</div>
 
-                                                            {activeTab === 'transcript' && (
-                                                                <div className="text-sm text-zinc-400 leading-relaxed h-40 overflow-y-auto custom-scrollbar">
-                                                                    {lecture.transcript ? lecture.transcript : "No transcript available for this lesson."}
-                                                                </div>
-                                                            )}
-                                                        </div>
+  const q = quizData[currentQ]
+  const isFinished = currentQ >= quizData.length
 
-                                                        {/* Controls */}
-                                                        <div className="flex flex-col justify-between gap-3">
-                                                            <button onClick={handleMarkComplete} disabled={isDone} className={`w-full py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all ${isDone ? 'bg-emerald-500/20 text-emerald-500' : 'bg-white text-black hover:bg-zinc-200'}`}>
-                                                                {isDone ? 'Completed' : 'Mark Complete'}
-                                                            </button>
-                                                            <button onClick={() => handleDownloadOffline(lecture)} disabled={isOffline || isDownloading} className={`w-full py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 border transition-all ${isOffline ? 'bg-zinc-800 border-transparent text-zinc-500' : 'border-white/10 hover:bg-white/5'}`}>
-                                                                {isDownloading ? <Loader2 size={16} className="animate-spin"/> : isOffline ? <CheckCircle2 size={16}/> : <Download size={16}/>} 
-                                                                {isOffline ? 'Saved Securely' : 'Save Offline'}
-                                                            </button>
-                                                        </div>
-                                                    </div>
+  const handleCheck = () => {
+    if (selected === null) return
+    if (selected === q.correctIndex) setScore(s => s + 1)
+    setShowAnswer(true)
+  }
 
-                                                </div>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-                                </motion.div>
-                            )
-                        })}
-                    </div>
-                </div>
-            ))}
-        </div>
-      </section>
+  const handleNext = () => {
+    setSelected(null)
+    setShowAnswer(false)
+    setCurrentQ(c => c + 1)
+  }
 
-      {/* --- 3. REVIEWS SECTION (Real Data) --- */}
-      <section className="py-20 bg-neutral-900 border-y border-white/5">
-          <div className="max-w-5xl mx-auto px-6">
-              <div className="flex items-center justify-between mb-10">
-                  <div className="flex items-center gap-4">
-                      <div className="p-3 bg-yellow-500/10 rounded-xl text-yellow-500"><Star size={24} fill="currentColor" /></div>
-                      <div><h2 className="text-2xl font-bold text-white">Student Reviews</h2><p className="text-zinc-400 text-sm">Real feedback from students</p></div>
-                  </div>
-              </div>
-
-              {/* Review Input */}
-              <div className="bg-black border border-white/10 p-6 rounded-2xl mb-10">
-                  <h3 className="text-white font-bold mb-4">Write a Review</h3>
-                  <div className="flex gap-2 mb-4">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                          <button key={star} onClick={() => setUserRating(star)} className={`${userRating >= star ? 'text-yellow-500' : 'text-zinc-700'}`}>
-                              <Star size={24} fill="currentColor" />
-                          </button>
-                      ))}
-                  </div>
-                  <textarea 
-                      value={userComment} 
-                      onChange={(e) => setUserComment(e.target.value)} 
-                      placeholder="Share your experience..." 
-                      className="w-full bg-zinc-900 border border-white/10 rounded-xl p-4 text-white text-sm focus:border-emerald-500 outline-none resize-none h-24 mb-4"
-                  />
-                  <button onClick={handlePostReview} disabled={isPostingReview} className="bg-white text-black px-6 py-2 rounded-full font-bold text-sm hover:bg-zinc-200 transition-colors flex items-center gap-2">
-                      {isPostingReview ? <Loader2 className="animate-spin" size={16}/> : <Send size={16}/>} Post Review
-                  </button>
-              </div>
-
-              {/* Reviews List */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {reviews.map((review) => (
-                      <div key={review.id} className="bg-black border border-white/10 p-6 rounded-2xl">
-                          <div className="flex items-center gap-3 mb-4">
-                              <div className="w-10 h-10 rounded-full bg-zinc-800 overflow-hidden relative border border-white/10">
-                                  {review.profiles?.avatar_url ? <Image src={review.profiles.avatar_url} alt="" fill className="object-cover"/> : <div className="flex items-center justify-center h-full text-zinc-500 font-bold">U</div>}
-                              </div>
-                              <div>
-                                  <h4 className="font-bold text-white text-sm">{review.profiles?.full_name || 'Student'}</h4>
-                                  <div className="flex text-yellow-500 text-[10px] gap-0.5">
-                                      {[...Array(review.rating)].map((_, i) => <Star key={i} size={10} fill="currentColor"/>)}
-                                  </div>
-                              </div>
-                          </div>
-                          <p className="text-zinc-400 text-sm leading-relaxed">{review.comment}</p>
-                      </div>
-                  ))}
-                  {reviews.length === 0 && <p className="text-zinc-500 italic col-span-2 text-center">No reviews yet. Be the first!</p>}
-              </div>
+  if (isFinished) {
+    const passed = score / quizData.length >= 0.7
+    return (
+       <div className="text-center animate-in zoom-in fade-in duration-500">
+          <div className={`w-24 h-24 mx-auto rounded-full flex items-center justify-center mb-6 border-4 ${passed ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-red-500/20 border-red-500 text-red-400'}`}>
+             <ListChecks size={48}/>
           </div>
-      </section>
+          <h2 className="text-3xl font-black mb-2">{passed ? 'Great Job!' : 'Keep Practicing'}</h2>
+          <p className="text-zinc-400 text-lg mb-8">You scored {score} out of {quizData.length}</p>
+          <button onClick={onComplete} className="px-8 py-4 bg-white text-black font-black uppercase tracking-widest rounded-xl hover:scale-105 transition-transform">Continue Course</button>
+       </div>
+    )
+  }
 
-      {/* --- 4. INSTRUCTOR SECTION (No Socials) --- */}
-      <section className="py-20 max-w-5xl mx-auto px-6">
-          <div className="flex flex-col md:flex-row items-center gap-10 bg-gradient-to-br from-neutral-900 to-black border border-white/10 p-8 rounded-3xl">
-              <div className="relative w-40 h-40 shrink-0">
-                  {instructor?.avatar_url ? (
-                      <Image src={instructor.avatar_url} alt="Instructor" fill className="object-cover rounded-full border-4 border-emerald-500/20" />
-                  ) : (
-                      <div className="w-full h-full bg-zinc-800 rounded-full flex items-center justify-center border-4 border-white/5"><span className="text-4xl">👨‍🏫</span></div>
-                  )}
-              </div>
-              <div className="text-center md:text-left">
-                  <h2 className="text-3xl font-bold text-white mb-2">{instructor?.full_name || "Grove Instructor"}</h2>
-                  <p className="text-emerald-400 font-medium text-sm uppercase tracking-wider mb-4">Senior Instructor</p>
-                  <p className="text-zinc-400 leading-relaxed mb-6 max-w-xl">{instructor?.bio || "Passionate about empowering the next generation of creators through accessible, high-quality education."}</p>
-              </div>
-          </div>
-      </section>
+  return (
+    <div className="w-full max-w-2xl mx-auto p-8 animate-in fade-in slide-in-from-bottom-8">
+       <div className="mb-8 flex items-center justify-between text-sm font-bold text-zinc-500 uppercase tracking-wider">
+          <span>Question {currentQ + 1} of {quizData.length}</span>
+          <span>Score: {score}</span>
+       </div>
+       
+       <h2 className="text-2xl font-bold text-white mb-8 leading-snug">{q.question}</h2>
+       
+       <div className="space-y-3 mb-10">
+          {q.options.map((opt, idx) => {
+             const isCorrect = showAnswer && idx === q.correctIndex
+             const isWrong = showAnswer && selected === idx && idx !== q.correctIndex
+             let borderClass = 'border-white/10 hover:border-white/30 hover:bg-white/5'
+             if (selected === idx && !showAnswer) borderClass = 'border-blue-500 bg-blue-500/10 text-blue-100'
+             if (isCorrect) borderClass = 'border-emerald-500 bg-emerald-500/20 text-emerald-100'
+             if (isWrong) borderClass = 'border-red-500 bg-red-500/20 text-red-100'
 
-      <Footer />
+             return (
+               <button 
+                 key={idx} 
+                 disabled={showAnswer}
+                 onClick={() => setSelected(idx)} 
+                 className={`w-full text-left p-5 rounded-2xl border transition-all flex items-center justify-between ${borderClass}`}
+               >
+                  <span className="font-medium">{opt}</span>
+                  {isCorrect && <CheckCircle2 size={20} className="text-emerald-500"/>}
+                  {isWrong && <X size={20} className="text-red-500"/>}
+               </button>
+             )
+          })}
+       </div>
+
+       {!showAnswer ? (
+          <button onClick={handleCheck} disabled={selected === null} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Check Answer</button>
+       ) : (
+          <button onClick={handleNext} className="w-full py-4 bg-white text-black font-bold rounded-xl hover:bg-zinc-200 transition-colors flex items-center justify-center gap-2">Next Question <ArrowRight size={18}/></button>
+       )}
     </div>
   )
 }
