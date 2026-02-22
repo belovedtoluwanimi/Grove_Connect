@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { 
   PlayCircle, CheckCircle2, ChevronDown, Check, Loader2, ArrowLeft, 
-  Sparkles, FileText, Download, WifiOff, Star, Shield, 
+  Sparkles, FileText, Download, WifiOff, Star, Shield, AlertTriangle,
   Captions, Trash2, Send, Presentation, ListChecks, ArrowRight, Bot, X, FileCode, Link as LinkIcon,
   Search, MessageCircle, Megaphone, Edit3, Calendar, BookOpen, ChevronUp, FileArchive, Globe, Twitter, Linkedin, Youtube
 } from 'lucide-react'
@@ -16,7 +16,7 @@ import { set, get } from 'idb-keyval'
 import Footer from '@/app/components/Footer'
 
 // --- TYPES ---
-type Review = { id: string; rating: number; comment: string; created_at: string; user_id: string; profiles: { full_name: string, avatar_url: string } }
+type Review = { id: string; rating: number; comment: string; created_at: string; user_id: string; profiles?: { full_name: string, avatar_url: string } }
 interface QuizQuestion { id: string; question: string; options: string[]; correctIndex: number; }
 interface ResourceItem { id: string; type: 'file' | 'link' | 'code'; title: string; url: string; }
 interface ContentItem {
@@ -39,11 +39,14 @@ export default function LearningPage() {
   const params = useParams()
   const router = useRouter()
   const supabase = createClient()
-  const courseId = params?.id as string
+  
+  // Bulletproof param fetching whether the folder is [id] or [courseId]
+  const courseId = (params?.id || params?.courseId) as string
 
   // --- STATE ---
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [courseError, setCourseError] = useState(false)
   const [course, setCourse] = useState<any>(null)
   const [completedLectures, setCompletedLectures] = useState<Set<string>>(new Set())
   const [activeLectureId, setActiveLectureId] = useState<string | null>(null)
@@ -76,7 +79,7 @@ export default function LearningPage() {
   // Scroll AI Chat
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }) }, [aiMessages])
 
-  // --- 1. DATA FETCHING ---
+  // --- 1. DATA FETCHING (BULLETPROOF) ---
   useEffect(() => {
     if (!courseId) return
 
@@ -87,46 +90,63 @@ export default function LearningPage() {
         else if (!user) { return router.push('/auth') }
         setUser(user)
 
-        // Fetch Course & Instructor Profiles
-        // Ensure you fetch bio, website, twitter, etc., from the profiles table
-        const { data: courseData, error } = await supabase.from('courses')
+        // 1. Fetch Course with graceful fallback
+        let { data: courseData, error } = await supabase.from('courses')
             .select('*, profiles(full_name, avatar_url, bio, website, twitter, linkedin, youtube)')
             .eq('id', courseId).single()
             
-        if (error || !courseData) throw new Error("Course load failed")
-        
-        // Ensure curriculum items are parsed properly
-        const parsedData = Array.isArray(courseData.curriculum_data) ? courseData.curriculum_data : JSON.parse(courseData.curriculum_data || '[]')
-        const formattedCurriculum = parsedData.map((m:any) => ({...m, isOpen: true, items: m.items || m.lectures || []}))
-        
-        // Parse objectives if it's stored as JSON
-        let parsedObjectives = []
-        if (courseData.objectives) {
-            parsedObjectives = Array.isArray(courseData.objectives) ? courseData.objectives : JSON.parse(courseData.objectives || '[]')
+        // Fallback: If joining 'profiles' fails, try fetching without it
+        if (error) {
+            console.warn("Profile join failed, fetching course only...", error)
+            const fallback = await supabase.from('courses').select('*').eq('id', courseId).single()
+            if (fallback.error) throw fallback.error
+            courseData = fallback.data
         }
+        
+        if (!courseData) throw new Error("No course data found")
+        
+        // 2. Safely parse JSON properties
+        let formattedCurriculum = []
+        try {
+            const parsedData = Array.isArray(courseData.curriculum_data) ? courseData.curriculum_data : JSON.parse(courseData.curriculum_data || '[]')
+            formattedCurriculum = parsedData.map((m:any) => ({...m, isOpen: true, items: m.items || m.lectures || []}))
+        } catch (e) { console.error("Curriculum parse error") }
+        
+        let parsedObjectives = []
+        try {
+            parsedObjectives = Array.isArray(courseData.objectives) ? courseData.objectives : JSON.parse(courseData.objectives || '[]')
+        } catch (e) { console.error("Objectives parse error") }
 
         setCourse({...courseData, curriculum_data: formattedCurriculum, objectives: parsedObjectives})
 
-        // Fetch Progress & Reviews
-        let progressData: any[] | undefined = undefined;
+        // 3. Fetch Progress safely
+        let progressData: any[] = [];
         if (user) {
             const { data: progress } = await supabase.from('course_progress').select('lecture_id').eq('user_id', user.id).eq('course_id', courseId)
-            progressData = progress ?? [];
+            progressData = progress || [];
             setCompletedLectures(new Set(progressData.map((p: any) => p.lecture_id)))
         }
         
-        const { data: reviewsData } = await supabase.from('reviews').select('*, profiles(full_name, avatar_url)').eq('course_id', courseId).order('created_at', { ascending: false })
-        setReviews(reviewsData || [])
+        // 4. Fetch Reviews safely
+        try {
+            const { data: reviewsData } = await supabase.from('reviews').select('*, profiles(full_name, avatar_url)').eq('course_id', courseId).order('created_at', { ascending: false })
+            setReviews(reviewsData || [])
+        } catch (e) { console.warn("Reviews fetch failed") }
 
-        // Set Active Lecture
+        // 5. Initialize Active Lecture
         if (formattedCurriculum.length > 0) {
             const allLectures = formattedCurriculum.flatMap((s:Module) => s.items)
-            const firstIncomplete = allLectures.find((l:ContentItem) => !(progressData?.map((p:any)=>p.lecture_id).includes(l.id)))
+            const firstIncomplete = allLectures.find((l:ContentItem) => !progressData.map((p:any)=>p.lecture_id).includes(l.id))
             setActiveLectureId(firstIncomplete?.id || allLectures[0]?.id)
             checkOfflineAvailability(allLectures)
         }
 
-      } catch (err) { console.error(err) } finally { setLoading(false) }
+      } catch (err) { 
+          console.error("Initialization Failed:", err)
+          setCourseError(true)
+      } finally { 
+          setLoading(false) 
+      }
     }
     init()
   }, [courseId, supabase, router])
@@ -149,12 +169,12 @@ export default function LearningPage() {
         
         if (!activeLectureId) return
 
-        // Load Notes specific to this user/course/lecture
+        // Load Notes
         const noteKey = `note-${user?.id}-${courseId}-${activeLectureId}`
         const savedNote = localStorage.getItem(noteKey)
         setLectureNote(savedNote || "")
 
-        // Load Offline Video if exists
+        // Load Offline Video
         const activeData = getActiveLectureData()
         if (activeData?.type === 'video' || activeData?.type === 'video_slide') {
             const blob = await get(`video-${courseId}-${activeLectureId}`)
@@ -175,7 +195,7 @@ export default function LearningPage() {
           setOfflineReadyIds(prev => new Set(prev).add(lecture.id))
           addToast("Securely saved! You can watch this offline.", "success")
       } catch (e) {
-          addToast("Download failed. Check internet connection or CORS settings.", "error")
+          addToast("Download failed. Check internet connection or CORS permissions.", "error")
       } finally { setDownloadingId(null) }
   }
 
@@ -261,7 +281,17 @@ export default function LearningPage() {
       return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&details=${details}`
   }
 
+  // --- ERROR & LOADING STATES ---
   if (loading) return <div className="h-screen bg-[#050505] flex items-center justify-center"><Loader2 className="animate-spin text-emerald-500 w-10 h-10"/></div>
+
+  if (courseError || !course) return (
+      <div className="h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-6 text-center">
+          <div className="p-4 bg-red-500/10 rounded-full mb-6 border border-red-500/20"><AlertTriangle size={48} className="text-red-500"/></div>
+          <h2 className="text-3xl font-bold mb-4">Course Not Found</h2>
+          <p className="text-zinc-400 max-w-md mb-8">We couldn't load this course. Please ensure the URL is correct and you have permission to view it.</p>
+          <button onClick={() => router.push('/dashboard')} className="px-8 py-3 bg-emerald-600 font-bold rounded-xl hover:bg-emerald-500 transition-colors">Return to Dashboard</button>
+      </div>
+  )
 
   const progressPercent = Math.round((completedLectures.size / (getAllLectures().length || 1)) * 100)
   const averageRating = reviews.length ? (reviews.reduce((a, b) => a + b.rating, 0) / reviews.length).toFixed(1) : "New"
@@ -362,8 +392,8 @@ export default function LearningPage() {
                                  <Image src={instructor?.avatar_url || '/placeholder.jpg'} alt="Instructor" width={100} height={100} className="rounded-full border-2 border-white/10 object-cover" />
                                  <div>
                                      <h3 className="text-xl font-bold text-white mb-1">{instructor?.full_name || 'Instructor'}</h3>
-                                     <p className="text-emerald-400 text-sm font-bold mb-4">Senior Developer & Educator</p>
-                                     <p className="text-zinc-400 leading-relaxed text-sm">{instructor?.bio || "Dedicated to bringing you the best educational content available online."}</p>
+                                     <p className="text-emerald-400 text-sm font-bold mb-4">Course Educator</p>
+                                     <p className="text-zinc-400 leading-relaxed text-sm">{instructor?.bio || "Passionate about building the next generation of creators on Grove Academy."}</p>
                                      
                                      {/* Social Links */}
                                      <div className="flex items-center gap-4 mt-4">
@@ -385,7 +415,7 @@ export default function LearningPage() {
                                <p className="text-zinc-500 bg-white/5 p-6 rounded-2xl text-center">No resources attached to this lecture.</p>
                             ) : (
                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  {activeItem.resources.map((res: { id: React.Key | null | undefined; url: string | undefined; type: string | number | bigint | boolean | React.ReactElement<unknown, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | Promise<string | number | bigint | boolean | React.ReactPortal | React.ReactElement<unknown, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined> | null | undefined; title: any }) => (
+                                  {activeItem.resources.map((res: ResourceItem) => (
                                      <a key={res.id} href={res.url} target="_blank" rel="noreferrer" className="flex items-center justify-between p-5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-emerald-500/50 transition-all group">
                                         <div className="flex items-center gap-4">
                                            <div className="p-3 bg-black/50 rounded-lg text-zinc-400 group-hover:text-emerald-400 transition-colors">
@@ -467,7 +497,7 @@ export default function LearningPage() {
                              <div className="bg-black/40 border border-white/5 p-6 rounded-2xl">
                                  <div className="flex items-center gap-3 mb-4">
                                      <Image src={instructor?.avatar_url || '/placeholder.jpg'} alt="" width={40} height={40} className="rounded-full object-cover" />
-                                     <div><h4 className="font-bold text-sm text-white">{instructor?.full_name}</h4><p className="text-xs text-zinc-500">Welcome to the course!</p></div>
+                                     <div><h4 className="font-bold text-sm text-white">{instructor?.full_name || 'Instructor'}</h4><p className="text-xs text-zinc-500">Welcome to the course!</p></div>
                                  </div>
                                  <p className="text-zinc-300 text-sm leading-relaxed">
                                      {course?.welcome_message || "Welcome to the course! I'm so excited to have you here. Please make sure to utilize the Q&A section and the AI Tutor if you ever get stuck."}
@@ -609,13 +639,13 @@ export default function LearningPage() {
 function ContentRenderer({ item, localVideoUrl, onComplete }: { item: ContentItem, localVideoUrl: string | null, onComplete: () => void }) {
   
   if (item.type === 'video' || item.type === 'video_slide') {
-    // We add a 'key' prop to the video and iframe tags. This forces React to cleanly unmount 
-    // and remount the player when the videoUrl changes, ensuring the video actually plays!
+    // IMPORTANT FIX: Using `key={url}` forces the video component to fully unmount and remount when you switch lessons
+    const videoSource = localVideoUrl || item.videoUrl || '';
     return (
       <div className="w-full h-full flex bg-black relative">
          <div className="flex-1 flex items-center justify-center bg-black relative">
-            {item.videoUrl || localVideoUrl ? (
-               <video key={localVideoUrl || item.videoUrl} src={localVideoUrl || item.videoUrl || ''} controls autoPlay className="w-full h-full object-contain" onEnded={onComplete} controlsList="nodownload" onContextMenu={e=>e.preventDefault()} />
+            {videoSource ? (
+               <video key={videoSource} src={videoSource} controls autoPlay className="w-full h-full object-contain" onEnded={onComplete} controlsList="nodownload" onContextMenu={e=>e.preventDefault()} />
             ) : (
                <div className="text-center text-zinc-600"><PlayCircle size={48} className="mx-auto mb-4 opacity-50"/><p>No video source attached.</p></div>
             )}
@@ -664,7 +694,7 @@ function QuizRenderer({ quizData, onComplete }: { quizData: QuizQuestion[], onCo
   const [showAnswer, setShowAnswer] = useState(false)
   const [score, setScore] = useState(0)
 
-  // Reset quiz state when new quizData is loaded
+  // Reset quiz state when switching to a new quiz lesson
   useEffect(() => {
     setCurrentQ(0); setSelected(null); setShowAnswer(false); setScore(0);
   }, [quizData])
