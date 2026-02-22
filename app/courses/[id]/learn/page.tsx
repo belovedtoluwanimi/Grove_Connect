@@ -4,9 +4,8 @@ import React, { useState, useEffect, useRef } from 'react'
 import { 
   PlayCircle, CheckCircle2, ChevronDown, Check, Loader2, ArrowLeft, 
   Sparkles, FileText, Download, WifiOff, Star, Shield, 
-  Captions, Lock, Trash2, Send, Presentation, ListChecks, ArrowRight, Bot, X, FileCode, Link as LinkIcon,
-  Search, MessageCircle, Megaphone, Edit3, Calendar, Clock, BookOpen, User,
-  ChevronUp
+  Captions, Trash2, Send, Presentation, ListChecks, ArrowRight, Bot, X, FileCode, Link as LinkIcon,
+  Search, MessageCircle, Megaphone, Edit3, Calendar, BookOpen, ChevronUp, FileArchive, Globe, Twitter, Linkedin, Youtube
 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -26,7 +25,15 @@ interface ContentItem {
   resources: ResourceItem[]; isOpen?: boolean;
 }
 interface Module { id: string; title: string; items: ContentItem[]; isOpen?: boolean; }
-type TabType = 'overview' | 'qna' | 'notes' | 'announcements' | 'reviews' | 'tools' | 'ai'
+type TabType = 'overview' | 'qna' | 'notes' | 'announcements' | 'reviews' | 'tools' | 'ai' | 'resources'
+
+// Simple Toast Helper
+function addToast(message: string, type: "success" | "error" | "info" = "info") {
+    if (typeof window !== "undefined") {
+        if (type === "error") window.alert(`[ERROR] ${message}`)
+        else console.log(`[${type.toUpperCase()}] ${message}`)
+    }
+}
 
 export default function LearningPage() {
   const params = useParams()
@@ -56,7 +63,7 @@ export default function LearningPage() {
   const [aiMessages, setAiMessages] = useState<{role: 'user'|'ai', text: string}[]>([{ role: 'ai', text: "Hi! I'm your Grove AI Tutor. Ask me anything about this lecture!" }])
   const [lectureNote, setLectureNote] = useState("")
 
-  // Reviews & Q&A
+  // Reviews
   const [reviews, setReviews] = useState<Review[]>([])
   const [userRating, setUserRating] = useState(0)
   const [userComment, setUserComment] = useState("")
@@ -64,7 +71,7 @@ export default function LearningPage() {
 
   // Refs
   const chatEndRef = useRef<HTMLDivElement>(null)
-  const videoRef = useRef<HTMLVideoElement>(null)
+  const activeLectureRef = useRef<HTMLDivElement>(null)
 
   // Scroll AI Chat
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }) }, [aiMessages])
@@ -80,31 +87,38 @@ export default function LearningPage() {
         else if (!user) { return router.push('/auth') }
         setUser(user)
 
-        // Fetch Course
-        const { data: courseData, error } = await supabase.from('courses').select('*, profiles(full_name, avatar_url, bio)').eq('id', courseId).single()
+        // Fetch Course & Instructor Profiles
+        // Ensure you fetch bio, website, twitter, etc., from the profiles table
+        const { data: courseData, error } = await supabase.from('courses')
+            .select('*, profiles(full_name, avatar_url, bio, website, twitter, linkedin, youtube)')
+            .eq('id', courseId).single()
+            
         if (error || !courseData) throw new Error("Course load failed")
         
-        // Ensure curriculum items are open for the sidebar
+        // Ensure curriculum items are parsed properly
         const parsedData = Array.isArray(courseData.curriculum_data) ? courseData.curriculum_data : JSON.parse(courseData.curriculum_data || '[]')
         const formattedCurriculum = parsedData.map((m:any) => ({...m, isOpen: true, items: m.items || m.lectures || []}))
         
-        setCourse({...courseData, curriculum_data: formattedCurriculum})
+        // Parse objectives if it's stored as JSON
+        let parsedObjectives = []
+        if (courseData.objectives) {
+            parsedObjectives = Array.isArray(courseData.objectives) ? courseData.objectives : JSON.parse(courseData.objectives || '[]')
+        }
+
+        setCourse({...courseData, curriculum_data: formattedCurriculum, objectives: parsedObjectives})
 
         // Fetch Progress & Reviews
-        if (user) {
-            const { data: progressData } = await supabase.from('course_progress').select('lecture_id').eq('user_id', user.id).eq('course_id', courseId)
-            setCompletedLectures(new Set(progressData?.map((p: any) => p.lecture_id) || []))
-        }
-        const { data: reviewsData } = await supabase.from('reviews').select('*, profiles(full_name, avatar_url)').eq('course_id', courseId).order('created_at', { ascending: false })
-        setReviews(reviewsData || [])
-
-        // Set Active Lecture
         let progressData: any[] | undefined = undefined;
         if (user) {
             const { data: progress } = await supabase.from('course_progress').select('lecture_id').eq('user_id', user.id).eq('course_id', courseId)
             progressData = progress ?? [];
             setCompletedLectures(new Set(progressData.map((p: any) => p.lecture_id)))
         }
+        
+        const { data: reviewsData } = await supabase.from('reviews').select('*, profiles(full_name, avatar_url)').eq('course_id', courseId).order('created_at', { ascending: false })
+        setReviews(reviewsData || [])
+
+        // Set Active Lecture
         if (formattedCurriculum.length > 0) {
             const allLectures = formattedCurriculum.flatMap((s:Module) => s.items)
             const firstIncomplete = allLectures.find((l:ContentItem) => !(progressData?.map((p:any)=>p.lecture_id).includes(l.id)))
@@ -122,7 +136,7 @@ export default function LearningPage() {
       const readyIds = new Set<string>()
       for (const lecture of allLectures) {
           if (lecture.type !== 'video' && lecture.type !== 'video_slide') continue
-          const blob = await get(`video-${courseId}-${lecture.id}`) // FIXED: Unique key per course!
+          const blob = await get(`video-${courseId}-${lecture.id}`) 
           if (blob) readyIds.add(lecture.id)
       }
       setOfflineReadyIds(readyIds)
@@ -135,11 +149,12 @@ export default function LearningPage() {
         
         if (!activeLectureId) return
 
-        // Load Notes
-        const savedNote = localStorage.getItem(`note-${courseId}-${activeLectureId}`)
+        // Load Notes specific to this user/course/lecture
+        const noteKey = `note-${user?.id}-${courseId}-${activeLectureId}`
+        const savedNote = localStorage.getItem(noteKey)
         setLectureNote(savedNote || "")
 
-        // Load Video
+        // Load Offline Video if exists
         const activeData = getActiveLectureData()
         if (activeData?.type === 'video' || activeData?.type === 'video_slide') {
             const blob = await get(`video-${courseId}-${activeLectureId}`)
@@ -147,7 +162,7 @@ export default function LearningPage() {
         } 
     }
     loadVideoAndNotes()
-  }, [activeLectureId, courseId])
+  }, [activeLectureId, courseId, user?.id])
 
   const handleDownloadOffline = async (lecture: ContentItem) => {
       if (!lecture?.videoUrl) return
@@ -156,18 +171,18 @@ export default function LearningPage() {
           const response = await fetch(lecture.videoUrl, { mode: 'cors' })
           if (!response.ok) throw new Error('Network error')
           const blob = await response.blob()
-          await set(`video-${courseId}-${lecture.id}`, blob) // FIXED: Unique cache key!
+          await set(`video-${courseId}-${lecture.id}`, blob) 
           setOfflineReadyIds(prev => new Set(prev).add(lecture.id))
           addToast("Securely saved! You can watch this offline.", "success")
       } catch (e) {
-          addToast("Download failed. Check internet connection.", "error")
+          addToast("Download failed. Check internet connection or CORS settings.", "error")
       } finally { setDownloadingId(null) }
   }
 
   const handleSaveNote = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const val = e.target.value
       setLectureNote(val)
-      localStorage.setItem(`note-${courseId}-${activeLectureId}`, val)
+      localStorage.setItem(`note-${user?.id}-${courseId}-${activeLectureId}`, val)
   }
 
   // --- 3. OPEN AI INTEGRATION ---
@@ -181,7 +196,6 @@ export default function LearningPage() {
     setIsAiLoading(true)
 
     try {
-        // REAL OPENAI CALL
         const res = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -207,14 +221,22 @@ export default function LearningPage() {
   // --- 4. REVIEWS ---
   const handlePostReview = async () => {
       if (userRating === 0) return addToast("Please select a rating", "error")
+      if (!userComment.trim()) return addToast("Please enter a comment", "error")
+      
       setIsPostingReview(true)
-      const newReview = { user_id: user.id, course_id: courseId, rating: userRating, comment: userComment }
-      const { data, error } = await supabase.from('reviews').insert(newReview).select('*, profiles(full_name, avatar_url)').single()
-      if (!error && data) {
+      try {
+          const newReview = { user_id: user.id, course_id: courseId, rating: userRating, comment: userComment }
+          const { data, error } = await supabase.from('reviews').insert(newReview).select('*, profiles(full_name, avatar_url)').single()
+          
+          if (error) throw error
+          
           setReviews([data, ...reviews]); setUserComment(""); setUserRating(0)
           addToast("Review posted successfully!", "success")
-      } else { addToast("Failed to post review.", "error") }
-      setIsPostingReview(false)
+      } catch (err: any) {
+          addToast(err.message || "Failed to post review.", "error")
+      } finally {
+          setIsPostingReview(false)
+      }
   }
 
   // --- HELPERS ---
@@ -295,11 +317,12 @@ export default function LearningPage() {
               <div className="w-full max-w-5xl mx-auto p-6 lg:p-10 shrink-0">
                   <div className="flex items-center gap-6 border-b border-white/10 overflow-x-auto custom-scrollbar pb-2 mb-8">
                       <TabBtn active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon={BookOpen} label="Overview" />
-                      <TabBtn active={activeTab === 'qna'} onClick={() => setActiveTab('qna')} icon={MessageCircle} label="Q&A" />
+                      <TabBtn active={activeTab === 'resources'} onClick={() => setActiveTab('resources')} icon={FileArchive} label={`Resources (${activeItem?.resources?.length || 0})`} />
                       <TabBtn active={activeTab === 'notes'} onClick={() => setActiveTab('notes')} icon={Edit3} label="Notes" />
+                      <TabBtn active={activeTab === 'qna'} onClick={() => setActiveTab('qna')} icon={MessageCircle} label="Q&A" />
                       <TabBtn active={activeTab === 'announcements'} onClick={() => setActiveTab('announcements')} icon={Megaphone} label="Announcements" />
                       <TabBtn active={activeTab === 'reviews'} onClick={() => setActiveTab('reviews')} icon={Star} label="Reviews" />
-                      <TabBtn active={activeTab === 'tools'} onClick={() => setActiveTab('tools')} icon={Calendar} label="Learning Tools" />
+                      <TabBtn active={activeTab === 'tools'} onClick={() => setActiveTab('tools')} icon={Calendar} label="Tools" />
                       <div className="ml-auto">
                         <button onClick={() => setActiveTab('ai')} className={`px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2 transition-all ${activeTab === 'ai' ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20'}`}><Sparkles size={14}/> Ask AI Tutor</button>
                       </div>
@@ -314,20 +337,67 @@ export default function LearningPage() {
                                 <h2 className="text-3xl font-bold mb-4">About this course</h2>
                                 <p className="text-zinc-300 leading-relaxed font-serif text-lg whitespace-pre-wrap">{course?.description}</p>
                              </div>
+                             
+                             {/* Objectives Section */}
+                             {course?.objectives && course.objectives.length > 0 && (
+                                <div className="mt-8">
+                                    <h3 className="text-xl font-bold mb-4">What you'll learn</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        {course.objectives.map((obj: string, i: number) => (
+                                            <div key={i} className="flex gap-3 items-start"><CheckCircle2 size={18} className="text-emerald-500 shrink-0 mt-1"/><span className="text-zinc-300 text-sm leading-relaxed">{obj}</span></div>
+                                        ))}
+                                    </div>
+                                </div>
+                             )}
+
                              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 p-6 bg-white/[0.02] border border-white/5 rounded-2xl">
                                 <div><p className="text-xs text-zinc-500 uppercase">Skill Level</p><p className="font-bold">{course?.level || 'All Levels'}</p></div>
                                 <div><p className="text-xs text-zinc-500 uppercase">Students</p><p className="font-bold">1,240</p></div>
                                 <div><p className="text-xs text-zinc-500 uppercase">Language</p><p className="font-bold">{course?.language || 'English'}</p></div>
                                 <div><p className="text-xs text-zinc-500 uppercase">Lectures</p><p className="font-bold">{getAllLectures().length}</p></div>
                              </div>
+
+                             {/* Instructor Section */}
                              <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row items-start gap-8">
                                  <Image src={instructor?.avatar_url || '/placeholder.jpg'} alt="Instructor" width={100} height={100} className="rounded-full border-2 border-white/10 object-cover" />
                                  <div>
                                      <h3 className="text-xl font-bold text-white mb-1">{instructor?.full_name || 'Instructor'}</h3>
                                      <p className="text-emerald-400 text-sm font-bold mb-4">Senior Developer & Educator</p>
                                      <p className="text-zinc-400 leading-relaxed text-sm">{instructor?.bio || "Dedicated to bringing you the best educational content available online."}</p>
+                                     
+                                     {/* Social Links */}
+                                     <div className="flex items-center gap-4 mt-4">
+                                         {instructor?.website && <a href={instructor.website} target="_blank" rel="noreferrer" className="text-zinc-400 hover:text-white transition-colors"><Globe size={18}/></a>}
+                                         {instructor?.twitter && <a href={instructor.twitter} target="_blank" rel="noreferrer" className="text-zinc-400 hover:text-blue-400 transition-colors"><Twitter size={18}/></a>}
+                                         {instructor?.linkedin && <a href={instructor.linkedin} target="_blank" rel="noreferrer" className="text-zinc-400 hover:text-blue-600 transition-colors"><Linkedin size={18}/></a>}
+                                         {instructor?.youtube && <a href={instructor.youtube} target="_blank" rel="noreferrer" className="text-zinc-400 hover:text-red-500 transition-colors"><Youtube size={18}/></a>}
+                                     </div>
                                  </div>
                              </div>
+                         </div>
+                      )}
+
+                      {/* RESOURCES TAB */}
+                      {activeTab === 'resources' && (
+                         <div className="space-y-6">
+                            <h3 className="text-xl font-bold">Downloadable Resources</h3>
+                            {(!activeItem?.resources || activeItem.resources.length === 0) ? (
+                               <p className="text-zinc-500 bg-white/5 p-6 rounded-2xl text-center">No resources attached to this lecture.</p>
+                            ) : (
+                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  {activeItem.resources.map((res: { id: React.Key | null | undefined; url: string | undefined; type: string | number | bigint | boolean | React.ReactElement<unknown, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | Promise<string | number | bigint | boolean | React.ReactPortal | React.ReactElement<unknown, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined> | null | undefined; title: any }) => (
+                                     <a key={res.id} href={res.url} target="_blank" rel="noreferrer" className="flex items-center justify-between p-5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-emerald-500/50 transition-all group">
+                                        <div className="flex items-center gap-4">
+                                           <div className="p-3 bg-black/50 rounded-lg text-zinc-400 group-hover:text-emerald-400 transition-colors">
+                                              {res.type === 'file' ? <FileText size={20}/> : res.type === 'code' ? <FileCode size={20}/> : <LinkIcon size={20}/>}
+                                           </div>
+                                           <div><h4 className="font-bold text-sm text-white">{res.title || 'Untitled Resource'}</h4><p className="text-xs text-zinc-500 uppercase mt-1">{res.type}</p></div>
+                                        </div>
+                                        <Download size={18} className="text-zinc-600 group-hover:text-white transition-colors"/>
+                                     </a>
+                                  ))}
+                               </div>
+                            )}
                          </div>
                       )}
 
@@ -365,7 +435,7 @@ export default function LearningPage() {
                          <div className="space-y-6">
                             <div className="flex items-center justify-between">
                                <h3 className="text-xl font-bold">My Notes</h3>
-                               <span className="text-xs text-zinc-500 bg-white/5 px-3 py-1 rounded-full">Auto-saving</span>
+                               <span className="text-xs text-zinc-500 bg-white/5 px-3 py-1 rounded-full border border-white/10">Auto-saving locally</span>
                             </div>
                             <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-2xl p-1 focus-within:border-yellow-500/50 transition-colors">
                                <textarea 
@@ -396,7 +466,7 @@ export default function LearningPage() {
                              <h3 className="text-xl font-bold">Instructor Announcements</h3>
                              <div className="bg-black/40 border border-white/5 p-6 rounded-2xl">
                                  <div className="flex items-center gap-3 mb-4">
-                                     <Image src={instructor?.avatar_url || '/placeholder.jpg'} alt="" width={40} height={40} className="rounded-full" />
+                                     <Image src={instructor?.avatar_url || '/placeholder.jpg'} alt="" width={40} height={40} className="rounded-full object-cover" />
                                      <div><h4 className="font-bold text-sm text-white">{instructor?.full_name}</h4><p className="text-xs text-zinc-500">Welcome to the course!</p></div>
                                  </div>
                                  <p className="text-zinc-300 text-sm leading-relaxed">
@@ -418,7 +488,7 @@ export default function LearningPage() {
                             <div className="bg-emerald-900/10 border border-emerald-500/20 p-6 rounded-2xl">
                                 <Download className="text-emerald-400 mb-4" size={32}/>
                                 <h4 className="font-bold text-lg text-white mb-2">Offline Viewing</h4>
-                                <p className="text-sm text-zinc-400 mb-6">Use the download button on lectures to securely cache videos to your browser for offline flights or commutes.</p>
+                                <p className="text-sm text-zinc-400 mb-6">Use the download button on lectures in the sidebar to securely cache videos to your browser for offline flights or commutes.</p>
                             </div>
                          </div>
                       )}
@@ -456,6 +526,7 @@ export default function LearningPage() {
                                         <p className="text-zinc-400 text-sm leading-relaxed font-serif italic">"{review.comment}"</p>
                                     </div>
                                 ))}
+                                {reviews.length === 0 && <div className="col-span-1 md:col-span-2 text-center text-zinc-500 py-6">No reviews yet. Be the first to share your thoughts!</div>}
                             </div>
                          </div>
                       )}
@@ -475,7 +546,7 @@ export default function LearningPage() {
                   </div>
               </div>
               
-              <div className="flex-1 overflow-y-auto custom-scrollbar">
+              <div className="flex-1 overflow-y-auto custom-scrollbar pb-10">
                   {filteredCurriculum.length === 0 && <div className="p-6 text-center text-zinc-500 text-sm">No lectures found matching your search.</div>}
                   
                   {filteredCurriculum.map((section: Module, sIdx: number) => (
@@ -504,7 +575,7 @@ export default function LearningPage() {
                                           const TypeIcon = item.type === 'video' ? PlayCircle : item.type === 'article' ? FileText : item.type === 'video_slide' ? Presentation : ListChecks
 
                                           return (
-                                            <div key={item.id} onClick={() => setActiveLectureId(item.id)} className={`w-full p-4 flex items-start gap-3 cursor-pointer transition-colors border-l-2 ${isActive ? 'bg-white/5 border-emerald-500' : 'border-transparent hover:bg-white/[0.02]'}`}>
+                                            <div key={item.id} ref={isActive ? activeLectureRef : null} onClick={() => setActiveLectureId(item.id)} className={`w-full p-4 flex items-start gap-3 cursor-pointer transition-colors border-l-2 ${isActive ? 'bg-white/5 border-emerald-500' : 'border-transparent hover:bg-white/[0.02]'}`}>
                                                <div className="mt-1 shrink-0">
                                                   <input type="checkbox" checked={isDone} onChange={(e) => { e.stopPropagation(); handleMarkComplete() }} className="w-4 h-4 accent-emerald-500 cursor-pointer" />
                                                </div>
@@ -538,11 +609,13 @@ export default function LearningPage() {
 function ContentRenderer({ item, localVideoUrl, onComplete }: { item: ContentItem, localVideoUrl: string | null, onComplete: () => void }) {
   
   if (item.type === 'video' || item.type === 'video_slide') {
+    // We add a 'key' prop to the video and iframe tags. This forces React to cleanly unmount 
+    // and remount the player when the videoUrl changes, ensuring the video actually plays!
     return (
       <div className="w-full h-full flex bg-black relative">
          <div className="flex-1 flex items-center justify-center bg-black relative">
             {item.videoUrl || localVideoUrl ? (
-               <video ref={(el) => { if(el && !el.src) el.src = localVideoUrl || item.videoUrl || '' }} controls autoPlay className="w-full h-full" onEnded={onComplete} controlsList="nodownload" onContextMenu={e=>e.preventDefault()} />
+               <video key={localVideoUrl || item.videoUrl} src={localVideoUrl || item.videoUrl || ''} controls autoPlay className="w-full h-full object-contain" onEnded={onComplete} controlsList="nodownload" onContextMenu={e=>e.preventDefault()} />
             ) : (
                <div className="text-center text-zinc-600"><PlayCircle size={48} className="mx-auto mb-4 opacity-50"/><p>No video source attached.</p></div>
             )}
@@ -550,7 +623,7 @@ function ContentRenderer({ item, localVideoUrl, onComplete }: { item: ContentIte
          {item.type === 'video_slide' && (
             <div className="hidden lg:flex w-1/3 border-l border-white/10 bg-zinc-900 items-center justify-center p-4">
                {item.slideUrl ? (
-                  <iframe src={`${item.slideUrl}#toolbar=0`} className="w-full h-full rounded-xl bg-white shadow-inner" title="Presentation Slide" />
+                  <iframe key={item.slideUrl} src={`${item.slideUrl}#toolbar=0`} className="w-full h-full rounded-xl bg-white shadow-inner" title="Presentation Slide" />
                ) : (
                   <div className="text-center text-zinc-600"><Presentation size={48} className="mx-auto mb-4 opacity-50"/><p>No slide attached.</p></div>
                )}
@@ -590,6 +663,11 @@ function QuizRenderer({ quizData, onComplete }: { quizData: QuizQuestion[], onCo
   const [selected, setSelected] = useState<number | null>(null)
   const [showAnswer, setShowAnswer] = useState(false)
   const [score, setScore] = useState(0)
+
+  // Reset quiz state when new quizData is loaded
+  useEffect(() => {
+    setCurrentQ(0); setSelected(null); setShowAnswer(false); setScore(0);
+  }, [quizData])
 
   if (!quizData || quizData.length === 0) return <div className="text-zinc-500 h-full flex items-center justify-center bg-[#0a0a0a]">No questions in this quiz.</div>
 
@@ -672,15 +750,3 @@ const TabBtn = ({ active, onClick, icon: Icon, label }: any) => (
         <Icon size={16}/> {label}
     </button>
 )
-function addToast(message: string, type: "success" | "error" | "info" = "info") {
-    if (typeof window !== "undefined") {
-        // Simple fallback: use alert for errors, otherwise console
-        if (type === "error") {
-            window.alert(message)
-        } else {
-            // You could use a custom toast library here
-            console.log(`[${type.toUpperCase()}] ${message}`)
-        }
-    }
-}
-
