@@ -645,7 +645,17 @@ function ContentRenderer({ item, localVideoUrl, onComplete }: { item: ContentIte
       <div className="w-full h-full flex bg-black relative">
          <div className="flex-1 flex items-center justify-center bg-black relative">
             {videoSource ? (
-               <video key={videoSource} src={videoSource} controls autoPlay className="w-full h-full object-contain" onEnded={onComplete} controlsList="nodownload" onContextMenu={e=>e.preventDefault()} />
+               <video 
+   key={videoSource} 
+   src={videoSource}
+   controls 
+   playsInline
+   autoPlay 
+   controlsList="nodownload" 
+   onContextMenu={e=>e.preventDefault()}
+   onEnded={onComplete}
+   className="w-full h-full object-contain bg-black"
+/>
             ) : (
                <div className="text-center text-zinc-600"><PlayCircle size={48} className="mx-auto mb-4 opacity-50"/><p>No video source attached.</p></div>
             )}
