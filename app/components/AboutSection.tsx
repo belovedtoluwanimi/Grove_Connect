@@ -16,7 +16,7 @@ const courseFeatures = [
 const AboutSection = () => {
   return (
     // CHANGED: py-16 md:py-0  ->  py-20 md:py-32
-    <section className="relative w-full min-h-screen flex items-center justify-center bg-transparent py-20 md:py-32 px-6 md:px-12 overflow-hidden border-t border-green-500/10 z-0">
+    <section className="relative w-full min-h-screen flex items-center justify-center bg-[#2e2e2e] py-20 md:py-32 px-6 md:px-12 overflow-hidden border-t border-green-500/10 z-0">
       
       {/* --- AMBIENT GRADIENTS --- */}
       <div className="absolute -top-[20%] -left-[10%] w-[300px] md:w-[500px] h-[300px] md:h-[500px] rounded-full bg-green-600/20 blur-[80px] md:blur-[100px] -z-10 pointer-events-none" />
