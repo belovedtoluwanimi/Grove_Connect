@@ -56,8 +56,8 @@ const Hero = () => {
 
       {/* C. Vibrant Color Splashes */}
       <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-emerald-500/20 rounded-full blur-[120px] pointer-events-none z-0 mix-blend-screen" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-purple-600/20 rounded-full blur-[120px] pointer-events-none z-0 mix-blend-screen" />
-      <div className="absolute top-[40%] left-[50%] -translate-x-1/2 w-[800px] h-[400px] bg-blue-500/10 rounded-full blur-[100px] pointer-events-none z-0" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-emerald-600/20 rounded-full blur-[120px] pointer-events-none z-0 mix-blend-screen" />
+      <div className="absolute top-[40%] left-[50%] -translate-x-1/2 w-[800px] h-[400px] bg-green-500/10 rounded-full blur-[100px] pointer-events-none z-0" />
 
 
       {/* --- 2. FLOATING ICONS --- */}
