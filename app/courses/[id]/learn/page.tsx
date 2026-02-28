@@ -92,7 +92,7 @@ export default function LearningPage() {
 
         // 1. Fetch Course with graceful fallback
         let { data: courseData, error } = await supabase.from('courses')
-            .select('*, profiles(full_name, avatar_url, bio, website, twitter, linkedin, youtube)')
+            .select('*, profiles:instructor_id(full_name, avatar_url, bio, website, twitter, linkedin, youtube)')
             .eq('id', courseId).single()
             
         // Fallback: If joining 'profiles' fails, try fetching without it
@@ -129,7 +129,10 @@ export default function LearningPage() {
         
         // 4. Fetch Reviews safely
         try {
-            const { data: reviewsData } = await supabase.from('reviews').select('*, profiles(full_name, avatar_url)').eq('course_id', courseId).order('created_at', { ascending: false })
+            const { data: reviewsData } = await supabase.from('reviews')
+                .select('*, profiles:user_id(full_name, avatar_url)')
+                .eq('course_id', courseId)
+                .order('created_at', { ascending: false })
             setReviews(reviewsData || [])
         } catch (e) { console.warn("Reviews fetch failed") }
 
@@ -239,6 +242,7 @@ export default function LearningPage() {
   }
 
   // --- 4. REVIEWS ---
+  // --- 4. REVIEWS ---
   const handlePostReview = async () => {
       if (userRating === 0) return addToast("Please select a rating", "error")
       if (!userComment.trim()) return addToast("Please enter a comment", "error")
@@ -246,14 +250,17 @@ export default function LearningPage() {
       setIsPostingReview(true)
       try {
           const newReview = { user_id: user.id, course_id: courseId, rating: userRating, comment: userComment }
-          const { data, error } = await supabase.from('reviews').insert(newReview).select('*, profiles(full_name, avatar_url)').single()
+          const { data, error } = await supabase.from('reviews')
+              .insert(newReview)
+              .select('*, profiles:user_id(full_name, avatar_url)')
+              .single()
           
           if (error) throw error
           
           setReviews([data, ...reviews]); setUserComment(""); setUserRating(0)
           addToast("Review posted successfully!", "success")
       } catch (err: any) {
-          addToast(err.message || "Failed to post review.", "error")
+          addToast(err.message || "Failed to post review. Check database permissions.", "error")
       } finally {
           setIsPostingReview(false)
       }
@@ -365,7 +372,7 @@ export default function LearningPage() {
                          <div className="space-y-12">
                              <div>
                                 <h2 className="text-3xl font-bold mb-4">About this course</h2>
-                                <p className="text-zinc-300 leading-relaxed font-serif text-lg whitespace-pre-wrap">{course?.description}</p>
+                                <p className="text-white leading-relaxed font-serif text-lg whitespace-pre-wrap">{course?.description}</p>
                              </div>
                              
                              {/* Objectives Section */}
@@ -374,7 +381,7 @@ export default function LearningPage() {
                                     <h3 className="text-xl font-bold mb-4">What you'll learn</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                         {course.objectives.map((obj: string, i: number) => (
-                                            <div key={i} className="flex gap-3 items-start"><CheckCircle2 size={18} className="text-emerald-500 shrink-0 mt-1"/><span className="text-zinc-300 text-sm leading-relaxed">{obj}</span></div>
+                                            <div key={i} className="flex gap-3 items-start"><CheckCircle2 size={18} className="text-emerald-500 shrink-0 mt-1"/><span className="text-white text-sm leading-relaxed">{obj}</span></div>
                                         ))}
                                     </div>
                                 </div>
