@@ -90,6 +90,7 @@ const Navbar = () => {
               <Link 
                 key={idx} 
                 href={item.link}
+                target={item.target}
                 className={`text-sm font-medium transition-colors relative py-2
                   ${active ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'}
                 `}
