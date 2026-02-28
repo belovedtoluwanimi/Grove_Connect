@@ -637,25 +637,36 @@ export default function LearningPage() {
 
 // --- SUB-COMPONENT: Dynamic Content Renderer ---
 function ContentRenderer({ item, localVideoUrl, onComplete }: { item: ContentItem, localVideoUrl: string | null, onComplete: () => void }) {
-  
+  // Use a ref to manually force the video to reload when the URL changes
+  const videoRef = useRef<HTMLVideoElement>(null)
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.load()
+    }
+  }, [item.videoUrl, localVideoUrl])
+
   if (item.type === 'video' || item.type === 'video_slide') {
-    // IMPORTANT FIX: Using `key={url}` forces the video component to fully unmount and remount when you switch lessons
     const videoSource = localVideoUrl || item.videoUrl || '';
     return (
       <div className="w-full h-full flex bg-black relative">
          <div className="flex-1 flex items-center justify-center bg-black relative">
             {videoSource ? (
                <video 
-   key={videoSource} 
-   src={videoSource}
-   controls 
-   playsInline
-   autoPlay 
-   controlsList="nodownload" 
-   onContextMenu={e=>e.preventDefault()}
-   onEnded={onComplete}
-   className="w-full h-full object-contain bg-black"
-/>
+                  ref={videoRef}
+                  controls 
+                  playsInline
+                  autoPlay 
+                  controlsList="nodownload" 
+                  onContextMenu={e=>e.preventDefault()}
+                  onEnded={onComplete}
+                  className="w-full h-full object-contain bg-black"
+               >
+                  <source src={videoSource} type="video/mp4" />
+                  <source src={videoSource} type="video/webm" />
+                  <source src={videoSource} type="video/ogg" />
+                  Your browser does not support the video tag.
+               </video>
             ) : (
                <div className="text-center text-zinc-600"><PlayCircle size={48} className="mx-auto mb-4 opacity-50"/><p>No video source attached.</p></div>
             )}
@@ -663,7 +674,12 @@ function ContentRenderer({ item, localVideoUrl, onComplete }: { item: ContentIte
          {item.type === 'video_slide' && (
             <div className="hidden lg:flex w-1/3 border-l border-white/10 bg-zinc-900 items-center justify-center p-4">
                {item.slideUrl ? (
-                  <iframe key={item.slideUrl} src={`${item.slideUrl}#toolbar=0`} className="w-full h-full rounded-xl bg-white shadow-inner" title="Presentation Slide" />
+                  <iframe 
+                    key={item.slideUrl} 
+                    src={item.slideUrl.includes('google.com') ? item.slideUrl : `${item.slideUrl}#toolbar=0`} 
+                    className="w-full h-full rounded-xl bg-white shadow-inner" 
+                    title="Presentation Slide" 
+                  />
                ) : (
                   <div className="text-center text-zinc-600"><Presentation size={48} className="mx-auto mb-4 opacity-50"/><p>No slide attached.</p></div>
                )}
@@ -672,31 +688,7 @@ function ContentRenderer({ item, localVideoUrl, onComplete }: { item: ContentIte
       </div>
     )
   }
-
-  if (item.type === 'article') {
-    return (
-      <div className="w-full h-full bg-[#0a0a0a] p-10 lg:p-16 overflow-y-auto custom-scrollbar relative">
-         <div className="max-w-3xl mx-auto space-y-6 relative z-10">
-            <h1 className="text-3xl md:text-5xl font-black mb-8 leading-tight">{item.title}</h1>
-            <div className="w-20 h-1 bg-emerald-500 rounded-full mb-8" />
-            <div className="text-zinc-300 leading-relaxed text-lg whitespace-pre-wrap font-serif">
-               {item.content || <span className="italic text-zinc-600">No article content written yet.</span>}
-            </div>
-            <div className="pt-12 mt-12 flex justify-end">
-               <button onClick={onComplete} className="px-8 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-500 transition-colors flex items-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.3)]">Mark as Read <CheckCircle2 size={18}/></button>
-            </div>
-         </div>
-      </div>
-    )
-  }
-
-  if (item.type === 'quiz' || item.type === 'practice_test') {
-    return <QuizRenderer quizData={item.quizData || []} onComplete={onComplete} />
-  }
-
-  return <div className="text-zinc-500 aspect-video flex items-center justify-center w-full bg-black">Unsupported content type.</div>
 }
-
 // --- SUB-COMPONENT: Interactive Quiz Engine ---
 function QuizRenderer({ quizData, onComplete }: { quizData: QuizQuestion[], onComplete: () => void }) {
   const [currentQ, setCurrentQ] = useState(0)

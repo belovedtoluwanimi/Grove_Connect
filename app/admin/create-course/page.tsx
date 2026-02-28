@@ -12,9 +12,9 @@ import {
   ImageIcon
 } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useAuth } from '@/app/hooks/useAuth' 
 import { createClient } from '@/app/utils/supabase/client'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 // --- 1. TOAST SYSTEM (Built-in) ---
 type ToastType = 'success' | 'error' | 'info'
@@ -158,6 +158,68 @@ function CourseBuilder() {
     title: '', subtitle: '', description: '', language: 'English (US)', category: '', subcategory: '', primaryTopic: '',
     thumbnail: null, promoVideo: null, pricing: { amount: '', currency: 'USD' }, welcomeMessage: '', congratsMessage: ''
   })
+
+  // --- LOAD EXISTING COURSE FOR EDITING ---
+  const searchParams = useSearchParams()
+  const editId = searchParams?.get('edit')
+
+  useEffect(() => {
+    if (!editId) return;
+
+    const fetchCourseToEdit = async () => {
+      try {
+        const { data: dbCourse, error } = await supabase
+          .from('courses')
+          .select('*')
+          .eq('id', editId)
+          .single();
+
+        if (error) throw error;
+
+        if (dbCourse) {
+          // 1. Safely Parse JSON arrays (Objectives, Prereqs, Curriculum)
+          let parsedModules = [];
+          try { parsedModules = typeof dbCourse.curriculum_data === 'string' ? JSON.parse(dbCourse.curriculum_data) : dbCourse.curriculum_data || []; } catch(e) {}
+          
+          let parsedObjectives = [];
+          try { parsedObjectives = typeof dbCourse.objectives === 'string' ? JSON.parse(dbCourse.objectives) : dbCourse.objectives || []; } catch(e) {}
+          
+          let parsedPrereqs = [];
+          try { parsedPrereqs = typeof dbCourse.prerequisites === 'string' ? JSON.parse(dbCourse.prerequisites) : dbCourse.prerequisites || []; } catch(e) {}
+
+          // 2. Pre-fill the state with the database data
+          setData({
+            id: dbCourse.id, // CRITICAL: This tells Supabase to UPDATE, not create a new one!
+            title: dbCourse.title || '',
+            subtitle: dbCourse.subtitle || '',
+            description: dbCourse.description || '',
+            language: dbCourse.language || 'English (US)',
+            category: dbCourse.category || '',
+            subcategory: dbCourse.subcategory || '',
+            primaryTopic: dbCourse.primary_topic || '',
+            audienceLevel: dbCourse.level || '',
+            thumbnail: dbCourse.thumbnail_url || null,
+            promoVideo: dbCourse.promo_video_url || null,
+            priceTier: dbCourse.price || 0,
+            currency: dbCourse.currency || 'USD',
+            welcomeMessage: dbCourse.welcome_message || '',
+            congratsMessage: dbCourse.congrats_message || '',
+            // Ensure minimum array lengths for the UI
+            objectives: parsedObjectives.length >= 4 ? parsedObjectives : [...parsedObjectives, '', '', '', ''].slice(0, Math.max(4, parsedObjectives.length)),
+            prerequisites: parsedPrereqs.length >= 1 ? parsedPrereqs : [''],
+            modules: parsedModules.length > 0 ? parsedModules : [{ id: 'mod-1', title: 'Section 1: Introduction', items: [], isOpen: true }],
+          });
+          
+          addToast("Course loaded for editing!", "success");
+        }
+      } catch (err: any) {
+        console.error("Error loading course:", err);
+        addToast("Failed to load course data.", "error");
+      }
+    };
+
+    fetchCourseToEdit();
+  }, [editId, supabase]);
 
   // --- SUPABASE DATABASE INTEGRATION ---
   const saveToSupabase = async (status: 'draft' | 'published') => {
@@ -885,13 +947,39 @@ function ContentItemBuilder({ item, mIdx, iIdx, data, setData }: any) {
 
 function VideoUploader({ label = "Upload Video", url, onUpload }: any) {
     const [uploading, setUploading] = useState(false)
+    const { addToast } = useToast()
+    const supabase = createClient() // Real database connection
+
     const handleFile = async (e: any) => {
-        if(!e.target.files[0]) return
-        setUploading(true); await new Promise(r=>setTimeout(r, 1500)); 
-        onUpload(URL.createObjectURL(e.target.files[0])); setUploading(false)
+        const file = e.target.files?.[0]
+        if(!file) return
+        
+        setUploading(true)
+        addToast('Uploading Lecture Video to server...', 'info')
+        
+        try {
+            const fileExt = file.name.split('.').pop()
+            const fileName = `lecture-${Math.random().toString(36).substring(2)}.${fileExt}`
+            
+            // Upload to your 'course-content' bucket
+            const { error } = await supabase.storage.from('course-content').upload(fileName, file)
+            if (error) throw error
+
+            // Get permanent link and save to curriculum state
+            const { data: publicData } = supabase.storage.from('course-content').getPublicUrl(fileName)
+            
+            onUpload(publicData.publicUrl)
+            addToast('Video uploaded successfully!', 'success')
+        } catch (err: any) {
+            console.error(err)
+            addToast(err.message || 'Failed to upload video.', 'error')
+        } finally {
+            setUploading(false)
+        }
     }
+
     return (
-        <label className="flex flex-col items-center justify-center w-full aspect-video bg-black/60 border border-dashed border-white/20 rounded-xl cursor-pointer hover:border-emerald-500 hover:bg-black/80 transition-all overflow-hidden group">
+        <label className="flex flex-col items-center justify-center w-full aspect-video bg-black/60 border border-dashed border-white/20 rounded-xl cursor-pointer hover:border-emerald-500 hover:bg-black/80 transition-all overflow-hidden group relative">
             {url ? <video src={url} controls className="w-full h-full object-cover"/> : (
                 <div className="text-center">
                     {uploading ? <Loader2 className="animate-spin text-emerald-500 mx-auto mb-3" size={28}/> : <UploadCloud className="text-zinc-500 group-hover:text-emerald-400 mx-auto mb-3 transition-colors" size={32}/>}
@@ -906,11 +994,36 @@ function VideoUploader({ label = "Upload Video", url, onUpload }: any) {
 
 function DocumentUploader({ label, url, onUpload }: any) {
     const [uploading, setUploading] = useState(false)
+    const { addToast } = useToast()
+    const supabase = createClient() // Real database connection
+
     const handleFile = async (e: any) => {
-        if(!e.target.files[0]) return
-        setUploading(true); await new Promise(r=>setTimeout(r, 1000)); 
-        onUpload(URL.createObjectURL(e.target.files[0])); setUploading(false)
+        const file = e.target.files?.[0]
+        if(!file) return
+        
+        setUploading(true)
+        addToast('Uploading Presentation Slide...', 'info')
+        
+        try {
+            const fileExt = file.name.split('.').pop()
+            const fileName = `slide-${Math.random().toString(36).substring(2)}.${fileExt}`
+            
+            // Upload to your 'course-content' bucket
+            const { error } = await supabase.storage.from('course-content').upload(fileName, file)
+            if (error) throw error
+
+            const { data: publicData } = supabase.storage.from('course-content').getPublicUrl(fileName)
+            
+            onUpload(publicData.publicUrl)
+            addToast('Slide uploaded successfully!', 'success')
+        } catch (err: any) {
+            console.error(err)
+            addToast(err.message || 'Failed to upload slide.', 'error')
+        } finally {
+            setUploading(false)
+        }
     }
+
     return (
         <label className="flex flex-col items-center justify-center w-full aspect-video bg-black/60 border border-dashed border-white/20 rounded-xl cursor-pointer hover:border-purple-500 hover:bg-black/80 transition-all overflow-hidden group">
             {url ? <div className="text-purple-400 flex flex-col items-center"><FileText size={40} className="mb-3"/><span className="text-sm font-bold">PDF Attached Successfully</span></div> : (
@@ -923,7 +1036,6 @@ function DocumentUploader({ label, url, onUpload }: any) {
         </label>
     )
 }
-
 function QuizBuilder({ quizData, onChange }: { quizData: QuizQuestion[], onChange: any }) {
     const addQ = () => onChange([...quizData, { id: Math.random().toString(36).substring(7), question: '', options: ['',''], correctIndex: 0 }])
     const updateQ = (qIdx: number, field: string, val: any) => { const n = [...quizData]; (n[qIdx] as any)[field] = val; onChange(n) }
