@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, createContext, useContext, useEffect } from 'react'
+import React, { useState, createContext, useContext, Suspense, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Users, LayoutTemplate, FileVideo, BookOpen, Target, AlertCircle, 
@@ -130,7 +130,13 @@ const CATEGORIES = [
 export default function CreateCoursePage() {
   return (
     <ToastProvider>
-      <CourseBuilder />
+      <Suspense fallback={
+        <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+           <Loader2 className="animate-spin text-emerald-500" size={48} />
+        </div>
+      }>
+        <CourseBuilder />
+      </Suspense>
     </ToastProvider>
   )
 }
