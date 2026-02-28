@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, createContext, useContext } from 'react'
+import React, { useState, createContext, useContext, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Users, LayoutTemplate, FileVideo, BookOpen, Target, AlertCircle, 
