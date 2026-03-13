@@ -209,8 +209,8 @@ export default function CoursesPage() {
                           className="object-cover opacity-50"
                           priority
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/80 to-black/30" />
-                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_right,transparent_0%,#050505_100%)]" />
+                      {/* <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/80 to-black/30" />
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_right,transparent_0%,#050505_100%)]" /> */}
 
                       <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-12 max-w-7xl mx-auto w-full">
                           <div className="max-w-3xl">
