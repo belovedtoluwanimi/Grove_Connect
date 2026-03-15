@@ -5,7 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { 
   Search, Star, Clock, BookOpen, CheckCircle2, Loader2, ArrowRight, 
-  PlayCircle, Sparkles, TrendingUp, Compass, Award, Shield, Lock
+  PlayCircle, Sparkles, TrendingUp, Compass, Award, Shield, Lock, Zap
 } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
