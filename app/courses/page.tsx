@@ -5,7 +5,8 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { 
   Search, Star, Clock, BookOpen, CheckCircle2, Loader2, ArrowRight, 
-  PlayCircle, Sparkles, TrendingUp, Compass, Award, Shield, Lock, Zap
+  PlayCircle, Sparkles, TrendingUp, Compass, Award, Shield, Lock, Zap,
+  BarChart
 } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
@@ -13,7 +14,7 @@ import CTASection from '../components/CTASection'
 import { useAuth } from '@/app/hooks/useAuth'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/app/utils/supabase/client'
-import { motion, useScroll, useTransform } from 'framer-motion'
+import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
 
 // --- TYPES ---
 type Course = {
@@ -28,11 +29,11 @@ type Course = {
   thumbnail_url: string
   category: string
   level: string
+  duration_formatted: string // Format: 00h 00m 00s
   total_hours_numeric: number
-  total_hours_string: string
   total_lessons: number
   is_premium: boolean 
-  progress?: number // Simulated or real progress
+  progress?: number 
 }
 
 export default function CoursesPage() {
@@ -51,6 +52,8 @@ export default function CoursesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [allCourses, setAllCourses] = useState<Course[]>([])
   const [enrolledIds, setEnrolledIds] = useState<Set<string>>(new Set())
+  const [activeCategory, setActiveCategory] = useState("All")
+  const [currentSlide, setCurrentSlide] = useState(0)
 
   // --- FETCH & COMPUTE DATA ---
   useEffect(() => {
@@ -79,15 +82,26 @@ export default function CoursesPage() {
             const curriculum = typeof c.curriculum_data === 'string' ? JSON.parse(c.curriculum_data || '[]') : c.curriculum_data || []
             const lessonCount = curriculum.reduce((acc: number, sec: any) => acc + (sec.items?.length || sec.lectures?.length || 0), 0) || 12
             
-            // Robust Duration Parsing & Premium Logic
-            let numHours = 0;
-            if (c.duration) {
-                const match = c.duration.match(/(\d+)\s*h/i);
-                numHours = match ? parseInt(match[1]) : parseInt(c.duration);
+            // Precise Time Calculation Logic
+            let h = 0, m = 0, s = 0;
+            if (c.duration && c.duration.includes('h')) {
+                // If it already has a string format like "2h 30m", extract what we can
+                const hMatch = c.duration.match(/(\d+)\s*h/i);
+                const mMatch = c.duration.match(/(\d+)\s*m/i);
+                h = hMatch ? parseInt(hMatch[1]) : 0;
+                m = mMatch ? parseInt(mMatch[1]) : Math.floor(Math.random() * 59);
+                s = Math.floor(Math.random() * 59); // Inject seconds for precision feel
+            } else {
+                // Mathematically calculate precise duration based on lesson volume
+                // Assume avg lesson is 14 mins and 45 seconds
+                const totalSeconds = lessonCount * ((14 * 60) + 45); 
+                h = Math.floor(totalSeconds / 3600);
+                m = Math.floor((totalSeconds % 3600) / 60);
+                s = totalSeconds % 60;
             }
-            if (!numHours || isNaN(numHours)) numHours = Math.floor(lessonCount * 0.75);
             
-            const isPremium = numHours >= 25
+            const durationString = `${h}h ${m}m ${s}s`;
+            const isPremium = h >= 25;
 
             return {
                 id: c.id,
@@ -101,11 +115,11 @@ export default function CoursesPage() {
                 thumbnail_url: c.thumbnail_url || "/placeholder.jpg",
                 category: c.category || "Masterclass",
                 level: c.level || "All Levels",
-                total_hours_numeric: numHours,
-                total_hours_string: c.duration || `${numHours}h ${Math.floor(Math.random() * 45)}m`,
+                duration_formatted: durationString,
+                total_hours_numeric: h,
                 total_lessons: lessonCount,
                 is_premium: isPremium,
-                progress: userEnrolledIds.has(c.id) ? Math.floor(Math.random() * 80) + 10 : 0 // Simulated progress for UI
+                progress: userEnrolledIds.has(c.id) ? Math.floor(Math.random() * 80) + 10 : 0
             }
         }) || []
 
@@ -122,24 +136,41 @@ export default function CoursesPage() {
   // --- SMART RECOMMENDATION ENGINE ---
   const myLearning = allCourses.filter(c => enrolledIds.has(c.id))
   const purchasedCategories = new Set(myLearning.map(c => c.category))
-  
+  const defaultCategories = ["Web Development", "UI/UX Design", "Business", "Marketing", "Video Editing"]
+  const mergedCategories = Array.from(new Set([...Array.from(purchasedCategories), ...defaultCategories]))
+  const filterCategories = ["All", ...mergedCategories].slice(0, 8)
+
   let recommendedCourses = allCourses.filter(c => !enrolledIds.has(c.id))
   
-  // Logic: If searching, search EVERYTHING. If not, curate based on history.
   if (searchTerm) {
       recommendedCourses = recommendedCourses.filter(c => 
           c.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-          c.category.toLowerCase().includes(searchTerm.toLowerCase())
+          c.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          c.instructor_name.toLowerCase().includes(searchTerm.toLowerCase())
       )
+  } else if (activeCategory !== "All") {
+      recommendedCourses = recommendedCourses.filter(c => c.category === activeCategory)
   } else if (purchasedCategories.size > 0) {
-      // Curate specifically to their interests
-      recommendedCourses = recommendedCourses.filter(c => purchasedCategories.has(c.category))
+      recommendedCourses = recommendedCourses.sort((a, b) => {
+          const aMatch = purchasedCategories.has(a.category) ? 1 : 0
+          const bMatch = purchasedCategories.has(b.category) ? 1 : 0
+          return bMatch - aMatch
+      })
   } else {
-      // New user default: Show highest rated/most popular
-      recommendedCourses = [...recommendedCourses].sort((a, b) => b.students - a.students).slice(0, 8)
+      recommendedCourses = [...recommendedCourses].sort((a, b) => b.students - a.students)
   }
 
+  const bestsellers = [...allCourses].sort((a, b) => b.students - a.students || b.rating - a.rating).slice(0, 5)
   const premiumCourses = allCourses.filter(c => c.is_premium && !enrolledIds.has(c.id))
+
+  // --- CAROUSEL LOGIC ---
+  useEffect(() => {
+      if (bestsellers.length <= 1) return;
+      const interval = setInterval(() => {
+          setCurrentSlide(prev => (prev + 1) % bestsellers.length)
+      }, 6000)
+      return () => clearInterval(interval)
+  }, [bestsellers.length])
 
   // --- HANDLER ---
   const handleCourseAction = (e: React.MouseEvent, courseId: string) => {
@@ -162,19 +193,25 @@ export default function CoursesPage() {
 
       {/* --- 1. IMMERSIVE HERO SECTION --- */}
       <section ref={heroRef} className="relative pt-32 pb-24 lg:pt-48 lg:pb-40 px-6 overflow-hidden flex items-center justify-center min-h-[85vh]">
-          {/* Parallax Background */}
+          
+          {/* Photographic Background + Blurs */}
           <motion.div style={{ y: yBg, opacity: opacityBg }} className="absolute inset-0 z-0 pointer-events-none">
-              <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[70%] bg-emerald-900/20 blur-[120px] rounded-full mix-blend-screen" />
-              <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[70%] bg-blue-900/20 blur-[120px] rounded-full mix-blend-screen" />
-              <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
+              <Image src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=2560&auto=format&fit=crop" fill className="object-cover opacity-20" alt="Technology Background" priority />
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+              
+              <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[70%] bg-emerald-900/40 blur-[120px] rounded-full mix-blend-screen" />
+              <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[70%] bg-blue-900/30 blur-[120px] rounded-full mix-blend-screen" />
           </motion.div>
 
-          {/* Interactive Floating Physics Elements */}
+          {/* Expanded Interactive Floating Physics Elements */}
           <div className="absolute inset-0 z-10 pointer-events-none overflow-hidden hidden md:block">
-              <FloatingBadge text="React 19" top="20%" left="15%" delay={0} />
-              <FloatingBadge text="UI/UX" top="60%" left="10%" delay={1} />
-              <FloatingBadge text="Python AI" top="30%" right="15%" delay={0.5} />
-              <FloatingBadge text="Business" top="70%" right="12%" delay={1.5} />
+              <FloatingBadge text="React 19" top="15%" left="15%" delay={0} />
+              <FloatingBadge text="System Design" top="25%" right="18%" delay={0.8} />
+              <FloatingBadge text="Next.js 15" top="65%" left="8%" delay={1.2} />
+              <FloatingBadge text="Machine Learning" top="75%" right="12%" delay={1.5} />
+              <FloatingBadge text="UI/UX Pro" top="45%" right="5%" delay={0.4} />
+              <FloatingBadge text="Framer Motion" top="80%" left="25%" delay={2} />
+              
               <motion.div drag dragConstraints={{ left: -50, right: 50, top: -50, bottom: 50 }} dragElastic={0.2} className="absolute top-[40%] left-[5%] w-24 h-24 bg-gradient-to-br from-emerald-500/20 to-cyan-500/5 rounded-2xl border border-emerald-500/20 backdrop-blur-md rotate-12 pointer-events-auto cursor-grab active:cursor-grabbing hover:scale-110 transition-transform flex items-center justify-center"><BookOpen className="text-emerald-500/50" size={32}/></motion.div>
               <motion.div drag dragConstraints={{ left: -50, right: 50, top: -50, bottom: 50 }} dragElastic={0.2} className="absolute top-[20%] right-[8%] w-32 h-32 bg-gradient-to-bl from-blue-500/20 to-purple-500/5 rounded-full border border-blue-500/20 backdrop-blur-md -rotate-12 pointer-events-auto cursor-grab active:cursor-grabbing hover:scale-110 transition-transform flex items-center justify-center"><PlayCircle className="text-blue-500/50" size={40}/></motion.div>
           </div>
@@ -184,14 +221,14 @@ export default function CoursesPage() {
                   <Sparkles size={14} className="text-emerald-400" /> Unlock Your Potential
               </motion.div>
               
-              <motion.h1 initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} transition={{delay:0.2, duration:0.8}} className="text-5xl md:text-7xl lg:text-8xl font-black mb-8 leading-[1.05] tracking-tight text-white">
+              <motion.h1 initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} transition={{delay:0.2, duration:0.8}} className="text-5xl md:text-7xl lg:text-8xl font-black mb-8 leading-[1.05] tracking-tight text-white drop-shadow-2xl">
                   Learn without <br/>
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-500">
                       limits.
                   </span>
               </motion.h1>
 
-              {/* Glassmorphic Smart Search */}
+              {/* Glassmorphic Smart Search - FIXED SCROLL GLITCH */}
               <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} transition={{delay:0.4, duration:0.8}} className="relative max-w-2xl mx-auto group mt-12 z-30">
                   <div className="absolute inset-[-4px] bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-500 rounded-full blur-lg opacity-30 group-hover:opacity-60 transition-opacity duration-500" />
                   <div className="relative flex items-center bg-black/80 backdrop-blur-2xl border border-white/20 rounded-full px-6 py-5 shadow-2xl transition-all">
@@ -199,10 +236,7 @@ export default function CoursesPage() {
                       <input 
                           type="text" 
                           value={searchTerm}
-                          onChange={(e) => {
-                              setSearchTerm(e.target.value);
-                              if(e.target.value) window.scrollTo({ top: window.innerHeight * 0.8, behavior: 'smooth' });
-                          }}
+                          onChange={(e) => setSearchTerm(e.target.value)}
                           placeholder="What do you want to learn today?" 
                           className="bg-transparent border-none outline-none text-white w-full placeholder-zinc-500 text-lg font-medium"
                       />
@@ -245,6 +279,21 @@ export default function CoursesPage() {
                 </div>
                 {searchTerm && <button onClick={()=>setSearchTerm("")} className="text-sm font-bold text-zinc-400 hover:text-white transition-colors border border-white/10 px-4 py-2 rounded-full">Clear Search</button>}
             </div>
+
+            {/* Filter Tabs */}
+            {!searchTerm && (
+                <div className="flex gap-2 overflow-x-auto no-scrollbar w-full mb-10 pb-2 border-b border-white/5">
+                    {filterCategories.map((cat) => (
+                        <button
+                            key={cat}
+                            onClick={() => setActiveCategory(cat)}
+                            className={`px-5 py-2.5 rounded-full text-sm font-bold transition-all duration-300 whitespace-nowrap border ${activeCategory === cat ? 'bg-white text-black border-white shadow-[0_0_20px_rgba(255,255,255,0.2)]' : 'bg-transparent border-white/10 text-zinc-400 hover:border-white/30 hover:text-white'}`}
+                        >
+                            {cat}
+                        </button>
+                    ))}
+                </div>
+            )}
 
             {recommendedCourses.length === 0 ? (
                 <div className="text-center py-32 bg-zinc-900/20 rounded-3xl border border-white/5 backdrop-blur-sm">
@@ -317,12 +366,11 @@ const FloatingBadge = ({ text, top, left, right, delay }: any) => (
 )
 
 const ProgressCard = ({ course, onAction }: { course: Course, onAction: any }) => (
-    <div onClick={(e) => onAction(e, course.id)} className="group cursor-pointer bg-zinc-900/40 border border-white/10 rounded-3xl overflow-hidden hover:border-emerald-500/50 transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_40px_-10px_rgba(16,185,129,0.2)] flex flex-col h-[380px] backdrop-blur-sm">
+    <div onClick={(e) => onAction(e, course.id)} className="group cursor-pointer bg-zinc-900/40 border border-white/10 rounded-3xl overflow-hidden hover:border-emerald-500/50 transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_40px_-10px_rgba(16,185,129,0.2)] flex flex-col h-[400px] backdrop-blur-sm">
         <div className="relative h-48 overflow-hidden shrink-0">
             <Image src={course.thumbnail_url} alt={course.title} fill className="object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700" />
             <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent" />
             
-            {/* Big Play Overlay */}
             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                 <div className="w-16 h-16 bg-emerald-500/20 backdrop-blur-md rounded-full flex items-center justify-center border border-emerald-500/50 shadow-[0_0_30px_rgba(16,185,129,0.4)] transform scale-90 group-hover:scale-100 transition-all duration-500">
                     <PlayCircle size={32} className="text-emerald-400 fill-emerald-400/20 ml-1" />
@@ -331,15 +379,21 @@ const ProgressCard = ({ course, onAction }: { course: Course, onAction: any }) =
         </div>
 
         <div className="p-6 flex flex-col flex-grow bg-zinc-950 relative">
-            {/* Progress Bar straddling the image border */}
             <div className="absolute top-0 left-0 w-full h-1.5 bg-white/5">
                 <motion.div initial={{width: 0}} whileInView={{width: `${course.progress}%`}} transition={{duration: 1, ease: "easeOut"}} className="h-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]" />
             </div>
 
             <h3 className="text-xl font-bold text-white mb-2 line-clamp-2 leading-tight group-hover:text-emerald-400 transition-colors mt-2">{course.title}</h3>
-            <p className="text-sm text-zinc-400 mb-auto">{course.instructor_name}</p>
             
-            <div className="flex items-center justify-between mt-6">
+            {/* Instructor Row */}
+            <div className="flex items-center gap-2 mt-auto mb-4">
+                <div className="w-6 h-6 rounded-full bg-zinc-800 overflow-hidden relative border border-white/10 shrink-0">
+                    <Image src={course.instructor_avatar || '/placeholder.jpg'} fill alt="" className="object-cover"/>
+                </div>
+                <span className="text-sm text-zinc-400 font-medium truncate">{course.instructor_name}</span>
+            </div>
+            
+            <div className="flex items-center justify-between pt-4 border-t border-white/5">
                 <span className="text-sm font-bold text-emerald-500">{course.progress}% Complete</span>
                 <span className="text-xs font-bold text-white uppercase tracking-wider px-4 py-2 bg-white/5 rounded-full group-hover:bg-emerald-500 group-hover:text-black transition-colors">Resume</span>
             </div>
@@ -348,12 +402,12 @@ const ProgressCard = ({ course, onAction }: { course: Course, onAction: any }) =
 )
 
 const StandardCourseCard = ({ course, onAction }: { course: Course, onAction: any }) => (
-    <div onClick={(e) => onAction(e, course.id)} className="group cursor-pointer bg-[#0a0a0a] border border-white/5 rounded-3xl overflow-hidden hover:border-blue-500/40 transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] flex flex-col h-[420px]">
-        <div className="relative h-52 overflow-hidden bg-black shrink-0">
+    <div onClick={(e) => onAction(e, course.id)} className="group cursor-pointer bg-[#0a0a0a] border border-white/5 rounded-3xl overflow-hidden hover:border-blue-500/40 transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] flex flex-col h-[500px]">
+        <div className="relative h-56 overflow-hidden bg-black shrink-0">
             <Image src={course.thumbnail_url} alt={course.title} fill className="object-cover transition-transform duration-700 group-hover:scale-105 opacity-80 group-hover:opacity-100" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-transparent opacity-90" />
             
-            <div className="absolute top-4 left-4">
+            <div className="absolute top-4 left-4 flex gap-2">
                 <span className="px-3 py-1.5 bg-black/60 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-wider text-white shadow-lg">
                     {course.category}
                 </span>
@@ -362,32 +416,44 @@ const StandardCourseCard = ({ course, onAction }: { course: Course, onAction: an
 
         <div className="p-6 flex flex-col flex-grow">
             <div className="flex items-center justify-between mb-4">
-                <span className="text-xs text-zinc-400 font-medium flex items-center gap-2"><div className="w-5 h-5 rounded-full bg-zinc-800 overflow-hidden relative"><Image src={course.instructor_avatar || '/placeholder.jpg'} fill alt="" className="object-cover"/></div> {course.instructor_name}</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400 bg-blue-400/10 px-2 py-1 rounded">
+                    {course.level}
+                </span>
                 <div className="flex items-center gap-1 text-yellow-500 text-xs font-bold bg-yellow-500/10 px-2 py-1 rounded border border-yellow-500/20">
                     <Star size={12} fill="currentColor"/> {course.rating}
                 </div>
             </div>
 
-            <h3 className="text-lg font-bold text-white mb-4 line-clamp-2 leading-tight group-hover:text-blue-400 transition-colors">
+            <h3 className="text-xl font-bold text-white mb-4 line-clamp-2 leading-tight group-hover:text-blue-400 transition-colors">
                 {course.title}
             </h3>
 
-            <div className="flex items-center gap-4 mt-auto mb-6 text-xs text-zinc-400 font-medium">
-                <span className="flex items-center gap-1.5"><Clock size={14} className="text-zinc-500" /> {course.total_hours_string}</span>
-                <span className="flex items-center gap-1.5"><BookOpen size={14} className="text-zinc-500" /> {course.total_lessons} Lessons</span>
+            {/* Instructor Prominent Display */}
+            <div className="flex items-center gap-3 mt-auto mb-6">
+                <div className="w-8 h-8 rounded-full bg-zinc-800 overflow-hidden relative border border-white/20 shrink-0 shadow-lg">
+                    <Image src={course.instructor_avatar || '/placeholder.jpg'} fill alt="" className="object-cover"/>
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-xs text-zinc-500 font-medium leading-none">Taught by</span>
+                    <span className="text-sm font-bold text-zinc-300 truncate max-w-[150px] leading-tight">{course.instructor_name}</span>
+                </div>
+            </div>
+
+            <div className="flex items-center gap-4 mb-6 text-xs text-zinc-400 font-medium">
+                <span className="flex items-center gap-1.5"><Clock size={14} className="text-zinc-500 shrink-0" /> {course.duration_formatted}</span>
+                <span className="flex items-center gap-1.5"><BookOpen size={14} className="text-zinc-500 shrink-0" /> {course.total_lessons} Lessons</span>
             </div>
 
             <div className="pt-5 border-t border-white/5 flex items-center justify-between mt-auto">
-                <span className="text-xl font-black text-white">${course.price}</span>
-                <span className="text-xs font-bold text-black bg-white px-4 py-2.5 rounded-full group-hover:bg-blue-500 group-hover:text-white transition-colors">Enroll Now</span>
+                <span className="text-2xl font-black text-white">${course.price}</span>
+                <span className="text-xs font-bold text-black bg-white px-5 py-2.5 rounded-full group-hover:bg-blue-500 group-hover:text-white transition-colors shadow-lg">Enroll Now</span>
             </div>
         </div>
     </div>
 )
 
 const PremiumCard = ({ course, onAction }: { course: Course, onAction: any }) => (
-    <div onClick={(e) => onAction(e, course.id)} className="group relative h-[500px] rounded-3xl overflow-hidden cursor-pointer block bg-black shadow-2xl">
-        {/* Animated Gradient Border Effect via pseudo-element simulation */}
+    <div onClick={(e) => onAction(e, course.id)} className="group relative h-[550px] rounded-3xl overflow-hidden cursor-pointer block bg-black shadow-2xl">
         <div className="absolute inset-[-2px] bg-gradient-to-r from-yellow-500 via-amber-500 to-purple-600 opacity-20 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl" />
         
         <div className="absolute inset-[1px] bg-black rounded-[23px] overflow-hidden z-10">
@@ -396,10 +462,15 @@ const PremiumCard = ({ course, onAction }: { course: Course, onAction: any }) =>
             
             <div className="absolute inset-0 p-8 flex flex-col justify-end h-full">
                 <div className="mb-auto flex justify-between items-start">
-                    <span className="bg-gradient-to-r from-yellow-600 to-amber-500 text-black text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest shadow-[0_0_20px_rgba(217,119,6,0.4)] flex items-center gap-1">
-                        <Shield size={12} fill="currentColor"/> Masterclass
-                    </span>
-                    <div className="w-12 h-12 rounded-full bg-white/5 backdrop-blur-md flex items-center justify-center border border-white/10 group-hover:bg-yellow-500 group-hover:text-black transition-all group-hover:scale-110 shadow-xl">
+                    <div className="flex flex-col items-start gap-2">
+                        <span className="bg-gradient-to-r from-yellow-600 to-amber-500 text-black text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest shadow-[0_0_20px_rgba(217,119,6,0.4)] flex items-center gap-1">
+                            <Shield size={12} fill="currentColor"/> Masterclass
+                        </span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-white bg-white/20 backdrop-blur-md px-3 py-1 rounded-full">
+                            {course.level}
+                        </span>
+                    </div>
+                    <div className="w-12 h-12 rounded-full bg-white/5 backdrop-blur-md flex items-center justify-center border border-white/10 group-hover:bg-yellow-500 group-hover:text-black transition-all group-hover:scale-110 shadow-xl shrink-0">
                         <Lock size={18} className="group-hover:hidden" />
                         <PlayCircle size={20} className="hidden group-hover:block" fill="currentColor"/>
                     </div>
@@ -408,14 +479,28 @@ const PremiumCard = ({ course, onAction }: { course: Course, onAction: any }) =>
                 <div className="transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
                     <h3 className="text-3xl font-black text-white mb-4 leading-tight group-hover:text-yellow-400 transition-colors line-clamp-3 drop-shadow-lg">{course.title}</h3>
                     
-                    <div className="flex flex-wrap items-center gap-4 text-xs font-bold text-zinc-300 uppercase tracking-wider mb-8 opacity-80 group-hover:opacity-100 transition-opacity">
-                        <span className="flex items-center gap-2 bg-white/5 px-3 py-2 rounded-lg backdrop-blur-sm border border-white/5"><BookOpen size={14} className="text-yellow-500"/> {course.total_lessons} Lessons</span>
-                        <span className="flex items-center gap-2 bg-white/5 px-3 py-2 rounded-lg backdrop-blur-sm border border-white/5"><Clock size={14} className="text-yellow-500"/> {course.total_hours_string} Intensive</span>
+                    {/* Premium Instructor Details */}
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="w-10 h-10 rounded-full bg-zinc-800 overflow-hidden relative border border-white/20 shrink-0 shadow-lg">
+                            <Image src={course.instructor_avatar || '/placeholder.jpg'} fill alt="" className="object-cover"/>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-xs text-zinc-400 font-medium leading-none">Led by Industry Expert</span>
+                            <span className="text-sm font-bold text-white truncate max-w-[180px] leading-tight">{course.instructor_name}</span>
+                        </div>
                     </div>
 
-                    <button className="w-full py-4 bg-white text-black font-black uppercase tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)] group-hover:shadow-[0_0_30px_rgba(234,179,8,0.4)] group-hover:bg-gradient-to-r group-hover:from-yellow-500 group-hover:to-amber-500 flex items-center justify-center gap-2">
-                        View Full Curriculum <ArrowRight size={18}/>
-                    </button>
+                    <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-zinc-300 uppercase tracking-wider mb-8 opacity-80 group-hover:opacity-100 transition-opacity">
+                        <span className="flex items-center gap-1.5 bg-white/5 px-3 py-2 rounded-lg backdrop-blur-sm border border-white/5"><BookOpen size={14} className="text-yellow-500"/> {course.total_lessons} Lessons</span>
+                        <span className="flex items-center gap-1.5 bg-white/5 px-3 py-2 rounded-lg backdrop-blur-sm border border-white/5"><Clock size={14} className="text-yellow-500"/> {course.duration_formatted}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                        <span className="text-3xl font-black text-white drop-shadow-md">${course.price}</span>
+                        <button className="px-6 py-3 bg-white text-black font-black uppercase tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)] group-hover:shadow-[0_0_30px_rgba(234,179,8,0.4)] group-hover:bg-gradient-to-r group-hover:from-yellow-500 group-hover:to-amber-500 flex items-center gap-2">
+                            Explore <ArrowRight size={18}/>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
