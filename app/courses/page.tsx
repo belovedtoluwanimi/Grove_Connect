@@ -314,9 +314,11 @@ export default function PremiumCoursesDiscoveryPage() {
 
   return (
     <main className="bg-[#050505] min-h-screen text-white font-sans selection:bg-emerald-500/30 overflow-x-hidden relative">
+
+        <Navbar />
       
       {/* --- SMART HEADER --- */}
-      <header className="fixed top-0 w-full z-50 bg-black/40 backdrop-blur-2xl border-b border-white/10 px-6 h-20 flex items-center justify-between transition-all">
+      {/* <header className="fixed top-0 w-full z-50 bg-black/40 backdrop-blur-2xl border-b border-white/10 px-6 h-20 flex items-center justify-between transition-all">
           <div className="flex items-center gap-8 w-full max-w-[1600px] mx-auto">
               <Link href="/" className="font-black text-2xl tracking-tight text-white hover:opacity-80 transition-opacity">
                   Grove<span className="text-emerald-500">Connect</span>
@@ -348,7 +350,7 @@ export default function PremiumCoursesDiscoveryPage() {
                   )}
               </div>
           </div>
-      </header>
+      </header> */}
 
       {/* --- 1. IMMERSIVE PHYSICS HERO --- */}
       <section ref={heroRef} className="relative pt-40 pb-24 lg:pt-48 lg:pb-32 px-6 overflow-hidden flex items-center justify-center min-h-[85vh]">
