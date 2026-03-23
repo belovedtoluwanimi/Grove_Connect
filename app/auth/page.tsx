@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Mail, Lock, User, Github, Chrome, Loader2, AlertCircle, Compass } from "lucide-react";
   const [name, setName] = useState("");
