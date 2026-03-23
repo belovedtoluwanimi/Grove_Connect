@@ -3,10 +3,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Mail, Lock, User, Github, Chrome, Loader2, AlertCircle, Compass } from "lucide-react";
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [interest, setInterest] = useState(""); // <-- NEW
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/app/utils/supabase/client"; // Your existing client helper
