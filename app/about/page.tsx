@@ -202,13 +202,13 @@ const AboutPage = () => {
             <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-green-500/30 bg-green-500/10 text-green-400 font-bold tracking-widest uppercase text-xs mb-8 shadow-[0_0_30px_rgba(34,197,94,0.2)]">
                <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" /> Est. Late 2025
             </span>
-            <h1 className="text-2xl md:text-3xl lg:text-6xl font-black text-white mb-8 leading-[1.05] tracking-tight drop-shadow-2xl">
+            <h1 className="text-xl md:text-xl lg:text-3xl font-black text-white mb-8 leading-[1.05] tracking-tight drop-shadow-2xl">
               Started With <br/>
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-emerald-400 to-cyan-500">
                 Nothing.
               </span>
             </h1>
-            <p className="text-md md:text-xl text-zinc-400 leading-relaxed font-medium max-w-3xl mx-auto">
+            <p className="text-sm md:text-sm text-zinc-400 leading-relaxed font-medium max-w-3xl mx-auto">
               Before it was a global e-learning platform, Grove Connect was just a YouTube channel. A collective of friends turning on cameras to record podcasts, share wild adventures, host heated debates, and play games. 
             </p>
           </div>
