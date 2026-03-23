@@ -342,7 +342,7 @@ export default function DashboardPage() {
         
         {/* Header */}
         <header className="h-20 border-b border-white/5 bg-black/50 backdrop-blur-xl sticky top-0 z-10 flex items-center justify-between px-8">
-          <div className="flex items-center gap-4 text-gray-400 bg-white/5 px-4 py-2.5 rounded-full border border-white/10 w-96">
+          <div className="flex items-center gap-4 text-gray-400 bg-white/5 px-4 py-2.5 rounded-full border border-white/10 w-full max-w-[150px] sm:max-w-xs md:w-96">
             <Search size={16} />
             <input type="text" placeholder="Search analytics..." className="bg-transparent outline-none text-sm w-full text-white" />
           </div>
@@ -410,9 +410,9 @@ export default function DashboardPage() {
                 <StatCard label="Avg. Rating" value={String(overallStats.rating)} icon={TrendingUp} trend="+0.1" trendUp={true} />
               </div>
               
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[400px]">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                  {/* Revenue Chart */}
-                 <div className="lg:col-span-2 bg-neutral-900/40 border border-white/5 p-6 rounded-2xl relative">
+                 <div className="lg:col-span-2 bg-neutral-900/40 border border-white/5 p-6 rounded-2xl relative min-h-[350px]">
                     <h3 className="text-lg font-bold mb-6 text-white">Revenue Growth</h3>
                     <div className='h-[300px] w-full min-w-0'>
                     <ResponsiveContainer width="100%" height="100%">
@@ -429,7 +429,7 @@ export default function DashboardPage() {
                  </div>
 
                  {/* Enrollments Bar Chart */}
-                 <div className="bg-neutral-900/40 border border-white/5 p-6 rounded-2xl">
+                 <div className="bg-neutral-900/40 border border-white/5 p-6 rounded-2xl min-h-[350px]">
                     <h3 className="text-lg font-bold mb-6 text-white">New Students</h3>
                     <div className='h-[300px] w-full min-w-0'>
                     <ResponsiveContainer width="100%" height="100%">
@@ -499,11 +499,11 @@ export default function DashboardPage() {
           {/* === SETTINGS VIEW === */}
           {currentView === 'settings' && user && (
             <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-               <div className="lg:col-span-1 space-y-1">
-                  {['profile', 'security', 'payouts'].map((tab) => (
-                     <button key={tab} onClick={() => setSettingsTab(tab as any)} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium capitalize transition-all ${settingsTab === tab ? 'bg-white text-black font-bold' : 'text-gray-400 hover:bg-white/5'}`}>{tab}</button>
-                  ))}
-               </div>
+              <div className="lg:col-span-1 flex overflow-x-auto gap-2 pb-2 lg:pb-0 lg:flex-col lg:space-y-1 no-scrollbar">
+   {['profile', 'security', 'payouts'].map((tab) => (
+      <button key={tab} onClick={() => setSettingsTab(tab as any)} className={`whitespace-nowrap px-4 py-3 rounded-lg text-sm font-medium capitalize transition-all ${settingsTab === tab ? 'bg-white text-black font-bold' : 'text-gray-400 hover:bg-white/5'}`}>{tab}</button>
+   ))}
+</div>
 
                <div className="lg:col-span-3 bg-neutral-900/40 border border-white/5 rounded-2xl p-8 min-h-[600px]">
                   
@@ -643,6 +643,21 @@ export default function DashboardPage() {
 
         </div>
       </main>
+      {/* MOBILE BOTTOM NAVIGATION */}
+      <nav className="lg:hidden fixed bottom-0 left-0 w-full bg-black/90 backdrop-blur-xl border-t border-white/10 flex justify-around items-center p-3 z-50 pb-safe">
+          <button onClick={() => setCurrentView('overview')} className={`flex flex-col items-center gap-1 ${currentView === 'overview' ? 'text-green-500' : 'text-gray-500'}`}>
+              <LayoutDashboard size={20} />
+              <span className="text-[10px] font-bold">Home</span>
+          </button>
+          <button onClick={() => setCurrentView('courses')} className={`flex flex-col items-center gap-1 ${currentView === 'courses' ? 'text-green-500' : 'text-gray-500'}`}>
+              <BookOpen size={20} />
+              <span className="text-[10px] font-bold">Courses</span>
+          </button>
+          <button onClick={() => setCurrentView('settings')} className={`flex flex-col items-center gap-1 ${currentView === 'settings' ? 'text-green-500' : 'text-gray-500'}`}>
+              <Settings size={20} />
+              <span className="text-[10px] font-bold">Settings</span>
+          </button>
+      </nav>
     </div>
   )
 }
