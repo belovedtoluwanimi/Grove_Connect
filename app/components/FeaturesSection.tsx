@@ -74,9 +74,19 @@ const [index, setIndex] = useState(0)
       return
     }
     // Typing speed control
+    // 3. Humanized typing speed calculation
+    // Deleting is consistently fast (40ms), like holding the backspace key
+    // Typing varies randomly between 80ms and 180ms per keystroke
+    let typingSpeed = reverse ? 40 : Math.random() * 100 + 80;
+    
+    // Add a 10% chance of a slight "hesitation" pause (extra 150ms) to make it feel perfectly human
+    if (!reverse && Math.random() > 0.9) {
+        typingSpeed += 150;
+    }
+
     const timeout = setTimeout(() => {
       setSubIndex((prev) => prev + (reverse ? -1 : 1))
-    }, reverse ? 40 : 100)
+    }, typingSpeed)
 
     return () => clearTimeout(timeout)
   }, [subIndex, index, reverse])
