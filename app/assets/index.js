@@ -32,7 +32,7 @@ export const navItems = [
   { 
     name: "Courses", 
     link: "/courses", 
-    target: "_blank" 
+    target: "_self" 
   },
   { 
     name: "Teach on Grove", 
