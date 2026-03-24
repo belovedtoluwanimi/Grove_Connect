@@ -137,7 +137,10 @@ export default function PremiumCoursesDiscoveryPage() {
         const { data: courseData, error } = await supabase
           .from('courses')
           .select(`*, profiles:instructor_id(full_name, avatar_url), reviews(rating), enrollments(id)`)
-          .in('status', ['published', 'active', 'Active'])
+          // ONLY fetch courses with exactly this status.
+          // Instructors should save as 'draft' or 'pending_review'.
+          // Admins should change status to 'approved' or 'active'.
+          .in('status', ['active', 'Active', 'approved', 'Approved'])
 
         if (error) throw error
 
