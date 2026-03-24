@@ -162,12 +162,23 @@ const CoursesSection = () => {
         </div>
 
         {/* Slider */}
-        <div className="relative w-full overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_5%,black_95%,transparent)]">
-            <motion.div 
-                className="flex gap-6 w-max cursor-grab active:cursor-grabbing"
-                animate={{ x: ["0%", "-50%"] }} 
-                transition={{ duration: 40, ease: "linear", repeat: Infinity }}
-                whileHover={{ animationPlayState: "paused" }} 
+        {/* Slider */}
+        <div className="relative w-full overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_5%,black_95%,transparent)] group">
+            
+            {/* 1. Inject pure CSS keyframes */}
+            <style>{`
+              @keyframes scroll-marquee {
+                0% { transform: translateX(0%); }
+                100% { transform: translateX(-50%); }
+              }
+              .animate-marquee {
+                animation: scroll-marquee 40s linear infinite;
+              }
+            `}</style>
+            
+            {/* 2. Use standard div with the animation and Tailwind's group-hover to pause */}
+            <div 
+                className="flex gap-6 w-max animate-marquee group-hover:[animation-play-state:paused]"
                 style={{ width: "max-content" }}
             >
                 {[...courses, ...courses].map((course, idx) => (
@@ -178,7 +189,7 @@ const CoursesSection = () => {
                         onAction={handleCourseAction} 
                     />
                 ))}
-            </motion.div>
+            </div>
         </div>
       </div>
     </section>
