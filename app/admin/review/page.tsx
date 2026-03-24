@@ -60,12 +60,21 @@ export default function GroveAdminPortal() {
   }, [isAuthenticated])
 
   // --- ACTIONS ---
-  const handleDecision = async (id: string, decision: 'active' | 'draft') => {
-    await supabase.from('courses').update({ status: decision }).eq('id', id)
+  // --- ACTIONS ---
+  const handleDecision = async (id: string, decision: 'active' | 'rejected') => {
+    // 1. Capture the error from Supabase
+    const { error } = await supabase.from('courses').update({ status: decision }).eq('id', id)
+    
+    // 2. If Supabase blocks it, alert the user and STOP.
+    if (error) {
+        alert(`Database Blocked Update: ${error.message}\n\nCheck your Supabase RLS Policies!`);
+        return; 
+    }
+
+    // 3. Only update the UI if the database update actually succeeded
     setQueue(queue.filter(c => c.id !== id))
     setSelectedCourse(null)
     setScanStatus('idle')
-    // Optional: Trigger an email to the instructor here
   }
 
   const runTrustEngine = () => {
@@ -172,12 +181,12 @@ export default function GroveAdminPortal() {
                       {/* Top Action Bar */}
                       <div className="flex items-center justify-between bg-black/40 border border-white/10 p-4 rounded-2xl backdrop-blur-md sticky top-0 z-30 shadow-2xl">
                           <div className="flex gap-3">
-                              <button onClick={() => handleDecision(selectedCourse.id, 'active')} className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl flex items-center gap-2 transition-colors">
-                                  <Check size={18}/> Approve & Make Active
-                              </button>
-                              <button onClick={() => handleDecision(selectedCourse.id, 'draft')} className="px-6 py-2.5 bg-red-900/30 hover:bg-red-900/50 text-red-400 border border-red-500/30 font-bold rounded-xl flex items-center gap-2 transition-colors">
-                                  <X size={18}/> Reject to Draft
-                              </button>
+                             <button onClick={() => handleDecision(selectedCourse.id, 'active')} className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl flex items-center gap-2 transition-colors">
+        <Check size={18}/> Approve & Make Active
+    </button>
+    <button onClick={() => handleDecision(selectedCourse.id, 'rejected')} className="px-6 py-2.5 bg-red-900/30 hover:bg-red-900/50 text-red-400 border border-red-500/30 font-bold rounded-xl flex items-center gap-2 transition-colors">
+        <X size={18}/> Reject Course
+    </button>
                           </div>
                       </div>
 
