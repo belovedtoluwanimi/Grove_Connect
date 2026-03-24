@@ -545,9 +545,9 @@ export default function PremiumCoursesDiscoveryPage() {
                                   <span className="text-zinc-400 font-bold text-lg">Total:</span>
                                   <span className="text-4xl font-black text-white">${cartTotal.toFixed(2)}</span>
                               </div>
-                              <button onClick={() => router.push('/checkout')} className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-lg rounded-xl shadow-[0_0_30px_rgba(16,185,129,0.3)] transition-all hover:scale-[1.02] flex items-center justify-center gap-2">
-                                  Checkout <Lock size={18}/>
-                              </button>
+                              <button onClick={() => router.push(`/courses/${cart[0].id}/checkout`)} className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-lg rounded-xl shadow-[0_0_30px_rgba(16,185,129,0.3)] transition-all hover:scale-[1.02] flex items-center justify-center gap-2">
+        Checkout <Lock size={18}/>
+    </button>
                           </div>
                       )}
                   </motion.div>
