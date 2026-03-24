@@ -304,7 +304,7 @@ function CourseBuilder() {
       await saveToSupabase('published')
       addToast('Course submitted for review successfully! Redirecting...', 'success')
       setTimeout(() => {
-        router.push('/dashboard/instructor')
+        router.push('/dashboard')
       }, 2000)
     } catch (e: any) {
       addToast(e.message || 'Failed to publish course.', 'error')
