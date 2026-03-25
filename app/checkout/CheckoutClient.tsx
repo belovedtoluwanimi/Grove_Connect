@@ -31,7 +31,7 @@ export default function CheckoutClient() {
       if (sessionData) {
           const items = JSON.parse(sessionData)
           setCheckoutItems(items)
-          setCartTotal(items.reduce((sum: number, item: any) => sum + item.price, 0))
+          setCartTotal(items.reduce((sum: number, item: any) => sum + Number(item.price || 0), 0))
       } else {
           router.push('/courses') 
       }
@@ -85,6 +85,15 @@ export default function CheckoutClient() {
 
   const triggerCheckout = () => {
       setIsProcessing(true)
+      
+      // If the cart is completely free, skip Paystack and just enroll them!
+      if (cartTotal === 0) {
+          // Pass a fake reference object since Paystack wasn't used
+          onSuccess({ reference: 'free_enrollment_' + new Date().getTime() })
+          return
+      }
+
+      // Otherwise, open the Paystack modal for payment
       initializePayment({ onSuccess, onClose } as any)
   }
 
@@ -123,7 +132,8 @@ export default function CheckoutClient() {
 
                <button 
                   onClick={triggerCheckout}
-                  disabled={isProcessing || cartTotal === 0}
+                  // ONLY disable if processing or if the cart is completely empty
+                  disabled={isProcessing || checkoutItems.length === 0}
                   className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-lg font-black py-4 rounded-xl shadow-[0_0_30px_rgba(16,185,129,0.3)] transition-all active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {isProcessing ? <><Loader2 className="animate-spin" /> Processing...</> : `Pay ${cartTotal === 0 ? 'Free' : '₦'+cartTotal.toLocaleString()}`}
