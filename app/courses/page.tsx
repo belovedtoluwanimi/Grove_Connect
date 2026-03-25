@@ -81,11 +81,6 @@ export default function PremiumCoursesDiscoveryPage() {
   const [allCourses, setAllCourses] = useState<Course[]>([])
   const [enrolledIds, setEnrolledIds] = useState<Set<string>>(new Set())
   const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>([])
-  const [ semester video]
-  
-  // Cart States
-  const [cartOpen, setCartOpen] = useState(false)
-  const [cart, setCart] = useState<CartItem[]>([])
 
   // ============================================================================
   // EFFECTS: LOCAL STORAGE SYNC (CART & RECENTLY VIEWED)
@@ -284,14 +279,7 @@ export default function PremiumCoursesDiscoveryPage() {
     else router.push(`/courses/${courseId}`)
   }
 
-  const handleAddToCart = (course: Course) => {
-      trackView(course.id)
-      if (enrolledIds.has(course.id)) return; // Should be hidden in UI anyway
-      if (!cart.find(c => c.id === course.id)) {
-          setCart([...cart, { id: course.id, title: course.title, instructor_name: course.instructor_name, thumbnail_url: course.thumbnail_url, price: course.price }])
-      }
-      setCartOpen(true)
-  }
+  // (removed duplicate handleAddToCart)
 
 // Automatically select all items by default when the cart loads
   useEffect(() => {
