@@ -77,6 +77,7 @@ export default function PremiumCoursesDiscoveryPage() {
   const [allCourses, setAllCourses] = useState<Course[]>([])
   const [enrolledIds, setEnrolledIds] = useState<Set<string>>(new Set())
   const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>([])
+  const [ semester video]
   
   // Cart States
   const [cartOpen, setCartOpen] = useState(false)
@@ -316,6 +317,7 @@ export default function PremiumCoursesDiscoveryPage() {
     <main className="bg-[#050505] min-h-screen text-white font-sans selection:bg-emerald-500/30 overflow-x-hidden relative">
 
         <Navbar />
+        
       
       {/* --- SMART HEADER --- */}
       {/* <header className="fixed top-0 w-full z-50 bg-black/40 backdrop-blur-2xl border-b border-white/10 px-6 h-20 flex items-center justify-between transition-all">
