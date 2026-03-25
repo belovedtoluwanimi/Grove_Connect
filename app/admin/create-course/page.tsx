@@ -304,7 +304,7 @@ function CourseBuilder() {
       await saveToSupabase('published')
       addToast('Course submitted for review successfully! Redirecting...', 'success')
       setTimeout(() => {
-        router.push('/dashboard/instructor')
+        router.push('/dashboard')
       }, 2000)
     } catch (e: any) {
       addToast(e.message || 'Failed to publish course.', 'error')
@@ -333,16 +333,16 @@ function CourseBuilder() {
     : "https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2015&auto=format&fit=crop" // Launch / Publish vibe
 
   return (
-    <div className="relative min-h-screen bg-[#050505] text-white flex font-sans selection:bg-emerald-500/30 overflow-hidden">
+    <div className="relative min-h-screen bg-[#050505] text-white flex flex-col lg:flex-row font-sans selection:bg-emerald-500/30 overflow-hidden">
       
       {/* --- DYNAMIC BACKGROUND --- */}
       <div className="absolute inset-0 z-0">
-         <img src={bgImage} alt="bg" className="w-full h-full object-cover opacity-20 transition-opacity duration-1000" />
+         <img src={bgImage} alt="bg" className="w-full h-full object-cover opacity-60 transition-opacity duration-1000" />
          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
       </div>
       
       {/* --- SIDEBAR --- */}
-      <aside className="w-72 border-r border-white/10 flex flex-col h-screen sticky top-0 shrink-0 z-10 bg-black/40 backdrop-blur-xl">
+      <aside className="w-full lg:w-72 border-b lg:border-b-0 lg:border-r border-white/10 flex flex-col lg:h-screen sticky top-0 shrink-0 z-40 bg-black/80 backdrop-blur-xl">
         <div className="p-6 border-b border-white/5">
          <Link href="/admin/dashboard" className="text-white hover:text-emerald-400 transition-colors">
           <button className="text-zinc-500 hover:text-white flex items-center gap-2 text-xs font-bold uppercase tracking-wider mb-6 transition-colors">
@@ -360,25 +360,25 @@ function CourseBuilder() {
           <h2 className="font-bold text-xl leading-tight">Build Your Course</h2>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-8">
+        <div className="flex-1 overflow-x-auto lg:overflow-y-auto p-4 flex lg:flex-col gap-6 lg:space-y-8 no-scrollbar">
           
           {/* Conditional Sidebar Navigation based on Phase */}
           {phase === 'plan' ? (
-            <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="space-y-1">
+            <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex lg:flex-col gap-2 lg:space-y-1 min-w-max lg:min-w-0">
               <h3 className="text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-3 px-2">Plan Your Course</h3>
               <SidebarItem active={activeStep === 'intended-learners'} icon={Users} label="Intended Learners" onClick={() => setActiveStep('intended-learners')} />
               <SidebarItem active={activeStep === 'course-structure'} icon={LayoutTemplate} label="Course Structure" onClick={() => setActiveStep('course-structure')} />
               <SidebarItem active={activeStep === 'setup-test-video'} icon={Camera} label="Setup & Test Video" onClick={() => setActiveStep('setup-test-video')} />
             </motion.div>
           ) : phase === 'create' ? (
-            <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="space-y-1">
+            <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex lg:flex-col gap-2 lg:space-y-1 min-w-max lg:min-w-0">
               <button onClick={() => { setPhase('plan'); setActiveStep('setup-test-video') }} className="text-xs text-zinc-500 hover:text-white flex items-center gap-1 px-2 mb-4"><ChevronLeft size={14}/> Back to Planning</button>
               <h3 className="text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-3 px-2">Create Your Content</h3>
               <SidebarItem active={activeStep === 'film-edit'} icon={FileVideo} label="Film & Edit" onClick={() => setActiveStep('film-edit')} />
               <SidebarItem active={activeStep === 'curriculum'} icon={Layout} label="Curriculum" onClick={() => setActiveStep('curriculum')} />
             </motion.div>
           ) : (
-            <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="space-y-1">
+            <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex lg:flex-col gap-2 lg:space-y-1 min-w-max lg:min-w-0">
               <button onClick={() => { setPhase('create'); setActiveStep('curriculum') }} className="text-xs text-zinc-500 hover:text-white flex items-center gap-1 px-2 mb-4"><ChevronLeft size={14}/> Back to Content</button>
               <h3 className="text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-3 px-2">Publish Course</h3>
               <SidebarItem active={activeStep === 'landing-page'} icon={BookOpen} label="Course Landing Page" onClick={() => setActiveStep('landing-page')} />
@@ -398,7 +398,7 @@ function CourseBuilder() {
 
       {/* --- MAIN WORKSPACE --- */}
       <main className="flex-1 overflow-y-auto bg-transparent relative z-10">
-        <div className="max-w-5xl mx-auto p-12 pb-32">
+        <div className="max-w-5xl mx-auto p-5 md:p-8 lg:p-12 pb-32">
           <AnimatePresence mode="wait">
             {/* Phase 1 */}
             {activeStep === 'intended-learners' && <IntendedLearnersStep key="s1" data={data} setData={setData} />}
@@ -1382,9 +1382,9 @@ function CourseMessagesStep({ data, setData, onPublish, isPublishing }: { data: 
 
 // --- HELPER COMPONENT ---
 const SidebarItem = ({ active, icon: Icon, label, onClick }: any) => (
-  <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all text-sm font-bold ${
-    active ? 'bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.2)] scale-[1.02]' : 'text-zinc-400 hover:text-white hover:bg-white/5'
+  <button onClick={onClick} className={`flex lg:w-full whitespace-nowrap items-center gap-3 px-4 py-3.5 rounded-xl transition-all text-sm font-bold ${
+    active ? 'bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.2)] lg:scale-[1.02]' : 'text-zinc-400 hover:text-white hover:bg-white/5'
   }`}>
-    <Icon size={18} /> {label}
+    <Icon size={18} className="shrink-0" /> {label}
   </button>
 )

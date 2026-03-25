@@ -72,6 +72,10 @@ export default function PremiumCoursesDiscoveryPage() {
   // --- STATE MANAGEMENT ---
   const [isInitializing, setIsInitializing] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+  // Cart States
+  const [cartOpen, setCartOpen] = useState(false)
+  const [cart, setCart] = useState<CartItem[]>([])
+  const [selectedCartIds, setSelectedCartIds] = useState<Set<string>>(new Set()) // <-- NEW
   
   // Data States
   const [allCourses, setAllCourses] = useState<Course[]>([])
@@ -138,7 +142,10 @@ export default function PremiumCoursesDiscoveryPage() {
         const { data: courseData, error } = await supabase
           .from('courses')
           .select(`*, profiles:instructor_id(full_name, avatar_url), reviews(rating), enrollments(id)`)
-          .in('status', ['published', 'active', 'Active'])
+          // ONLY fetch courses with exactly this status.
+          // Instructors should save as 'draft' or 'pending_review'.
+          // Admins should change status to 'approved' or 'active'.
+          .in('status', ['active', 'Active', 'approved', 'Approved'])
 
         if (error) throw error
 
@@ -286,8 +293,53 @@ export default function PremiumCoursesDiscoveryPage() {
       setCartOpen(true)
   }
 
-  const removeFromCart = (id: string) => setCart(cart.filter(c => c.id !== id))
-  const cartTotal = cart.reduce((sum, item) => sum + item.price, 0)
+// Automatically select all items by default when the cart loads
+  useEffect(() => {
+      if (cart.length > 0 && selectedCartIds.size === 0) {
+          setSelectedCartIds(new Set(cart.map(c => c.id)))
+      }
+  }, [cart])
+
+  const handleAddToCart = (course: Course) => {
+      trackView(course.id)
+      if (enrolledIds.has(course.id)) return;
+      if (!cart.find(c => c.id === course.id)) {
+          setCart([...cart, { id: course.id, title: course.title, instructor_name: course.instructor_name, thumbnail_url: course.thumbnail_url, price: course.price }])
+          // Auto-select the newly added item
+          setSelectedCartIds(prev => new Set(prev).add(course.id))
+      }
+      setCartOpen(true)
+  }
+
+  const removeFromCart = (id: string) => {
+      setCart(cart.filter(c => c.id !== id))
+      const nextSelected = new Set(selectedCartIds)
+      nextSelected.delete(id)
+      setSelectedCartIds(nextSelected)
+  }
+
+  const toggleSelection = (id: string) => {
+      const nextSelected = new Set(selectedCartIds)
+      if (nextSelected.has(id)) nextSelected.delete(id)
+      else nextSelected.add(id)
+      setSelectedCartIds(nextSelected)
+  }
+
+  const toggleAll = () => {
+      if (selectedCartIds.size === cart.length) setSelectedCartIds(new Set())
+      else setSelectedCartIds(new Set(cart.map(c => c.id)))
+  }
+
+  const handleProceedToCheckout = () => {
+      if (selectedCartIds.size === 0) return alert("Please select at least one course to checkout.")
+      // Save ONLY the selected items to a temporary checkout session
+      const itemsToBuy = cart.filter(c => selectedCartIds.has(c.id))
+      localStorage.setItem('grove_checkout_session', JSON.stringify(itemsToBuy))
+      router.push('/checkout') // Route to the global checkout page!
+  }
+
+  // Only sum up the selected items
+  const cartTotal = cart.filter(c => selectedCartIds.has(c.id)).reduce((sum, item) => sum + item.price, 0)
 
   // ============================================================================
   // RENDER: LOADING STATE (SKELETONS)
@@ -316,11 +368,10 @@ export default function PremiumCoursesDiscoveryPage() {
   return (
     <main className="bg-[#050505] min-h-screen text-white font-sans selection:bg-emerald-500/30 overflow-x-hidden relative">
 
-        <Navbar />
-        
+        {/* <Navbar /> */}
       
       {/* --- SMART HEADER --- */}
-      {/* <header className="fixed top-0 w-full z-50 bg-black/40 backdrop-blur-2xl border-b border-white/10 px-6 h-20 flex items-center justify-between transition-all">
+       <header className="fixed top-0 w-full z-50 bg-black/40 backdrop-blur-2xl border-b border-white/10 px-6 h-20 flex items-center justify-between transition-all">
           <div className="flex items-center gap-8 w-full max-w-[1600px] mx-auto">
               <Link href="/" className="font-black text-2xl tracking-tight text-white hover:opacity-80 transition-opacity">
                   Grove<span className="text-emerald-500">Connect</span>
@@ -352,7 +403,7 @@ export default function PremiumCoursesDiscoveryPage() {
                   )}
               </div>
           </div>
-      </header> */}
+      </header>
 
       {/* --- 1. IMMERSIVE PHYSICS HERO --- */}
       <section ref={heroRef} className="relative pt-40 pb-24 lg:pt-48 lg:pb-32 px-6 overflow-hidden flex items-center justify-center min-h-[85vh]">
@@ -368,11 +419,11 @@ export default function PremiumCoursesDiscoveryPage() {
 
           {/* Interactive Floating Objects */}
           <div className="absolute inset-0 z-10 pointer-events-none overflow-hidden hidden lg:block">
-              <FloatingIcon icon={Smartphone} top="20%" left="15%" delay={0} size={40} rotate={15} />
-              <FloatingIcon icon={Laptop} top="60%" left="8%" delay={1.2} size={56} rotate={-10} />
-              <FloatingIcon icon={BookOpen} top="30%" right="18%" delay={0.5} size={48} rotate={20} />
-              <FloatingIcon icon={PenTool} top="70%" right="12%" delay={1.8} size={36} rotate={-15} />
-              <FloatingIcon icon={Tablet} top="15%" right="35%" delay={2.5} size={40} rotate={5} />
+              <FloatingIcon icon={Smartphone} top="20%" left="15%" delay={0} size={20} rotate={15} />
+              <FloatingIcon icon={Laptop} top="60%" left="8%" delay={1.2} size={20} rotate={-10} />
+              <FloatingIcon icon={BookOpen} top="30%" right="18%" delay={0.5} size={20} rotate={20} />
+              <FloatingIcon icon={PenTool} top="70%" right="12%" delay={1.8} size={20} rotate={-15} />
+              <FloatingIcon icon={Tablet} top="15%" right="35%" delay={2.5} size={20} rotate={5} />
           </div>
 
           <div className="relative z-20 max-w-4xl mx-auto text-center mt-10">
@@ -507,7 +558,7 @@ export default function PremiumCoursesDiscoveryPage() {
                           <button onClick={() => setCartOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={20}/></button>
                       </div>
                       
-                      <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+                     <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
                           {cart.length === 0 ? (
                               <div className="h-full flex flex-col items-center justify-center text-zinc-500 text-center">
                                   <div className="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center mb-6 border border-white/10">
@@ -521,17 +572,36 @@ export default function PremiumCoursesDiscoveryPage() {
                               </div>
                           ) : (
                               <AnimatePresence>
+                                  {/* Select All Toggle */}
+                                  <div className="flex items-center justify-between pb-2 border-b border-white/10 mb-4">
+                                      <button onClick={toggleAll} className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors">
+                                          <div className={`w-4 h-4 rounded flex items-center justify-center border ${selectedCartIds.size === cart.length ? 'bg-emerald-500 border-emerald-500 text-black' : 'border-zinc-500'}`}>
+                                              {selectedCartIds.size === cart.length && <CheckCircle2 size={12} />}
+                                          </div>
+                                          Select All
+                                      </button>
+                                      <span className="text-xs text-zinc-500">{selectedCartIds.size} of {cart.length} selected</span>
+                                  </div>
+
                                   {cart.map((item) => (
-                                      <motion.div layout initial={{opacity:0, scale:0.9}} animate={{opacity:1, scale:1}} exit={{opacity:0, scale:0.9, x:50}} key={item.id} className="flex gap-4 bg-white/5 border border-white/10 rounded-2xl p-3 relative group hover:bg-white/10 transition-colors">
-                                          <div className="w-24 h-16 bg-black rounded-xl relative overflow-hidden shrink-0 border border-white/10">
+                                      <motion.div layout initial={{opacity:0, scale:0.9}} animate={{opacity:1, scale:1}} exit={{opacity:0, scale:0.9, x:50}} key={item.id} className={`flex gap-4 bg-white/5 border rounded-2xl p-3 relative group hover:bg-white/10 transition-colors cursor-pointer ${selectedCartIds.has(item.id) ? 'border-emerald-500/50' : 'border-white/10'}`} onClick={() => toggleSelection(item.id)}>
+                                          
+                                          {/* Custom Checkbox */}
+                                          <div className="flex items-center pl-2">
+                                              <div className={`w-5 h-5 rounded-md flex items-center justify-center border transition-colors ${selectedCartIds.has(item.id) ? 'bg-emerald-500 border-emerald-500 text-black shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'border-zinc-600'}`}>
+                                                  {selectedCartIds.has(item.id) && <CheckCircle2 size={14} />}
+                                              </div>
+                                          </div>
+
+                                          <div className="w-20 h-16 bg-black rounded-xl relative overflow-hidden shrink-0 border border-white/10">
                                               <Image src={item.thumbnail_url} fill alt="" className="object-cover opacity-90"/>
                                           </div>
-                                          <div className="flex-1 flex flex-col justify-center pr-6">
+                                          <div className="flex-1 flex flex-col justify-center pr-8">
                                               <h4 className="text-sm font-bold line-clamp-2 leading-tight text-white">{item.title}</h4>
                                               <p className="text-xs text-zinc-400 mt-1">{item.instructor_name}</p>
                                               <div className="text-emerald-400 font-black text-sm mt-auto">${item.price}</div>
                                           </div>
-                                          <button onClick={() => removeFromCart(item.id)} className="absolute top-2 right-2 text-zinc-500 hover:text-red-500 transition-colors p-1.5 bg-black/40 rounded-lg backdrop-blur hover:bg-red-500/20"><Trash2 size={14}/></button>
+                                          <button onClick={(e) => { e.stopPropagation(); removeFromCart(item.id); }} className="absolute top-2 right-2 text-zinc-500 hover:text-red-500 transition-colors p-1.5 bg-black/40 rounded-lg backdrop-blur hover:bg-red-500/20"><Trash2 size={14}/></button>
                                       </motion.div>
                                   ))}
                               </AnimatePresence>
@@ -541,10 +611,10 @@ export default function PremiumCoursesDiscoveryPage() {
                       {cart.length > 0 && (
                           <div className="p-6 border-t border-white/10 bg-white/[0.02]">
                               <div className="flex items-center justify-between mb-6">
-                                  <span className="text-zinc-400 font-bold text-lg">Total:</span>
+                                  <span className="text-zinc-400 font-bold text-lg">Total ({selectedCartIds.size} items):</span>
                                   <span className="text-4xl font-black text-white">${cartTotal.toFixed(2)}</span>
                               </div>
-                              <button onClick={() => router.push('/checkout')} className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-lg rounded-xl shadow-[0_0_30px_rgba(16,185,129,0.3)] transition-all hover:scale-[1.02] flex items-center justify-center gap-2">
+                              <button onClick={handleProceedToCheckout} disabled={selectedCartIds.size === 0} className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-lg rounded-xl shadow-[0_0_30px_rgba(16,185,129,0.3)] transition-all hover:scale-[1.02] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                                   Checkout <Lock size={18}/>
                               </button>
                           </div>

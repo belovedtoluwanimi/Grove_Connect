@@ -47,6 +47,7 @@ const CoursesSection = () => {
         const { data: coursesData } = await supabase
           .from('courses')
           .select(`*, profiles:instructor_id (full_name, avatar_url), reviews (rating), enrollments (count)`)
+          .in('status', ['active']) // <-- THIS LINE HIDES DRAFTS
           .limit(10)
 
         if (coursesData) {
@@ -56,8 +57,30 @@ const CoursesSection = () => {
             
             // Mock Parsing for Lesson/Hours if columns don't exist
             const curriculum = typeof c.curriculum_data === 'string' ? JSON.parse(c.curriculum_data || '[]') : c.curriculum_data || []
-            const lessonCount = curriculum.reduce((acc: number, sec: any) => acc + (sec.lectures?.length || 0), 0) || 12
-            const hours = c.duration || "10h 30m"
+            
+            let lessonCount = 0;
+            let totalSeconds = 0;
+
+            // Loop through sections and items to count lessons and sum video time
+            curriculum.forEach((section: any) => {
+                const items = section.items || section.lectures || [];
+                lessonCount += items.length;
+                
+                items.forEach((item: any) => {
+                    if (item.type === 'video' || item.type === 'video_slide') {
+                        // Assuming you save video duration in seconds as 'item.duration' in your JSON.
+                        // If it's saved in minutes, multiply by 60 here.
+                        totalSeconds += Number(item.duration) || 0; 
+                    }
+                });
+            });
+
+            // Convert total seconds into hours and minutes
+            const h = Math.floor(totalSeconds / 3600);
+            const m = Math.floor((totalSeconds % 3600) / 60);
+            
+            // If totalSeconds is 0 (meaning no durations were saved in the JSON), it falls back to c.duration
+            const hours = totalSeconds > 0 ? `${h}h ${m}m` : (c.duration || "0h 0m");
 
             return {
               id: c.id,
@@ -139,12 +162,23 @@ const CoursesSection = () => {
         </div>
 
         {/* Slider */}
-        <div className="relative w-full overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_5%,black_95%,transparent)]">
-            <motion.div 
-                className="flex gap-6 w-max cursor-grab active:cursor-grabbing"
-                animate={{ x: ["0%", "-50%"] }} 
-                transition={{ duration: 40, ease: "linear", repeat: Infinity }}
-                whileHover={{ animationPlayState: "paused" }} 
+        {/* Slider */}
+        <div className="relative w-full overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_5%,black_95%,transparent)] group">
+            
+            {/* 1. Inject pure CSS keyframes */}
+            <style>{`
+              @keyframes scroll-marquee {
+                0% { transform: translateX(0%); }
+                100% { transform: translateX(-50%); }
+              }
+              .animate-marquee {
+                animation: scroll-marquee 40s linear infinite;
+              }
+            `}</style>
+            
+            {/* 2. Use standard div with the animation and Tailwind's group-hover to pause */}
+            <div 
+                className="flex gap-6 w-max animate-marquee group-hover:[animation-play-state:paused]"
                 style={{ width: "max-content" }}
             >
                 {[...courses, ...courses].map((course, idx) => (
@@ -155,7 +189,7 @@ const CoursesSection = () => {
                         onAction={handleCourseAction} 
                     />
                 ))}
-            </motion.div>
+            </div>
         </div>
       </div>
     </section>

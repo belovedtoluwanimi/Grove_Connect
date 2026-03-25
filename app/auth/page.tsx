@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Mail, Lock, User, Github, Chrome, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Mail, Lock, User, Github, Chrome, Loader2, AlertCircle, Compass } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/app/utils/supabase/client"; // Your existing client helper
@@ -70,6 +70,42 @@ const AuthPage = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [interest, setInterest] = useState("");
+
+  // --- AUTO-REDIRECT & IDLE SESSION TIMEOUT ---
+  useEffect(() => {
+    // 1. Check if user is already logged in
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) router.push("/courses");
+    };
+    checkUser();
+
+    // 2. Idle Timeout Logic (Logs user out after 30 mins of inactivity)
+    let timeoutId: NodeJS.Timeout;
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(async () => {
+        await supabase.auth.signOut();
+        router.push("/auth"); 
+      }, 30 * 60 * 1000); // 30 minutes
+    };
+
+    // Listen for activity to reset the timer
+    window.addEventListener("mousemove", resetTimer);
+    window.addEventListener("keypress", resetTimer);
+    window.addEventListener("scroll", resetTimer);
+    window.addEventListener("click", resetTimer);
+    resetTimer(); // Initialize on mount
+
+    return () => {
+      window.removeEventListener("mousemove", resetTimer);
+      window.removeEventListener("keypress", resetTimer);
+      window.removeEventListener("scroll", resetTimer);
+      window.removeEventListener("click", resetTimer);
+      clearTimeout(timeoutId);
+    };
+  }, [router, supabase]);
 
   // 1. EMAIL AUTHENTICATION
   const handleEmailAuth = async (e: React.FormEvent) => {
@@ -96,6 +132,7 @@ const AuthPage = () => {
             data: {
               full_name: name,
               role: 'student', // Explicitly tag as student
+              primary_interest: interest,
             },
           },
         });
@@ -284,6 +321,24 @@ const AuthPage = () => {
                     required
                     icon={<Lock size={18} />}
                   />
+                  <div className="relative mb-4 group mt-2">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500 group-focus-within:text-green-400 transition-colors">
+                      <Compass size={18} />
+                    </div>
+                    <select
+                      value={interest}
+                      onChange={(e) => setInterest(e.target.value)}
+                      required
+                      className="w-full pl-10 pr-4 py-3 bg-neutral-900/50 border border-neutral-800 rounded-lg text-white appearance-none focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all duration-300 cursor-pointer"
+                    >
+                      <option value="" disabled className="text-gray-500">What do you want to learn?</option>
+                      <option value="Web Development">Web Development</option>
+                      <option value="UI/UX Design">UI/UX Design</option>
+                      <option value="Business & Marketing">Business & Marketing</option>
+                      <option value="Video Editing">Video Editing</option>
+                      <option value="AI & Data Science">AI & Data Science</option>
+                    </select>
+                  </div>
 
                   <button disabled={loading} className="w-full mt-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold py-3 rounded-lg shadow-lg shadow-green-900/20 transform active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                      {loading ? <Loader2 className="animate-spin w-5 h-5" /> : "Create Account"}

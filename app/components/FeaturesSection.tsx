@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { Zap, Users, TrendingUp, Award } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 
 // --- DATA ---
 // Just the nouns, so we can construct "Built for [Noun] by [Noun]"
@@ -40,32 +40,58 @@ const features = [
 ]
 
 // Helper component for the animated word to keep code clean
-const AnimatedWord = ({ word }: { word: string }) => (
-  <div className="relative h-[1.2em] min-w-[2ch] inline-flex items-center overflow-hidden align-bottom">
-    <AnimatePresence mode="popLayout">
+// Helper component for the typewriter text and glowing cursor
+const TypewriterText = ({ text, showCursor = true }: { text: string, showCursor?: boolean }) => (
+  <span className="relative inline-flex items-center">
+    <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-600 px-1">
+      {text}
+    </span>
+    {showCursor && (
       <motion.span
-        key={word}
-        initial={{ y: "100%" }} // Start from bottom
-        animate={{ y: 0 }}      // Slide to center
-        exit={{ y: "-100%" }}   // Slide out to top
-        transition={{ duration: 0.5, ease: "easeOut" }}
-        className="block text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-600 px-1"
-      >
-        {word}
-      </motion.span>
-    </AnimatePresence>
-  </div>
+        animate={{ opacity: [1, 0, 1] }}
+        transition={{ repeat: Infinity, duration: 0.9, ease: "linear" }}
+        className="inline-block w-[3px] h-[0.9em] bg-green-400 ml-[1px] translate-y-[2px] shadow-[0_0_8px_rgba(74,222,128,0.8)]"
+      />
+    )}
+  </span>
 )
 
 const FeaturesSection = () => {
-  const [index, setIndex] = useState(0)
+const [index, setIndex] = useState(0)
+  const [subIndex, setSubIndex] = useState(0)
+  const [reverse, setReverse] = useState(false)
 
   useEffect(() => {
-    const timer = setInterval(() => {
+    // Pause before deleting
+    if (subIndex === NOUNS[index].length && !reverse) {
+      const timeout = setTimeout(() => setReverse(true), 2000)
+      return () => clearTimeout(timeout)
+    }
+    // Move to next word
+    if (subIndex === 0 && reverse) {
+      setReverse(false)
       setIndex((prev) => (prev + 1) % NOUNS.length)
-    }, 3000)
-    return () => clearInterval(timer)
-  }, [])
+      return
+    }
+    // Typing speed control
+    // 3. Humanized typing speed calculation
+    // Deleting is consistently fast (40ms), like holding the backspace key
+    // Typing varies randomly between 80ms and 180ms per keystroke
+    let typingSpeed = reverse ? 40 : Math.random() * 100 + 80;
+    
+    // Add a 10% chance of a slight "hesitation" pause (extra 150ms) to make it feel perfectly human
+    if (!reverse && Math.random() > 0.9) {
+        typingSpeed += 150;
+    }
+
+    const timeout = setTimeout(() => {
+      setSubIndex((prev) => prev + (reverse ? -1 : 1))
+    }, typingSpeed)
+
+    return () => clearTimeout(timeout)
+  }, [subIndex, index, reverse])
+
+  const currentWord = NOUNS[index].substring(0, subIndex)
 
   return (
     <section className="relative w-full py-20 md:py-32 px-6 md:px-12 bg-neutral-950 border-t border-green-500/10 z-10">
@@ -77,12 +103,11 @@ const FeaturesSection = () => {
             Why Choose Us
           </span>
           
-          <h2 className="text-3xl md:text-5xl font-bold text-white mt-4 mb-6 leading-tight flex flex-wrap justify-center gap-x-2 md:gap-x-3">
-            {/* The Static and Dynamic Text Line */}
+          <h2 className="text-3xl md:text-5xl font-bold text-white mt-4 mb-6 leading-tight flex flex-wrap justify-center gap-x-2 md:gap-x-3 items-center min-h-[1.5em]">
             <span className="whitespace-nowrap">Built for</span>
-            <AnimatedWord word={NOUNS[index]} />
+            <TypewriterText text={currentWord} showCursor={false} />
             <span className="whitespace-nowrap">by</span>
-            <AnimatedWord word={NOUNS[index]} />
+            <TypewriterText text={currentWord} showCursor={true} />
             <span>.</span>
           </h2>
 
