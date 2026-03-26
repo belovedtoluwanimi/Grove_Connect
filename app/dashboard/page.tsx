@@ -4,13 +4,14 @@ import React, { useState, useEffect } from 'react'
 import { 
   PlayCircle, Clock, Award, Search, Bell, 
   BookOpen, TrendingUp, User, Zap, Loader2,
-  Sparkles, Flame, ChevronRight, GraduationCap
+  Sparkles, Flame, ChevronRight, GraduationCap, X,
+  Download
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/app/utils/supabase/client'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 
 // --- TYPES ---
 type EnrolledCourse = {
@@ -65,6 +66,7 @@ const StudentDashboard = () => {
   const [stats, setStats] = useState<UserStats>({ enrolled: 0, learningHours: 0, certificates: 0, streak: 0 })
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'in-progress' | 'completed'>('in-progress')
+  const [certificateCourse, setCertificateCourse] = useState<EnrolledCourse | null>(null)
 
   // --- DATA ENGINE ---
   useEffect(() => {
@@ -372,7 +374,9 @@ const StudentDashboard = () => {
                                 </div>
 
                                 {course.progress_percent === 100 && (
-                                    <button className="mt-4 w-full py-2.5 bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 rounded-lg text-xs font-bold flex items-center justify-center gap-2 hover:bg-yellow-500 hover:text-black transition-all">
+                                    <button
+                                    onClick={() => setCertificateCourse(course)}
+                                    className="mt-4 w-full py-2.5 bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 rounded-lg text-xs font-bold flex items-center justify-center gap-2 hover:bg-yellow-500 hover:text-black transition-all">
                                         <Award size={14} /> View Certificate
                                     </button>
                                 )}
@@ -382,7 +386,125 @@ const StudentDashboard = () => {
                 </div>
             )}
         </section>
+{/* --- PREMIUM CERTIFICATE MODAL --- */}
+        <AnimatePresence>
+          {certificateCourse && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+                  {/* Blurred Backdrop */}
+                  <motion.div 
+                      initial={{ opacity: 0 }} 
+                      animate={{ opacity: 1 }} 
+                      exit={{ opacity: 0 }} 
+                      onClick={() => setCertificateCourse(null)}
+                      className="absolute inset-0 bg-black/80 backdrop-blur-md print:hidden" 
+                  />
+                  
+                  {/* Certificate Container */}
+                  <motion.div 
+                      initial={{ opacity: 0, scale: 0.95, y: 20 }} 
+                      animate={{ opacity: 1, scale: 1, y: 0 }} 
+                      exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                      className="relative w-full max-w-5xl aspect-[1.414/1] bg-[#0a0a0a] rounded-xl border-[8px] border-double border-yellow-600/30 overflow-hidden shadow-[0_0_60px_rgba(234,179,8,0.15)] flex flex-col items-center justify-center text-center p-8 sm:p-12 z-10 certificate-print-container"
+                  >
+                      {/* Decorative Background Elements */}
+                      <div className="absolute top-0 left-0 w-full h-full bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] pointer-events-none" />
+                      <div className="absolute top-[-20%] left-[-10%] w-[400px] h-[400px] bg-yellow-500/10 blur-[120px] rounded-full pointer-events-none" />
+                      <div className="absolute bottom-[-20%] right-[-10%] w-[400px] h-[400px] bg-emerald-500/10 blur-[120px] rounded-full pointer-events-none" />
+                      
+                      {/* Inner Corner Accents */}
+                      <div className="absolute top-6 left-6 w-12 h-12 border-t-2 border-l-2 border-yellow-500/40" />
+                      <div className="absolute top-6 right-6 w-12 h-12 border-t-2 border-r-2 border-yellow-500/40" />
+                      <div className="absolute bottom-6 left-6 w-12 h-12 border-b-2 border-l-2 border-yellow-500/40" />
+                      <div className="absolute bottom-6 right-6 w-12 h-12 border-b-2 border-r-2 border-yellow-500/40" />
 
+                      {/* Content Wrapper */}
+                      <div className="relative z-10 w-full h-full border border-white/5 bg-black/60 backdrop-blur-sm p-8 sm:p-16 flex flex-col items-center justify-between">
+                          
+                          {/* Header */}
+                          <div className="flex flex-col items-center gap-4 mb-4">
+                              <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center text-black shadow-lg">
+                                  <GraduationCap size={28} />
+                              </div>
+                              <span className="text-xl font-black tracking-[0.2em] text-white">GROVE<span className="text-emerald-500">CONNECT</span></span>
+                          </div>
+
+                          {/* Typography Stack */}
+                          <div className="space-y-6 w-full">
+                              <h2 className="text-xs sm:text-sm text-yellow-500 uppercase tracking-[0.4em] font-bold">Certificate of Completion</h2>
+                              <p className="text-zinc-400 text-base italic font-serif">This is to proudly certify that</p>
+                              
+                              <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-white py-6 border-b border-white/10 w-3/4 mx-auto font-serif tracking-tight">
+                                  {user?.full_name || 'Grove Student'}
+                              </h1>
+                              
+                              <p className="text-zinc-400 text-base italic font-serif pt-4">has successfully mastered the curriculum and completed</p>
+                              <h3 className="text-2xl sm:text-3xl font-bold text-emerald-400 max-w-2xl mx-auto leading-tight">
+                                  {certificateCourse.title}
+                              </h3>
+                          </div>
+
+                          {/* Footer Signatures */}
+                          <div className="w-full flex justify-between items-end mt-12 px-4 sm:px-12">
+                              {/* Left: Date */}
+                              <div className="text-center w-48">
+                                  <p className="text-white border-b border-white/20 pb-2 font-medium font-serif">
+                                      {new Date(certificateCourse.last_accessed).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                  </p>
+                                  <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-3">Date Conferred</p>
+                              </div>
+                              
+                              {/* Center: Gold Seal */}
+                              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-yellow-600/20 to-amber-500/10 border border-yellow-500/30 flex items-center justify-center shrink-0 shadow-[0_0_30px_rgba(234,179,8,0.2)]">
+                                  <Award size={40} className="text-yellow-500" />
+                              </div>
+
+                              {/* Right: Signature */}
+                              <div className="text-center w-48">
+                                  <p className="text-emerald-100 border-b border-white/20 pb-2 text-4xl" style={{ fontFamily: "'Brush Script MT', 'Dancing Script', cursive", transform: 'rotate(-3deg)' }}>
+                                      Beloved Toluwanimi
+                                  </p>
+                                  <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-3">CEO, Grove Connect</p>
+                              </div>
+                          </div>
+                      </div>
+                  </motion.div>
+
+                  {/* UI Actions (Hidden when printing) */}
+                  <div className="absolute bottom-6 right-6 flex gap-4 z-20 print:hidden">
+                      <button onClick={() => window.print()} className="px-6 py-3 bg-white text-black font-bold rounded-xl shadow-lg hover:scale-105 transition-transform flex items-center gap-2">
+                          <Download size={18} /> Save PDF
+                      </button>
+                      <button onClick={() => setCertificateCourse(null)} className="p-3 bg-zinc-800 text-white rounded-xl shadow-lg hover:bg-red-500 hover:text-white transition-colors">
+                          <X size={20} />
+                      </button>
+                  </div>
+
+                  {/* Print Styles for Perfect PDF Export */}
+                  <style dangerouslySetInnerHTML={{__html: `
+                      @media print {
+                          body * { visibility: hidden; }
+                          .certificate-print-container, .certificate-print-container * { visibility: visible; }
+                          .certificate-print-container {
+                              position: fixed !important;
+                              left: 50% !important;
+                              top: 50% !important;
+                              transform: translate(-50%, -50%) !important;
+                              width: 100vw !important;
+                              height: 100vh !important;
+                              border: none !important;
+                              border-radius: 0 !important;
+                              box-shadow: none !important;
+                              margin: 0 !important;
+                              background: #050505 !important;
+                              -webkit-print-color-adjust: exact !important;
+                              print-color-adjust: exact !important;
+                          }
+                          @page { size: landscape; margin: 0; }
+                      }
+                  `}} />
+              </div>
+          )}
+        </AnimatePresence>
       </main>
     </div>
   )
