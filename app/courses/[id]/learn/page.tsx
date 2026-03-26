@@ -654,6 +654,7 @@ export default function LearningPage() {
 }
 
 // --- SUB-COMPONENT: Dynamic Content Renderer ---
+// --- SUB-COMPONENT: Dynamic Content Renderer ---
 function ContentRenderer({ item, localVideoUrl, onComplete }: { item: ContentItem, localVideoUrl: string | null, onComplete: () => void }) {
     // Use a ref to manually force the video to reload when the URL changes
     const videoRef = useRef<HTMLVideoElement>(null)
@@ -664,6 +665,7 @@ function ContentRenderer({ item, localVideoUrl, onComplete }: { item: ContentIte
         }
     }, [item.videoUrl, localVideoUrl])
 
+    // --- 1. VIDEO & SLIDES RENDERING ---
     if (item.type === 'video' || item.type === 'video_slide') {
         const videoSource = localVideoUrl || item.videoUrl || '';
         return (
@@ -706,8 +708,43 @@ function ContentRenderer({ item, localVideoUrl, onComplete }: { item: ContentIte
             </div>
         )
     }
-}
-// --- SUB-COMPONENT: Interactive Quiz Engine ---
+
+    // --- 2. ARTICLE RENDERING ---
+    if (item.type === 'article') {
+        return (
+            <div className="w-full h-full bg-[#050505] overflow-y-auto custom-scrollbar p-6 md:p-12 flex justify-center">
+                <div className="max-w-4xl w-full bg-white/[0.02] border border-white/10 rounded-3xl p-8 md:p-12 h-fit">
+                    <h2 className="text-3xl font-bold text-white mb-8 border-b border-white/10 pb-6">{item.title}</h2>
+                    
+                    {/* Safely render HTML content (e.g. from a Rich Text Editor) */}
+                    <div 
+                        className="prose prose-invert prose-emerald max-w-none text-zinc-300 leading-relaxed mb-12"
+                        dangerouslySetInnerHTML={{ __html: item.content || '<p className="text-zinc-500">No content available for this article.</p>' }}
+                    />
+                    
+                    <div className="flex justify-end pt-8 border-t border-white/10">
+                        <button onClick={onComplete} className="px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] flex items-center gap-2 hover:scale-105 active:scale-95">
+                            <CheckCircle2 size={20} /> Complete & Continue
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    // --- 3. QUIZ & PRACTICE TEST RENDERING ---
+    if (item.type === 'quiz' || item.type === 'practice_test') {
+        return <QuizRenderer quizData={item.quizData || []} onComplete={onComplete} />
+    }
+
+    // --- FALLBACK ---
+    return (
+        <div className="w-full h-full flex flex-col items-center justify-center text-zinc-600 bg-black">
+            <AlertTriangle size={48} className="mb-4 opacity-50" />
+            <p>Unsupported content type: {item.type}</p>
+        </div>
+    )
+}// --- SUB-COMPONENT: Interactive Quiz Engine ---
 function QuizRenderer({ quizData, onComplete }: { quizData: QuizQuestion[], onComplete: () => void }) {
     const [currentQ, setCurrentQ] = useState(0)
     const [selected, setSelected] = useState<number | null>(null)
