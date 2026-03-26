@@ -16,7 +16,10 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, LineChart, Line 
 } from 'recharts'
 import { motion, AnimatePresence } from 'framer-motion'
-import { SmartCameraWeb } from '@smile_identity/smart-camera-web'
+import Script from 'next/script' // <-- ADD THIS
+
+// --- DECLARE CUSTOM ELEMENT ---
+// (Removed to avoid type conflict with global.d.ts)
 
 // --- TYPES ---
 type Course = {
@@ -686,33 +689,46 @@ export default function DashboardPage() {
                           {isVerifying ? (
                               <div className="w-full h-full flex items-center justify-center relative">
                                   {/* SMILE ID SMART CAMERA COMPONENT */}
-                                  <SmartCameraWeb
-                                      mode="SELFIE" // Options: ID_CARD, SELFIE, WEBAUTH
-                                      onIdUpload={async (response: any) => {
-                                          // In production, this response goes to your backend to verify the selfie against the ID.
-                                          // For now, we simulate a successful 3D Liveness check passing.
-                                          console.log("Smile ID Response:", response)
-                                          
-                                          // 1. Update Supabase Profile
-                                          const { error } = await supabase
-                                              .from('profiles')
-                                              .update({ is_verified: true })
-                                              .eq('id', user?.id)
-                                              
-                                          if (!error) {
-                                              setUser(prev => prev ? {...prev, is_verified: true} : null)
-                                              setShowKYCModal(false)
-                                              showToast("Identity Verified Successfully!", "success")
-                                              // Instantly route them to create their course!
-                                              setTimeout(() => router.push('/admin/create-course'), 500)
-                                          }
-                                      }}
-                                      onError={(error: any) => {
-                                          console.error(error)
-                                          showToast("Camera error. Please ensure permissions are granted.", "error")
-                                          setIsVerifying(false)
-                                      }}
+                                  {/* --- INJECT THE SMILE ID SCRIPT --- */}
+                                  <Script 
+                                      src="https://cdn.smileidentity.com/inline/1.0.0-beta.6/index.js" 
+                                      strategy="afterInteractive"
                                   />
+                                  
+                                  {/* --- USE THE RAW WEB COMPONENT --- */}
+                                  {/* --- USE THE RAW WEB COMPONENT (Bypassing TS JSX Check) --- */}
+                                  {React.createElement('smart-camera-web', {
+                                      ref: (element: any) => {
+                                          if (element && !element.dataset.initialized) {
+                                              // Prevent React from attaching the listener twice
+                                              element.dataset.initialized = 'true'; 
+
+                                              element.addEventListener('imagesComputed', async (e: any) => {
+                                                  console.log("Smile ID Response:", e.detail)
+                                                  
+                                                  // 1. Update Supabase Profile
+                                                  const { error } = await supabase
+                                                      .from('profiles')
+                                                      .update({ is_verified: true })
+                                                      .eq('id', user?.id)
+                                                      
+                                                  if (!error) {
+                                                      setUser(prev => prev ? {...prev, is_verified: true} : null)
+                                                      setShowKYCModal(false)
+                                                      showToast("Identity Verified Successfully!", "success")
+                                                      // Instantly route them to create their course!
+                                                      setTimeout(() => router.push('/admin/create-course'), 500)
+                                                  }
+                                              })
+
+                                              element.addEventListener('error', (e: any) => {
+                                                  console.error(e.detail)
+                                                  showToast("Camera error. Please ensure permissions are granted.", "error")
+                                                  setIsVerifying(false)
+                                              })
+                                          }
+                                      }
+                                  })}
                               </div>
                           ) : (
                               <div className="text-center space-y-6">

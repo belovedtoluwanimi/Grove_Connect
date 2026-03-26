@@ -1,2 +1,5 @@
-declare module 'react-paystack';
-declare module '@smile_identity/smart-camera-web';
+declare namespace JSX {
+  interface IntrinsicElements {
+    'smart-camera-web': any;
+  }
+}
