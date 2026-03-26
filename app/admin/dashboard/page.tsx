@@ -135,6 +135,29 @@ export default function DashboardPage() {
     setTimeout(() => setToast(null), 4000)
   }
 
+  // --- GLOBAL SECURITY CHECK ---
+  const handleNewCourseClick = (e: React.MouseEvent) => {
+      e.preventDefault() // Prevent default Link navigation
+      if (!user) return
+
+      if (!user.is_verified) {
+          showToast("You must complete KYC Verification first.", "error")
+          setCurrentView('settings')
+          setSettingsTab('security')
+          return
+      }
+
+      if (!user.two_factor_enabled) {
+          showToast("You must enable Email 2FA first.", "error")
+          setCurrentView('settings')
+          setSettingsTab('security')
+          return
+      }
+
+      // If both pass, go to course creator
+      router.push('/admin/create-course')
+  }
+
   // --- 1. DATA ENGINE (FIXED) ---
   useEffect(() => {
     const init = async () => {
@@ -379,20 +402,12 @@ export default function DashboardPage() {
                 )}
              </div>
              
-             <Link href="/admin/create-course">
-               <button 
-                onClick={() => {
-                    if (user?.is_verified) {
-                        router.push('/admin/create-course')
-                    } else {
-                        setShowKYCModal(true)
-                    }
-                }} 
+             <button 
+                onClick={handleNewCourseClick} 
                 className="bg-white text-black px-5 py-2 rounded-full text-sm font-bold hover:bg-gray-200 transition-colors shadow-lg flex items-center gap-2"
              >
                <Plus size={16} /> New Course
              </button>
-             </Link>
           </div>
         </header>
 
@@ -470,11 +485,19 @@ export default function DashboardPage() {
                 <div className="flex justify-between items-center">
                     <h1 className="text-3xl font-bold text-white">My Courses</h1>
                     <div className="flex gap-2">
-                        <button className="px-4 py-2 bg-neutral-900 border border-white/10 rounded-lg text-sm text-gray-400">Filter</button>
-                        <button className="px-4 py-2 bg-neutral-900 border border-white/10 rounded-lg text-sm text-gray-400">Sort</button>
+                        <button onClick={handleNewCourseClick} className="bg-white text-black px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2"><Plus size={16}/> Create Course</button>
                     </div>
                 </div>
-                <CoursesTable courses={courses} onAction={handleEditCourse} onDelete={handleDeleteCourse} onView={(c: Course) => { setSelectedCourse(c); setCurrentView('course_detail') }} />
+                {courses.length === 0 ? (
+                    <div className="text-center py-20 bg-neutral-900/40 rounded-2xl border border-white/5">
+                        <BookOpen size={48} className="mx-auto text-zinc-600 mb-4" />
+                        <h3 className="text-xl font-bold mb-2">No courses yet</h3>
+                        <p className="text-zinc-500 mb-6">Complete your security setup to start teaching.</p>
+                        <button onClick={handleNewCourseClick} className="px-6 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-500 transition-colors">Start Verification</button>
+                    </div>
+                ) : (
+                    <CoursesTable courses={courses} onAction={handleEditCourse} onDelete={handleDeleteCourse} onView={(c: Course) => { setSelectedCourse(c); setCurrentView('course_detail') }} />
+                )}
              </motion.div>
           )}
 
@@ -590,44 +613,84 @@ export default function DashboardPage() {
                   )}
 
                   {/* SECURITY (2FA) */}
+                  {/* SECURITY (2FA & KYC) */}
                   {settingsTab === 'security' && (
                      <div className="space-y-8 animate-in fade-in">
-                        <h3 className="text-xl font-bold border-b border-white/10 pb-4">Security Settings</h3>
+                        <h3 className="text-xl font-bold border-b border-white/10 pb-4">Trust & Security</h3>
                         
-                        {!show2FASetup && !user.two_factor_enabled ? (
-                            <div className="bg-neutral-800/50 border border-white/10 p-6 rounded-xl flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                    <div className="p-3 bg-neutral-700 rounded-lg"><Shield size={24} className="text-green-400" /></div>
-                                    <div><p className="font-bold text-white">Two-Factor Authentication</p><p className="text-xs text-gray-400">Add an extra layer of security to your account.</p></div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* --- KYC VERIFICATION CARD --- */}
+                            <div className={`p-6 rounded-2xl border ${user.is_verified ? 'bg-emerald-900/10 border-emerald-500/30' : 'bg-neutral-800/50 border-white/10'}`}>
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className={`p-3 rounded-xl ${user.is_verified ? 'bg-emerald-500/20' : 'bg-blue-500/20'}`}>
+                                        <User size={24} className={user.is_verified ? "text-emerald-400" : "text-blue-400"} />
+                                    </div>
+                                    {user.is_verified && <CheckCircle2 className="text-emerald-500" />}
                                 </div>
-                                <button onClick={() => setShow2FASetup(true)} className="px-4 py-2 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-500">Enable 2FA</button>
+                                <h4 className="font-bold text-white mb-2">Identity Verification</h4>
+                                <p className="text-xs text-gray-400 mb-6">Required to publish courses on Grove Connect.</p>
+                                
+                                {user.is_verified ? (
+                                    <span className="inline-block px-3 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-full">Verified Tutor</span>
+                                ) : (
+                                    <button onClick={() => setShowKYCModal(true)} className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-lg transition-colors">Start KYC Process</button>
+                                )}
                             </div>
-                        ) : user.two_factor_enabled ? (
-                            <div className="bg-green-900/20 border border-green-500/30 p-6 rounded-xl flex items-center gap-4">
-                                <CheckCircle2 size={24} className="text-green-500" />
-                                <div><p className="font-bold text-green-400">2FA is Enabled</p><p className="text-xs text-green-200/70">Your account is secure.</p></div>
+
+                            {/* --- EMAIL 2FA CARD --- */}
+                            <div className={`p-6 rounded-2xl border ${user.two_factor_enabled ? 'bg-emerald-900/10 border-emerald-500/30' : 'bg-neutral-800/50 border-white/10'}`}>
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className={`p-3 rounded-xl ${user.two_factor_enabled ? 'bg-emerald-500/20' : 'bg-neutral-700'}`}>
+                                        <Shield size={24} className={user.two_factor_enabled ? "text-emerald-400" : "text-gray-400"} />
+                                    </div>
+                                    {user.two_factor_enabled && <CheckCircle2 className="text-emerald-500" />}
+                                </div>
+                                <h4 className="font-bold text-white mb-2">Email 2-Factor Auth</h4>
+                                <p className="text-xs text-gray-400 mb-6">Receive a secure OTP via email when logging in.</p>
+                                
+                                {user.two_factor_enabled ? (
+                                    <span className="inline-block px-3 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-full">2FA Active</span>
+                                ) : (
+                                    <button 
+                                        onClick={async () => {
+                                            // Simulate sending an email OTP for setup
+                                            setShow2FASetup(true)
+                                            showToast("OTP sent to your email!", "success")
+                                        }} 
+                                        className="w-full py-2 bg-white text-black hover:bg-gray-200 text-sm font-bold rounded-lg transition-colors"
+                                    >
+                                        Enable Email 2FA
+                                    </button>
+                                )}
                             </div>
-                        ) : (
-                            <div className="bg-neutral-800 p-6 rounded-xl border border-white/10 space-y-4">
-                                <div className="flex items-center gap-2 text-sm font-bold text-white"><QrCode size={16}/> Scan QR Code</div>
-                                <div className="w-32 h-32 bg-white mx-auto rounded p-2"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=otpauth://totp/GroveConnect:${user.email}?secret=JBSWY3DPEHPK3PXP`} alt="QR" /></div>
-                                <p className="text-center text-xs text-gray-400">Scan with Google Authenticator</p>
+                        </div>
+
+                        {/* --- OTP INPUT MODAL --- */}
+                        {show2FASetup && !user.two_factor_enabled && (
+                            <div className="p-6 bg-neutral-900 border border-white/10 rounded-xl max-w-md">
+                                <h4 className="font-bold text-white mb-2">Check your email</h4>
+                                <p className="text-xs text-gray-400 mb-4">We sent a 6-digit code to {user.email}. Enter it below to enable 2FA.</p>
                                 <div className="flex gap-2">
-                                    <input value={twoFACode} onChange={(e)=>setTwoFACode(e.target.value)} placeholder="Enter 6-digit code" className="flex-1 bg-black border border-white/10 rounded p-2 text-center tracking-widest font-mono" maxLength={6} />
-                                    <button onClick={handleEnable2FA} className="bg-green-600 px-4 rounded font-bold text-sm">Verify</button>
+                                    <input 
+                                        value={twoFACode} 
+                                        onChange={(e)=>setTwoFACode(e.target.value.replace(/\D/g, ''))} 
+                                        placeholder="000000" 
+                                        className="flex-1 bg-black border border-white/10 rounded p-2 text-center tracking-[1em] font-mono outline-none focus:border-emerald-500" 
+                                        maxLength={6} 
+                                    />
+                                    <button onClick={handleEnable2FA} className="bg-emerald-600 hover:bg-emerald-500 px-6 rounded font-bold text-sm transition-colors">Verify</button>
                                 </div>
                             </div>
                         )}
 
-                        <div className="space-y-4 pt-4 border-t border-white/10">
+                        <div className="space-y-4 pt-8 border-t border-white/10 max-w-md">
                            <h4 className="text-sm font-bold text-gray-400 uppercase">Change Password</h4>
-                           <input type="password" placeholder="Current Password" className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none" />
-                           <input type="password" placeholder="New Password" className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none" />
-                           <button className="bg-white text-black px-6 py-2 rounded-lg font-bold text-sm">Update Password</button>
+                           <input type="password" placeholder="Current Password" className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none focus:border-white/30 transition-colors" />
+                           <input type="password" placeholder="New Password" className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none focus:border-white/30 transition-colors" />
+                           <button className="w-full bg-white text-black px-6 py-3 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors">Update Password</button>
                         </div>
                      </div>
                   )}
-
                   {/* PAYOUTS */}
                   {settingsTab === 'payouts' && (
                      <div className="space-y-6 animate-in fade-in">
@@ -717,7 +780,9 @@ export default function DashboardPage() {
                                                       setShowKYCModal(false)
                                                       showToast("Identity Verified Successfully!", "success")
                                                       // Instantly route them to create their course!
-                                                      setTimeout(() => router.push('/admin/create-course'), 500)
+                                                      if (user?.two_factor_enabled) {
+    setTimeout(() => router.push('/admin/create-course'), 500)
+}
                                                   }
                                               })
 
