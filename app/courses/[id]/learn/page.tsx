@@ -55,6 +55,7 @@ export default function LearningPage() {
     // Layout & UI
     const [activeTab, setActiveTab] = useState<TabType>('overview')
     const [searchQuery, setSearchQuery] = useState("")
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
     // Offline State
     const [downloadingId, setDownloadingId] = useState<string | null>(null)
@@ -337,22 +338,30 @@ export default function LearningPage() {
             </header>
 
             {/* --- UDEMY STYLE SPLIT LAYOUT --- */}
-            <div className="flex-1 flex overflow-hidden">
-
+            <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
                 {/* LEFT PANEL: Video & Tabs */}
-                <main className="flex-1 flex flex-col min-w-0 overflow-y-auto bg-[#050505] custom-scrollbar">
+                <main className="flex-1 flex flex-col min-w-0 lg:overflow-y-auto bg-[#050505] custom-scrollbar z-10">
 
                     {/* VIDEO / CONTENT RENDERER */}
-                    <div className="w-full bg-black aspect-video lg:max-h-[65vh] border-b border-white/10 shrink-0 relative flex items-center justify-center">
+                    <div className="w-full bg-black aspect-video lg:max-h-[65vh] border-b border-white/10 shrink-0 relative flex items-center justify-center sticky lg:relative top-0 z-40">
                         {!activeItem ? (
                             <div className="text-zinc-500 flex flex-col items-center gap-2"><PlayCircle size={48} className="opacity-20" /> Select a lesson to begin.</div>
                         ) : (
                             <ContentRenderer item={activeItem} localVideoUrl={localVideoUrl} onComplete={handleMarkComplete} />
                         )}
+
+                        {/* MOBILE ONLY: Curriculum Toggle Button overlaid on the video area */}
+                        <button
+                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                            className="lg:hidden absolute bottom-4 right-4 bg-black/80 backdrop-blur-md border border-white/10 px-4 py-2 rounded-full text-xs font-bold text-white flex items-center gap-2 shadow-lg"
+                        >
+                            <ListChecks size={14} className="text-emerald-500" />
+                            {mobileMenuOpen ? 'Hide Course Content' : 'Course Content'}
+                        </button>
                     </div>
 
                     {/* CONTENT TABS */}
-                    <div className="w-full max-w-5xl mx-auto p-6 lg:p-10 shrink-0">
+                    <div className={`w-full max-w-5xl mx-auto p-4 lg:p-10 shrink-0 ${mobileMenuOpen ? 'hidden lg:block' : 'block'}`}>
                         <div className="flex items-center gap-6 border-b border-white/10 overflow-x-auto custom-scrollbar pb-2 mb-8">
                             <TabBtn active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon={BookOpen} label="Overview" />
                             <TabBtn active={activeTab === 'resources'} onClick={() => setActiveTab('resources')} icon={FileArchive} label={`Resources (${activeItem?.resources?.length || 0})`} />
@@ -395,17 +404,17 @@ export default function LearningPage() {
                                         <div><p className="text-xs text-zinc-500 uppercase">Lectures</p><p className="font-bold">{getAllLectures().length}</p></div>
                                     </div>
 
-    {/* Instructor Section */}
-    <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row items-start gap-8">
-        <div className="relative w-32 h-32 rounded-full overflow-hidden shrink-0">
-            {instructor?.avatar_url ? (
-                <Image src={instructor.avatar_url} alt={instructor?.full_name || "Instructor"} fill className="object-cover" />
-            ) : (
-                <span className="text-3xl font-bold text-zinc-500">{instructor?.full_name?.charAt(0) || 'I'}</span>
-            )}
-        </div>
-        <div className="flex-1">
-            <p className="text-emerald-400 text-sm font-bold mb-4">Course Educator</p>
+                                    {/* Instructor Section */}
+                                    <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row items-start gap-8">
+                                        <div className="relative w-32 h-32 rounded-full overflow-hidden shrink-0">
+                                            {instructor?.avatar_url ? (
+                                                <Image src={instructor.avatar_url} alt={instructor?.full_name || "Instructor"} fill className="object-cover" />
+                                            ) : (
+                                                <span className="text-3xl font-bold text-zinc-500">{instructor?.full_name?.charAt(0) || 'I'}</span>
+                                            )}
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-emerald-400 text-sm font-bold mb-4">Course Educator</p>
                                             <p className="text-zinc-400 leading-relaxed text-sm">{instructor?.bio || "Passionate about building the next generation of creators on Grove Academy."}</p>
 
                                             {/* Social Links */}
@@ -585,16 +594,26 @@ export default function LearningPage() {
                 </main>
 
                 {/* RIGHT PANEL: Udemy-Style Curriculum Sidebar */}
-                <aside className="w-[400px] border-l border-white/10 bg-[#0a0a0a] flex flex-col shrink-0 relative z-20">
-                    <div className="p-4 border-b border-white/5 bg-[#050505] sticky top-0 z-10">
-                        <h3 className="font-bold text-white mb-3">Course Content</h3>
-                        <div className="relative">
-                            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-                            <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search course content..." className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2.5 text-sm text-white outline-none focus:border-emerald-500 transition-colors" />
+                <aside className={`
+                    w-full lg:w-[400px] border-l border-white/10 bg-[#0a0a0a] flex flex-col shrink-0 z-30
+                    absolute lg:relative bottom-0 left-0 right-0 transition-transform duration-300 ease-in-out
+                    ${mobileMenuOpen ? 'translate-y-0 h-[calc(100vh-50vw-4rem)]' : 'translate-y-full lg:translate-y-0 lg:h-auto'}
+                `}>
+                    <div className="p-4 border-b border-white/5 bg-[#050505] sticky top-0 z-10 flex items-center justify-between lg:block">
+                        <div className="flex-1">
+                            <h3 className="font-bold text-white mb-3">Course Content</h3>
+                            <div className="relative">
+                                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                                <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search course content..." className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2.5 text-sm text-white outline-none focus:border-emerald-500 transition-colors" />
+                            </div>
                         </div>
+                        {/* Mobile close button */}
+                        <button onClick={() => setMobileMenuOpen(false)} className="lg:hidden ml-4 p-2 bg-white/5 rounded-full text-zinc-400 hover:text-white">
+                            <ChevronDown size={20} />
+                        </button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto custom-scrollbar pb-10">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar pb-24 lg:pb-10">
                         {filteredCurriculum.length === 0 && <div className="p-6 text-center text-zinc-500 text-sm">No lectures found matching your search.</div>}
 
                         {filteredCurriculum.map((section: Module, sIdx: number) => (
@@ -715,13 +734,13 @@ function ContentRenderer({ item, localVideoUrl, onComplete }: { item: ContentIte
             <div className="w-full h-full bg-[#050505] overflow-y-auto custom-scrollbar p-6 md:p-12 flex justify-center">
                 <div className="max-w-4xl w-full bg-white/[0.02] border border-white/10 rounded-3xl p-8 md:p-12 h-fit">
                     <h2 className="text-3xl font-bold text-white mb-8 border-b border-white/10 pb-6">{item.title}</h2>
-                    
+
                     {/* Safely render HTML content (e.g. from a Rich Text Editor) */}
-                    <div 
+                    <div
                         className="prose prose-invert prose-emerald max-w-none text-zinc-300 leading-relaxed mb-12"
                         dangerouslySetInnerHTML={{ __html: item.content || '<p className="text-zinc-500">No content available for this article.</p>' }}
                     />
-                    
+
                     <div className="flex justify-end pt-8 border-t border-white/10">
                         <button onClick={onComplete} className="px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] flex items-center gap-2 hover:scale-105 active:scale-95">
                             <CheckCircle2 size={20} /> Complete & Continue
