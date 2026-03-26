@@ -16,6 +16,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, LineChart, Line 
 } from 'recharts'
 import { motion, AnimatePresence } from 'framer-motion'
+import { SmartCameraWeb } from '@smile_identity/smart-camera-web'
 
 // --- TYPES ---
 type Course = {
@@ -101,6 +102,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<UserProfile | null>(null)
   const [courses, setCourses] = useState<Course[]>([])
+  const [showKYCModal, setShowKYCModal] = useState(false) // <-- NEW STATE
+  const [isVerifying, setIsVerifying] = useState(false)
   
   // UI State
   const [currentView, setCurrentView] = useState<'overview' | 'courses' | 'settings' | 'course_detail'>('overview')
@@ -374,9 +377,18 @@ export default function DashboardPage() {
              </div>
              
              <Link href="/admin/create-course">
-               <button className="bg-white text-black px-5 py-2 rounded-full text-sm font-bold hover:bg-gray-200 transition-colors shadow-lg flex items-center gap-2">
-                 <Plus size={16} /> New Course
-               </button>
+               <button 
+                onClick={() => {
+                    if (user?.is_verified) {
+                        router.push('/admin/create-course')
+                    } else {
+                        setShowKYCModal(true)
+                    }
+                }} 
+                className="bg-white text-black px-5 py-2 rounded-full text-sm font-bold hover:bg-gray-200 transition-colors shadow-lg flex items-center gap-2"
+             >
+               <Plus size={16} /> New Course
+             </button>
              </Link>
           </div>
         </header>
@@ -640,6 +652,95 @@ export default function DashboardPage() {
                </div>
             </motion.div>
           )}
+          {/* --- KYC VERIFICATION MODAL (SMILE ID) --- */}
+      <AnimatePresence>
+          {showKYCModal && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                  {/* Backdrop */}
+                  <motion.div 
+                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                      className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                      onClick={() => !isVerifying && setShowKYCModal(false)}
+                  />
+                  
+                  {/* Modal Content */}
+                  <motion.div 
+                      initial={{ opacity: 0, scale: 0.95, y: 20 }} 
+                      animate={{ opacity: 1, scale: 1, y: 0 }} 
+                      exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                      className="relative w-full max-w-lg bg-neutral-900 border border-white/10 rounded-3xl overflow-hidden shadow-2xl z-10 flex flex-col max-h-[90vh]"
+                  >
+                      {/* Header */}
+                      <div className="p-6 border-b border-white/10 flex items-center justify-between bg-black/40">
+                          <div>
+                              <h2 className="text-xl font-bold flex items-center gap-2"><Shield className="text-emerald-500"/> Tutor Verification</h2>
+                              <p className="text-xs text-zinc-400 mt-1">Required before publishing courses on Grove Academy.</p>
+                          </div>
+                          {!isVerifying && (
+                              <button onClick={() => setShowKYCModal(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={20}/></button>
+                          )}
+                      </div>
+
+                      {/* Content Area */}
+                      <div className="p-6 overflow-y-auto flex-1 flex flex-col items-center justify-center min-h-[400px]">
+                          {isVerifying ? (
+                              <div className="w-full h-full flex items-center justify-center relative">
+                                  {/* SMILE ID SMART CAMERA COMPONENT */}
+                                  <SmartCameraWeb
+                                      mode="SELFIE" // Options: ID_CARD, SELFIE, WEBAUTH
+                                      onIdUpload={async (response: any) => {
+                                          // In production, this response goes to your backend to verify the selfie against the ID.
+                                          // For now, we simulate a successful 3D Liveness check passing.
+                                          console.log("Smile ID Response:", response)
+                                          
+                                          // 1. Update Supabase Profile
+                                          const { error } = await supabase
+                                              .from('profiles')
+                                              .update({ is_verified: true })
+                                              .eq('id', user?.id)
+                                              
+                                          if (!error) {
+                                              setUser(prev => prev ? {...prev, is_verified: true} : null)
+                                              setShowKYCModal(false)
+                                              showToast("Identity Verified Successfully!", "success")
+                                              // Instantly route them to create their course!
+                                              setTimeout(() => router.push('/admin/create-course'), 500)
+                                          }
+                                      }}
+                                      onError={(error: any) => {
+                                          console.error(error)
+                                          showToast("Camera error. Please ensure permissions are granted.", "error")
+                                          setIsVerifying(false)
+                                      }}
+                                  />
+                              </div>
+                          ) : (
+                              <div className="text-center space-y-6">
+                                  <div className="flex justify-center gap-4">
+                                      <div className="w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20"><User size={32} className="text-emerald-400"/></div>
+                                      <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center border border-blue-500/20"><Smartphone size={32} className="text-blue-400"/></div>
+                                  </div>
+                                  <div>
+                                      <h3 className="text-2xl font-bold mb-2">Prove you're human</h3>
+                                      <p className="text-zinc-400 text-sm max-w-sm mx-auto leading-relaxed">
+                                          To maintain trust and safety for our students, all Grove Academy tutors must complete a quick 3D liveness check.
+                                      </p>
+                                  </div>
+                                  <div className="bg-black/40 border border-white/5 rounded-xl p-4 text-left space-y-3">
+                                      <div className="flex items-start gap-3"><CheckCircle2 size={16} className="text-emerald-500 mt-0.5 shrink-0"/><p className="text-xs text-zinc-300">Takes less than 30 seconds</p></div>
+                                      <div className="flex items-start gap-3"><CheckCircle2 size={16} className="text-emerald-500 mt-0.5 shrink-0"/><p className="text-xs text-zinc-300">Ensure you are in a well-lit room</p></div>
+                                      <div className="flex items-start gap-3"><CheckCircle2 size={16} className="text-emerald-500 mt-0.5 shrink-0"/><p className="text-xs text-zinc-300">Remove glasses or hats for the scan</p></div>
+                                  </div>
+                                  <button onClick={() => setIsVerifying(true)} className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-[0_0_30px_rgba(16,185,129,0.3)] transition-colors flex items-center justify-center gap-2">
+                                      Start Verification <ArrowUpRight size={18} />
+                                  </button>
+                              </div>
+                          )}
+                      </div>
+                  </motion.div>
+              </div>
+          )}
+      </AnimatePresence>
 
         </div>
       </main>
@@ -711,5 +812,6 @@ const CoursesTable = ({ courses, onAction, onDelete, onView }: CoursesTableProps
         </tbody>
       </table>
     </div>
+    
   </div>
 )
