@@ -340,7 +340,7 @@ export default function LearningPage() {
             {/* --- UDEMY STYLE SPLIT LAYOUT --- */}
             <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
                 {/* LEFT PANEL: Video & Tabs */}
-                <main className="flex-1 flex flex-col min-w-0 lg:overflow-y-auto bg-[#050505] custom-scrollbar z-10">
+                <main className="flex-1 flex flex-col min-w-0 overflow-y-auto overflow-x-hidden bg-[#050505] custom-scrollbar z-10 relative">
 
                     {/* VIDEO / CONTENT RENDERER */}
                     <div className="w-full bg-black aspect-video lg:max-h-[65vh] border-b border-white/10 shrink-0 relative flex items-center justify-center sticky lg:relative top-0 z-40">
