@@ -444,7 +444,7 @@ export default function DashboardPage() {
                  <div className="lg:col-span-2 bg-neutral-900/40 border border-white/5 p-6 rounded-2xl relative min-h-[350px]">
                     <h3 className="text-lg font-bold mb-6 text-white">Revenue Growth</h3>
                     <div className='h-[300px] w-full min-w-0'>
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height={300}>
                         <AreaChart data={analyticsData}>
                             <defs><linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/><stop offset="95%" stopColor="#22c55e" stopOpacity={0}/></linearGradient></defs>
                             <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
@@ -461,7 +461,7 @@ export default function DashboardPage() {
                  <div className="bg-neutral-900/40 border border-white/5 p-6 rounded-2xl min-h-[350px]">
                     <h3 className="text-lg font-bold mb-6 text-white">New Students</h3>
                     <div className='h-[300px] w-full min-w-0'>
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height={300}>
                         <BarChart data={analyticsData}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
                             <XAxis dataKey="name" stroke="#666" tickLine={false} axisLine={false} />
@@ -520,7 +520,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="bg-neutral-900/40 border border-white/5 p-6 rounded-2xl h-[400px]">
                     <h3 className="text-lg font-bold mb-6">Engagement Trend</h3>
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height={300}>
                         <LineChart data={analyticsData}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
                             <XAxis dataKey="name" stroke="#666" />
@@ -891,7 +891,7 @@ const SmileCameraWrapper = ({ onSuccess, onError }: { onSuccess: (detail: any) =
     useEffect(() => {
         // 1. Inject the script dynamically
         const script = document.createElement('script');
-        script.src = "https://cdn.smileidentity.com/inline/1.0.0-beta.6/index.js";
+        script.src = "https://unpkg.com/@smile_identity/smart-camera-web@11.0.1/smart-camera-web.js";
         script.async = true;
         
         script.onload = () => setScriptLoaded(true);
