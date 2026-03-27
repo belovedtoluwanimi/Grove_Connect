@@ -135,25 +135,21 @@ export default function DashboardPage() {
   }
 
   // --- GLOBAL SECURITY CHECK ---
+  // --- GLOBAL SECURITY CHECK ---
   const handleNewCourseClick = (e: React.MouseEvent) => {
-      e.preventDefault() // Prevent default Link navigation
+      e.preventDefault() 
       if (!user) return
 
-      if (!user.is_verified) {
-          showToast("You must complete KYC Verification first.", "error")
-          setCurrentView('settings')
-          setSettingsTab('security')
-          return
-      }
-
+      // KYC is no longer required to build courses! (The Payout Gate strategy)
+      // Tutors can build and publish freely. We only require 2FA for account security.
       if (!user.two_factor_enabled) {
-          showToast("You must enable Email 2FA first.", "error")
+          showToast("You must enable Email 2FA before building a course.", "error")
           setCurrentView('settings')
           setSettingsTab('security')
           return
       }
 
-      // If both pass, go to course creator
+      // If 2FA is active, let them build!
       router.push('/admin/create-course')
   }
 
@@ -310,13 +306,24 @@ export default function DashboardPage() {
     }
   }
 
-  const handleEnable2FA = () => {
-      if(twoFACode === "123456") {
-          updateProfile({ two_factor_enabled: true })
-          setShow2FASetup(false)
-          showToast("Two-Factor Authentication Enabled!", 'success')
-      } else {
-          showToast("Invalid code.", 'error')
+  const handleEnable2FA = async () => {
+      try {
+          const res = await fetch('/api/2fa', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'verify', userId: user?.id, code: twoFACode })
+          })
+          const data = await res.json()
+          
+          if (data.success) {
+              setUser(prev => prev ? {...prev, two_factor_enabled: true} : null)
+              setShow2FASetup(false)
+              showToast("Two-Factor Authentication Enabled!", "success")
+          } else {
+              showToast("Invalid code. Please try again.", "error")
+          }
+      } catch (e) {
+          showToast("Verification failed. Check connection.", "error")
       }
   }
 
@@ -651,12 +658,27 @@ export default function DashboardPage() {
                                     <span className="inline-block px-3 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-full">2FA Active</span>
                                 ) : (
                                     <button 
-                                        onClick={async () => {
-                                            // Simulate sending an email OTP for setup
-                                            setShow2FASetup(true)
-                                            showToast("OTP sent to your email!", "success")
+                                        onClick={async (e) => {
+                                            const btn = e.currentTarget;
+                                            btn.disabled = true;
+                                            btn.innerText = "Sending...";
+                                            
+                                            try {
+                                                await fetch('/api/2fa', {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ action: 'send', email: user.email, userId: user.id })
+                                                });
+                                                setShow2FASetup(true);
+                                                showToast("OTP sent to your email!", "success");
+                                            } catch (err) {
+                                                showToast("Failed to send email.", "error");
+                                            } finally {
+                                                btn.disabled = false;
+                                                btn.innerText = "Enable Email 2FA";
+                                            }
                                         }} 
-                                        className="w-full py-2 bg-white text-black hover:bg-gray-200 text-sm font-bold rounded-lg transition-colors"
+                                        className="w-full py-2 bg-white text-black hover:bg-gray-200 text-sm font-bold rounded-lg transition-colors disabled:opacity-50"
                                     >
                                         Enable Email 2FA
                                     </button>
@@ -753,6 +775,7 @@ export default function DashboardPage() {
                               <div className="w-full h-full flex items-center justify-center relative">
                                   {/* SAFE INJECTION WRAPPER */}
                                   <SmileCameraWrapper 
+                                  user={user}
                                       onSuccess={async (detail: any) => {
                                           console.log("Smile ID Response:", detail)
                                           
@@ -884,7 +907,7 @@ const CoursesTable = ({ courses, onAction, onDelete, onView }: CoursesTableProps
 )
 
 // --- SMILE ID CAMERA WRAPPER ---
-const SmileCameraWrapper = ({ onSuccess, onError }: { onSuccess: (detail: any) => void, onError: (detail: any) => void }) => {
+const SmileCameraWrapper = ({user, onSuccess, onError }: { user: UserProfile | null, onSuccess: (detail: any) => void, onError: (detail: any) => void }) => {
     const [scriptLoaded, setScriptLoaded] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -904,26 +927,51 @@ const SmileCameraWrapper = ({ onSuccess, onError }: { onSuccess: (detail: any) =
         };
     }, []);
 
-    useEffect(() => {
-        // 2. Inject the web component ONLY after the script is loaded
-        if (scriptLoaded && containerRef.current) {
-            containerRef.current.innerHTML = '<smart-camera-web></smart-camera-web>';
-            const cameraEl = containerRef.current.querySelector('smart-camera-web');
-            
-            if (cameraEl) {
-                const handleSuccess = (e: any) => onSuccess(e.detail);
-                const handleError = (e: any) => onError(e.detail);
+useEffect(() => {
+    // 2. Inject the web component ONLY after the script is loaded
+    if (scriptLoaded && containerRef.current) {
+        // This forces the user to take a photo of their ID card, then a selfie.
+        containerRef.current.innerHTML = '<smart-camera-web mode="document"></smart-camera-web>';
+        const cameraEl = containerRef.current.querySelector('smart-camera-web');
+        
+        if (cameraEl) {
+            const handleSuccess = async (e: any) => {
+                // e.detail.images contains the base64 encrypted photos of the ID and Selfie
+                
+                try {
+                    // Send the encrypted images to our secure backend
+                    const res = await fetch('/api/verify-kyc', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            images: e.detail.images,
+                            userId: user?.id 
+                        })
+                    });
 
-                cameraEl.addEventListener('imagesComputed', handleSuccess);
-                cameraEl.addEventListener('error', handleError);
+                    const data = await res.json();
 
-                return () => {
-                    cameraEl.removeEventListener('imagesComputed', handleSuccess);
-                    cameraEl.removeEventListener('error', handleError);
-                };
-            }
+                    if (data.success) {
+                        onSuccess(data); // Tell the dashboard it worked!
+                    } else {
+                        onError(data.error); // Tell the dashboard the ID failed
+                    }
+                } catch (err) {
+                    onError("Network error during verification.");
+                }
+            };
+            const handleError = (e: any) => onError(e.detail);
+
+            cameraEl.addEventListener('imagesComputed', handleSuccess);
+            cameraEl.addEventListener('error', handleError);
+
+            return () => {
+                cameraEl.removeEventListener('imagesComputed', handleSuccess);
+                cameraEl.removeEventListener('error', handleError);
+            };
         }
-    }, [scriptLoaded, onSuccess, onError]);
+    }
+}, [scriptLoaded, onSuccess, onError]);
 
     if (!scriptLoaded) {
         return <div className="flex flex-col items-center text-emerald-500"><Loader2 className="animate-spin w-8 h-8 mb-2"/> Loading secure camera...</div>;
