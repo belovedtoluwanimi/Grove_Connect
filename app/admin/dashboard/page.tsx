@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { 
   LayoutDashboard, BookOpen, Users, DollarSign, Settings, 
   Bell, Search, Plus, MoreVertical, LogOut, Loader2,
@@ -16,7 +16,6 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, LineChart, Line 
 } from 'recharts'
 import { motion, AnimatePresence } from 'framer-motion'
-import Script from 'next/script' // <-- ADD THIS
 
 // --- DECLARE CUSTOM ELEMENT ---
 // (Removed to avoid type conflict with global.d.ts)
@@ -748,54 +747,41 @@ export default function DashboardPage() {
                       </div>
 
                       {/* Content Area */}
+                      {/* Content Area */}
                       <div className="p-6 overflow-y-auto flex-1 flex flex-col items-center justify-center min-h-[400px]">
                           {isVerifying ? (
                               <div className="w-full h-full flex items-center justify-center relative">
-                                  {/* SMILE ID SMART CAMERA COMPONENT */}
-                                  {/* --- INJECT THE SMILE ID SCRIPT --- */}
-                                  <Script 
-                                      src="https://cdn.smileidentity.com/inline/1.0.0-beta.6/index.js" 
-                                      strategy="afterInteractive"
-                                  />
-                                  
-                                  {/* --- USE THE RAW WEB COMPONENT --- */}
-                                  {/* --- USE THE RAW WEB COMPONENT (Bypassing TS JSX Check) --- */}
-                                  {React.createElement('smart-camera-web', {
-                                      ref: (element: any) => {
-                                          if (element && !element.dataset.initialized) {
-                                              // Prevent React from attaching the listener twice
-                                              element.dataset.initialized = 'true'; 
-
-                                              element.addEventListener('imagesComputed', async (e: any) => {
-                                                  console.log("Smile ID Response:", e.detail)
-                                                  
-                                                  // 1. Update Supabase Profile
-                                                  const { error } = await supabase
-                                                      .from('profiles')
-                                                      .update({ is_verified: true })
-                                                      .eq('id', user?.id)
-                                                      
-                                                  if (!error) {
-                                                      setUser(prev => prev ? {...prev, is_verified: true} : null)
-                                                      setShowKYCModal(false)
-                                                      showToast("Identity Verified Successfully!", "success")
-                                                      // Instantly route them to create their course!
-                                                      if (user?.two_factor_enabled) {
-    setTimeout(() => router.push('/admin/create-course'), 500)
-}
-                                                  }
-                                              })
-
-                                              element.addEventListener('error', (e: any) => {
-                                                  console.error(e.detail)
-                                                  showToast("Camera error. Please ensure permissions are granted.", "error")
-                                                  setIsVerifying(false)
-                                              })
+                                  {/* SAFE INJECTION WRAPPER */}
+                                  <SmileCameraWrapper 
+                                      onSuccess={async (detail: any) => {
+                                          console.log("Smile ID Response:", detail)
+                                          
+                                          // Update Supabase Profile
+                                          const { error } = await supabase
+                                              .from('profiles')
+                                              .update({ is_verified: true })
+                                              .eq('id', user?.id)
+                                              
+                                          if (!error) {
+                                              setUser(prev => prev ? {...prev, is_verified: true} : null)
+                                              setShowKYCModal(false)
+                                              showToast("Identity Verified Successfully!", "success")
+                                              
+                                              if (user?.two_factor_enabled) {
+                                                  setTimeout(() => router.push('/admin/create-course'), 500)
+                                              }
+                                          } else {
+                                              showToast("Database update failed.", "error")
                                           }
-                                      }
-                                  })}
+                                      }}
+                                      onError={(detail: any) => {
+                                          console.error(detail)
+                                          showToast("Camera error. Please ensure permissions are granted.", "error")
+                                          setIsVerifying(false)
+                                      }}
+                                  />
                               </div>
-                          ) : (
+                              ) : (
                               <div className="text-center space-y-6">
                                   <div className="flex justify-center gap-4">
                                       <div className="w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20"><User size={32} className="text-emerald-400"/></div>
@@ -896,3 +882,52 @@ const CoursesTable = ({ courses, onAction, onDelete, onView }: CoursesTableProps
     
   </div>
 )
+
+// --- SMILE ID CAMERA WRAPPER ---
+const SmileCameraWrapper = ({ onSuccess, onError }: { onSuccess: (detail: any) => void, onError: (detail: any) => void }) => {
+    const [scriptLoaded, setScriptLoaded] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        // 1. Inject the script dynamically
+        const script = document.createElement('script');
+        script.src = "https://cdn.smileidentity.com/inline/1.0.0-beta.6/index.js";
+        script.async = true;
+        
+        script.onload = () => setScriptLoaded(true);
+        script.onerror = () => onError("Failed to load Smile ID script");
+        
+        document.body.appendChild(script);
+
+        return () => {
+            document.body.removeChild(script);
+        };
+    }, []);
+
+    useEffect(() => {
+        // 2. Inject the web component ONLY after the script is loaded
+        if (scriptLoaded && containerRef.current) {
+            containerRef.current.innerHTML = '<smart-camera-web></smart-camera-web>';
+            const cameraEl = containerRef.current.querySelector('smart-camera-web');
+            
+            if (cameraEl) {
+                const handleSuccess = (e: any) => onSuccess(e.detail);
+                const handleError = (e: any) => onError(e.detail);
+
+                cameraEl.addEventListener('imagesComputed', handleSuccess);
+                cameraEl.addEventListener('error', handleError);
+
+                return () => {
+                    cameraEl.removeEventListener('imagesComputed', handleSuccess);
+                    cameraEl.removeEventListener('error', handleError);
+                };
+            }
+        }
+    }, [scriptLoaded, onSuccess, onError]);
+
+    if (!scriptLoaded) {
+        return <div className="flex flex-col items-center text-emerald-500"><Loader2 className="animate-spin w-8 h-8 mb-2"/> Loading secure camera...</div>;
+    }
+
+    return <div ref={containerRef} className="w-full h-full rounded-2xl overflow-hidden shadow-2xl border border-white/10" />;
+};
