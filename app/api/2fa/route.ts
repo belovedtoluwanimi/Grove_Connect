@@ -15,12 +15,14 @@ export async function POST(req: Request) {
     const { action, email, userId, code } = await req.json();
 
     // --- SCENARIO 1: SENDING THE EMAIL ---
+    // --- SCENARIO 1: SENDING THE EMAIL ---
     if (action === 'send') {
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
       await supabaseAdmin.from('profiles').update({ otp_code: otp }).eq('id', userId);
 
-      await resend.emails.send({
+      // Add the `const { data, error }` capture here:
+      const { data, error } = await resend.emails.send({
         from: 'Grove Security <onboarding@resend.dev>',
         to: email, 
         subject: 'Grove Connect - Your 2FA Code',
@@ -34,6 +36,13 @@ export async function POST(req: Request) {
         `
       });
 
+      // Log the exact error to your VS Code terminal
+      if (error) {
+        console.error("❌ RESEND REJECTED THE EMAIL:", error);
+        return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+      }
+
+      console.log("✅ RESEND SUCCESS:", data);
       return NextResponse.json({ success: true });
     }
 
