@@ -296,20 +296,46 @@ function CourseBuilder() {
     if (!data.category?.trim()) { setPhase('publish'); setActiveStep('landing-page'); return addToast("Category is required.", "error") }
     if (!data.primaryTopic?.trim()) { setPhase('publish'); setActiveStep('landing-page'); return addToast("Primary Topic is required.", "error") }
     if (!data.thumbnail) { setPhase('publish'); setActiveStep('landing-page'); return addToast("Course Image is required.", "error") }
-   if (data.priceTier === undefined || data.priceTier === null) { setPhase('publish'); setActiveStep('pricing'); return addToast("Pricing tier is required.", "error") }
+    if (data.priceTier === undefined || data.priceTier === null) { setPhase('publish'); setActiveStep('pricing'); return addToast("Pricing tier is required.", "error") }
 
-    // 2. SUBMIT TO DB
+    // Start the loading spinner early since the AI check takes a second
     setIsPublishing(true)
+
     try {
+      // ==========================================
+      // 🚨 2. THE OPENAI BOUNCER 🚨
+      // ==========================================
+      // Combine the main text fields to check for inappropriate content
+      const contentToCheck = `${data.title}. ${data.subtitle}. ${data.description}. ${data.welcomeMessage}`;
+
+      const modRes = await fetch('/api/moderate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: contentToCheck })
+      });
+      
+      const modData = await modRes.json();
+
+      // Block the save if the AI flags the text
+      if (!modData.isClean) {
+          addToast("⚠️ Cannot publish: Content violates our safety and community guidelines.", "error");
+          setIsPublishing(false);
+          return; // STOP THE FUNCTION HERE!
+      }
+      // ==========================================
+
+      // 3. SUBMIT TO DB (If it passes the bouncer)
       await saveToSupabase('published')
       addToast('Course submitted for review successfully! Redirecting...', 'success')
+      
       setTimeout(() => {
         router.push('/dashboard')
       }, 2000)
+
     } catch (e: any) {
       addToast(e.message || 'Failed to publish course.', 'error')
     } finally {
-      setIsPublishing(false)
+      setIsPublishing(false) // Only turn off loading if it failed, otherwise let it spin while redirecting
     }
   }
 
