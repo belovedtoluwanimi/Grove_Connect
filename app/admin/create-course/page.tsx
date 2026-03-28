@@ -286,8 +286,11 @@ function CourseBuilder() {
     
     if (!data.audienceLevel) return addToast("Select a target audience level (Plan Phase).", "error")
     
-    if (data.modules.length === 0 || data.modules[0].items.length === 0) {
-      return addToast("Curriculum must have at least 1 section and 1 lecture (Create Phase).", "error")
+    // Enforce high-quality, substantial courses
+    if (data.modules.length < 5) {
+      setPhase('create'); 
+      setActiveStep('curriculum'); 
+      return addToast("Quality Standard: Your course must have at least 5 sections before publishing.", "error");
     }
 
     if (!data.title?.trim()) { setPhase('publish'); setActiveStep('landing-page'); return addToast("Course Title is required.", "error") }
