@@ -336,7 +336,7 @@ function CourseBuilder() {
       addToast('Course submitted for review successfully! Redirecting...', 'success')
       
       setTimeout(() => {
-        router.push('/dashboard')
+        router.push('/admin/dashboard')
       }, 2000)
 
     } catch (e: any) {
