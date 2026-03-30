@@ -984,6 +984,22 @@ function ContentItemBuilder({ item, mIdx, iIdx, data, setData }: any) {
   )
 }
 
+// --- THE ANTI-PIRACY ENGINE ---
+// Generates a unique fingerprint based on the first 1MB of the video file
+const generateFileFingerprint = async (file: File): Promise<string> => {
+    // Read only the first 1MB to keep the browser from crashing on huge videos
+    const chunk = file.slice(0, 1024 * 1024); 
+    const buffer = await chunk.arrayBuffer();
+    
+    // Use the browser's built-in crypto engine to generate a SHA-256 hash
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    
+    // Combine the hash with the file size for a nearly mathematically perfect fingerprint
+    return `${hashHex}-${file.size}`;
+}
+
 function VideoUploader({ label = "Upload Video", url, onUpload }: any) {
     const [uploading, setUploading] = useState(false)
     const { addToast } = useToast()
@@ -994,21 +1010,43 @@ function VideoUploader({ label = "Upload Video", url, onUpload }: any) {
         if(!file) return
         
         setUploading(true)
-        addToast('Uploading Lecture Video to server...', 'info')
         
         try {
-            const fileExt = file.name.split('.').pop()
-            const fileName = `lecture-${Math.random().toString(36).substring(2)}.${fileExt}`
+            // 🚨 1. GENERATE THE DIGITAL FINGERPRINT 🚨
+            addToast('Checking file originality...', 'info')
+            const fingerprint = await generateFileFingerprint(file)
             
-            // Upload to your 'course-content' bucket
+            // 🚨 2. CHECK THE DATABASE FOR KNOWN PIRATED FILES 🚨
+            // (You would create a 'flagged_content' table in Supabase for this)
+            const { data: flaggedVideo } = await supabase
+                .from('flagged_content')
+                .select('id')
+                .eq('file_hash', fingerprint)
+                .single()
+
+            if (flaggedVideo) {
+                // Slam the door in their face!
+                throw new Error("Upload blocked: This video exactly matches known copyrighted material.")
+            }
+
+            // 3. IF CLEAN, PROCEED WITH UPLOAD
+            addToast('Uploading Lecture Video to server...', 'info')
+            const fileExt = file.name.split('.').pop()
+            
+            // We can even save the file using its fingerprint as the name!
+            const fileName = `lecture-${fingerprint}.${fileExt}`
+            
             const { error } = await supabase.storage.from('course-content').upload(fileName, file)
             if (error) throw error
 
-            // Get permanent link and save to curriculum state
             const { data: publicData } = supabase.storage.from('course-content').getPublicUrl(fileName)
             
             onUpload(publicData.publicUrl)
             addToast('Video uploaded successfully!', 'success')
+
+            // 4. (Optional) Save this new fingerprint to a 'known_videos' table 
+            // so you can track who uploaded it first!
+
         } catch (err: any) {
             console.error(err)
             addToast(err.message || 'Failed to upload video.', 'error')
