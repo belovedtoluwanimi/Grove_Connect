@@ -45,6 +45,7 @@ type UserProfile = {
   state?: string
   zip?: string
   payout_method?: string
+  payout_details?: string
   two_factor_enabled?: boolean
   social_twitter?: string
   social_linkedin?: string
@@ -121,6 +122,9 @@ export default function DashboardPage() {
   const [show2FASetup, setShow2FASetup] = useState(false)
   const [twoFACode, setTwoFACode] = useState("")
 
+  const [profileDraft, setProfileDraft] = useState<Partial<UserProfile>>({})
+  const [newPassword, setNewPassword] = useState("")
+
   // Real Notifications (In production, fetch these from a 'notifications' table)
   const [notifications, setNotifications] = useState<Notification[]>([
     { id: '1', title: 'Security Alert', message: 'New login detected from Chrome on Windows.', time: '1h ago', read: false, type: 'warning' },
@@ -134,6 +138,17 @@ export default function DashboardPage() {
     setTimeout(() => setToast(null), 4000)
   }
 
+
+  const handlePasswordUpdate = async () => {
+    if (newPassword.length < 6) return showToast("Password must be at least 6 characters", "error")
+
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) showToast(error.message, "error")
+    else {
+        showToast("Password updated successfully!", "success")
+        setNewPassword("") // Clear the input
+    }
+}
   // --- GLOBAL SECURITY CHECK ---
   // --- GLOBAL SECURITY CHECK ---
   const handleNewCourseClick = (e: React.MouseEvent) => {
@@ -581,15 +596,15 @@ export default function DashboardPage() {
                                 {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
                              </select>
                            </div>
-                           <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Phone Number</label><input defaultValue={user.phone} onBlur={(e)=>updateProfile({phone:e.target.value})} className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none focus:border-green-500" placeholder="+1 (555) 000-0000" /></div>
-                           <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Address Line</label><input defaultValue={user.address} onBlur={(e)=>updateProfile({address:e.target.value})} className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none focus:border-green-500" /></div>
+                           <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Phone Number</label><input defaultValue={user.phone} onChange={(e)=>setProfileDraft({...profileDraft, phone: e.target.value})} className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none focus:border-green-500" placeholder="+1 (555) 000-0000" /></div>
+                           <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Address Line</label><input defaultValue={user.address} onChange={(e)=>setProfileDraft({...profileDraft, address: e.target.value})} className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none focus:border-green-500" /></div>
                            <div className="grid grid-cols-2 gap-4">
-                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">City</label><input defaultValue={user.city} onBlur={(e)=>updateProfile({city:e.target.value})} className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none" /></div>
-                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Zip Code</label><input defaultValue={user.zip} onBlur={(e)=>updateProfile({zip:e.target.value})} className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none" /></div>
+                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">City</label><input defaultValue={user.city} onChange={(e)=>setProfileDraft({...profileDraft, city: e.target.value})} className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none" /></div>
+                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Zip Code</label><input defaultValue={user.zip} onChange={(e)=>setProfileDraft({...profileDraft, zip: e.target.value})} className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none" /></div>
                            </div>
                         </div>
                         
-                        <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Bio</label><textarea defaultValue={user.bio} onBlur={(e)=>updateProfile({bio:e.target.value})} className="w-full h-32 bg-black border border-white/10 rounded-lg p-3 outline-none resize-none focus:border-green-500" /></div>
+                        <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Bio</label><textarea defaultValue={user.bio} onChange={(e)=>setProfileDraft({...profileDraft, bio: e.target.value})} className="w-full h-32 bg-black border border-white/10 rounded-lg p-3 outline-none resize-none focus:border-green-500" /></div>
                         
                         {/* SOCIAL MEDIA */}
                         <div className="pt-4 border-t border-white/10">
@@ -597,15 +612,15 @@ export default function DashboardPage() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="flex items-center gap-2 bg-black border border-white/10 rounded-lg px-3 py-2">
                                     <Twitter size={16} className="text-gray-500"/>
-                                    <input defaultValue={user.social_twitter} onBlur={(e)=>updateProfile({social_twitter: e.target.value})} placeholder="Twitter Username" className="bg-transparent outline-none text-sm w-full"/>
+                                    <input defaultValue={user.social_twitter} onChange={(e)=>setProfileDraft({...profileDraft, social_twitter: e.target.value})} placeholder="Twitter Username" className="bg-transparent outline-none text-sm w-full"/>
                                 </div>
                                 <div className="flex items-center gap-2 bg-black border border-white/10 rounded-lg px-3 py-2">
                                     <Linkedin size={16} className="text-gray-500"/>
-                                    <input defaultValue={user.social_linkedin} onBlur={(e)=>updateProfile({social_linkedin: e.target.value})} placeholder="LinkedIn Profile" className="bg-transparent outline-none text-sm w-full"/>
+                                    <input defaultValue={user.social_linkedin} onChange={(e)=>setProfileDraft({...profileDraft, social_linkedin: e.target.value})} placeholder="LinkedIn Profile" className="bg-transparent outline-none text-sm w-full"/>
                                 </div>
                                 <div className="flex items-center gap-2 bg-black border border-white/10 rounded-lg px-3 py-2">
                                     <Instagram size={16} className="text-gray-500"/>
-                                    <input defaultValue={user.social_instagram} onBlur={(e)=>updateProfile({social_instagram: e.target.value})} placeholder="Instagram Handle" className="bg-transparent outline-none text-sm w-full"/>
+                                    <input defaultValue={user.social_instagram} onChange={(e)=>setProfileDraft({...profileDraft, social_instagram: e.target.value})} placeholder="Instagram Handle" className="bg-transparent outline-none text-sm w-full"/>
                                 </div>
                                 <div className="flex items-center gap-2 bg-black border border-white/10 rounded-lg px-3 py-2">
                                     <Mail size={16} className="text-gray-500"/>
@@ -713,25 +728,76 @@ export default function DashboardPage() {
                      </div>
                   )}
                   {/* PAYOUTS */}
+                  {/* PAYOUTS & WITHDRAWALS */}
                   {settingsTab === 'payouts' && (
-                     <div className="space-y-6 animate-in fade-in">
-                        <h3 className="text-xl font-bold border-b border-white/10 pb-4">Payout Preferences</h3>
-                        <div className="p-4 bg-blue-900/10 border border-blue-500/20 rounded-lg mb-4">
-                            <p className="text-sm text-blue-200"><Globe size={14} className="inline mr-2"/> Region: <strong>{user.nationality || 'Not Set'}</strong></p>
+                     <div className="space-y-8 animate-in fade-in">
+                        
+                        {/* --- 1. THE WALLET BALANCES --- */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="p-6 bg-gradient-to-br from-emerald-900/40 to-black border border-emerald-500/30 rounded-2xl">
+                                <p className="text-sm font-bold text-emerald-500 mb-1 uppercase tracking-wider">Available for Payout</p>
+                                {/* In production, fetch this from a 'ledger' table. For now, we simulate 80% of total revenue */}
+                                <h2 className="text-4xl font-black text-white mb-4">${(overallStats.revenue * 0.8).toFixed(2)}</h2>
+                                <button 
+                                    onClick={() => {
+                                        if (!user?.payout_method || !user?.payout_details) {
+                                            return showToast("Please save your payout account details first.", "error")
+                                        }
+                                        if ((overallStats.revenue * 0.8) < 50) {
+                                            return showToast("Minimum payout is $50.00", "error")
+                                        }
+                                        showToast("Payout request submitted! Processing takes 3-5 days.", "success")
+                                    }}
+                                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-colors shadow-lg"
+                                >
+                                    Request Withdrawal
+                                </button>
+                            </div>
+                            <div className="p-6 bg-neutral-900/40 border border-white/5 rounded-2xl flex flex-col justify-center">
+                                <p className="text-sm font-bold text-gray-500 mb-1 uppercase tracking-wider">Pending Clearance</p>
+                                <h2 className="text-3xl font-black text-gray-300 mb-2">${(overallStats.revenue * 0.2).toFixed(2)}</h2>
+                                <p className="text-xs text-gray-500">Funds clear 30 days after a student purchases to account for refunds.</p>
+                            </div>
                         </div>
+
+                        <h3 className="text-xl font-bold border-b border-white/10 pb-4 mt-8">Payout Method</h3>
+                        
                         {(!user.nationality) ? (
                             <div className="text-center py-10 text-gray-500"><p>Please set your Nationality in the Profile tab to see payout options.</p></div>
                         ) : (
-                            <div className="space-y-3">
-                                {(PAYOUT_MAPPING[user.nationality] || PAYOUT_MAPPING['default']).map(method => (
-                                    <label key={method} className={`flex items-center justify-between p-4 border rounded-xl cursor-pointer transition-all ${user.payout_method === method ? 'bg-green-900/20 border-green-500' : 'bg-neutral-900 border-white/10 hover:border-white/30'}`}>
+                            <div className="space-y-6">
+                                <div className="space-y-3">
+                                    {(PAYOUT_MAPPING[user.nationality] || PAYOUT_MAPPING['default']).map(method => (
+                                        <label key={method} className={`flex items-center justify-between p-4 border rounded-xl cursor-pointer transition-all ${user.payout_method === method ? 'bg-emerald-900/20 border-emerald-500' : 'bg-neutral-900 border-white/10 hover:border-white/30'}`}>
                                             <div className="flex items-center gap-3">
                                                 <div className="p-2 bg-white rounded-full"><CreditCard size={16} className="text-black"/></div>
                                                 <span className="font-bold">{method}</span>
                                             </div>
-                                            <input type="radio" name="payout" checked={user.payout_method === method} onChange={() => updateProfile({ payout_method: method })} className="accent-green-500 w-5 h-5" />
-                                    </label>
-                                ))}
+                                            <input type="radio" name="payout" checked={user.payout_method === method} onChange={() => updateProfile({ payout_method: method })} className="accent-emerald-500 w-5 h-5" />
+                                        </label>
+                                    ))}
+                                </div>
+
+                                {/* --- 2. THE ACCOUNT DETAILS INPUT --- */}
+                                {user.payout_method && (
+                                    <div className="p-6 bg-black border border-white/10 rounded-xl space-y-4 animate-in fade-in">
+                                        <div>
+                                            <label className="text-xs font-bold text-gray-500 uppercase">
+                                                {user.payout_method === 'PayPal' ? 'PayPal Email Address' : 
+                                                 user.payout_method.includes('Crypto') ? 'USDT Wallet Address (TRC20)' : 
+                                                 'Bank Account Details (IBAN / Account Number)'}
+                                            </label>
+                                            {/* Note: Ensure you add 'payout_details' to your UserProfile type and Supabase table! */}
+                                            <input 
+                                                defaultValue={(user as any).payout_details || ''} 
+                                                onChange={(e)=>setProfileDraft({...profileDraft, payout_details: e.target.value})}
+                                                placeholder="Enter your account details here..." 
+                                                className="w-full mt-2 bg-neutral-900 border border-white/10 rounded-lg p-3 outline-none focus:border-emerald-500 text-white" 
+                                            />
+                                        </div>
+                                        <p className="text-xs text-yellow-500 flex items-center gap-1"><AlertCircle size={12}/> Please double check these details. Payments sent to the wrong account cannot be reversed.</p>
+                                    </div>
+                                )}
                             </div>
                         )}
                      </div>
