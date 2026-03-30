@@ -3,3 +3,5 @@ declare namespace JSX {
     'smart-camera-web': any;
   }
 }
+
+declare module 'react-quill';

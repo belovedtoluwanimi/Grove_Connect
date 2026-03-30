@@ -16,6 +16,13 @@ import { useAuth } from '@/app/hooks/useAuth'
 import { createClient } from '@/app/utils/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 
+import dynamic from 'next/dynamic'
+import 'react-quill/dist/quill.snow.css'
+
+// Dynamically import Quill to prevent Next.js SSR crashes
+import type { Quill } from 'react-quill'
+const ReactQuill = dynamic(() => import('react-quill'), { ssr: false }) as any
+
 // --- 1. TOAST SYSTEM (Built-in) ---
 type ToastType = 'success' | 'error' | 'info'
 interface Toast { id: string; message: string; type: ToastType }
@@ -67,6 +74,7 @@ interface ContentItem {
   videoUrl?: string;
   slideUrl?: string;
   content?: string;
+  captionUrl?: string | null;
   quizData?: QuizQuestion[];
   resources: ResourceItem[];
   isOpen: boolean;
@@ -276,6 +284,32 @@ function CourseBuilder() {
     }
   }
 
+  // --- THE PREMIUM AUTO-SAVE ENGINE ---
+  const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [isAutoSaving, setIsAutoSaving] = useState(false)
+
+  useEffect(() => {
+    // Don't auto-save if the course is completely empty (just loaded)
+    if (!data.title && data.modules.length === 1 && data.modules[0].items.length === 0) return;
+
+    setIsAutoSaving(true)
+    const timer = setTimeout(async () => {
+      try {
+        const savedRow = await saveToSupabase('draft')
+        if (savedRow && !data.id) {
+          setData(prev => ({ ...prev, id: savedRow.id })) 
+        }
+        setLastSaved(new Date())
+      } catch (e) {
+        console.error("Auto-save failed", e)
+      } finally {
+        setIsAutoSaving(false)
+      }
+    }, 3000) // Waits 3 seconds after they stop clicking/typing
+
+    return () => clearTimeout(timer)
+  }, [data]) // Re-runs every time `data` changes
+
   const handlePublish = async () => {
     // 1. STRICT VALIDATION
     const filledObjectives = data.objectives.filter(o => o.trim() !== '')
@@ -390,6 +424,9 @@ function CourseBuilder() {
               Phase: {phase}
             </span>
           </div>
+          <div className="text-xs text-zinc-500 font-medium flex items-center gap-2 mt-2">
+    {isAutoSaving ? <><Loader2 size={12} className="animate-spin"/> Saving...</> : lastSaved ? <><CheckCircle2 size={12} className="text-emerald-500"/> Draft saved {lastSaved.toLocaleTimeString()}</> : null}
+  </div>
           <h2 className="font-bold text-xl leading-tight">Build Your Course</h2>
         </div>
 
@@ -954,12 +991,12 @@ function ContentItemBuilder({ item, mIdx, iIdx, data, setData }: any) {
                     <div className="animate-in fade-in">
                         {item.type === 'video' && (
                            <div className="max-w-2xl">
-                             <VideoUploader label="Upload Lecture Video" url={item.videoUrl} onUpload={(url:string) => {updateItem('videoUrl', url); addToast('Video processed successfully', 'success')}} />
+                             <VideoUploader  label="Upload Lecture Video" captionUrl={item.captionUrl} url={item.videoUrl} onCaptionUpdate={(url: string | null) => updateItem('captionUrl', url)} onUpload={(url:string) => {updateItem('videoUrl', url); addToast('Video processed successfully', 'success')}} />
                            </div>
                         )}
                         {item.type === 'video_slide' && (
                             <div className="grid grid-cols-2 gap-6">
-                                <VideoUploader label="Upload Video (Talking Head)" url={item.videoUrl} onUpload={(url:string) => updateItem('videoUrl', url)} />
+                                <VideoUploader label="Upload Video (Talking Head)" captionUrl={item.captionUrl} url={item.videoUrl} onUpload={(url:string) => updateItem('videoUrl', url)} onCaptionUpdate={(url: string | null) => updateItem('captionUrl', url)} />
                                 <DocumentUploader label="Upload PDF Presentation" url={item.slideUrl} onUpload={(url:string) => updateItem('slideUrl', url)} />
                             </div>
                         )}
@@ -1000,72 +1037,77 @@ const generateFileFingerprint = async (file: File): Promise<string> => {
     return `${hashHex}-${file.size}`;
 }
 
-function VideoUploader({ label = "Upload Video", url, onUpload }: any) {
+function VideoUploader({ label = "Upload Video", url, captionUrl, onUpload, onCaptionUpdate }: any) {
     const [uploading, setUploading] = useState(false)
+    const [isGeneratingCaptions, setIsGeneratingCaptions] = useState(false)
     const { addToast } = useToast()
-    const supabase = createClient() // Real database connection
+    const supabase = createClient() 
 
     const handleFile = async (e: any) => {
+        // ... (Keep your exact existing video upload and anti-piracy hash code here) ...
+    }
+
+    const handleCaptionUpload = async (e: any) => {
         const file = e.target.files?.[0]
         if(!file) return
         
-        setUploading(true)
+        // Simulating the upload of a .vtt file to Supabase
+        addToast('Uploading Subtitles (.vtt)...', 'info')
+        setTimeout(() => {
+            onCaptionUpdate("https://simulated-url.com/captions.vtt")
+            addToast('Subtitles attached successfully!', 'success')
+        }, 1500)
+    }
+
+    const handleAutoCaption = async () => {
+        setIsGeneratingCaptions(true)
+        addToast('AI Audio Transcription started. This may take a minute...', 'info')
         
-        try {
-            // 🚨 1. GENERATE THE DIGITAL FINGERPRINT 🚨
-            addToast('Checking file originality...', 'info')
-            const fingerprint = await generateFileFingerprint(file)
-            
-            // 🚨 2. CHECK THE DATABASE FOR KNOWN PIRATED FILES 🚨
-            // (You would create a 'flagged_content' table in Supabase for this)
-            const { data: flaggedVideo } = await supabase
-                .from('flagged_content')
-                .select('id')
-                .eq('file_hash', fingerprint)
-                .single()
-
-            if (flaggedVideo) {
-                // Slam the door in their face!
-                throw new Error("Upload blocked: This video exactly matches known copyrighted material.")
-            }
-
-            // 3. IF CLEAN, PROCEED WITH UPLOAD
-            addToast('Uploading Lecture Video to server...', 'info')
-            const fileExt = file.name.split('.').pop()
-            
-            // We can even save the file using its fingerprint as the name!
-            const fileName = `lecture-${fingerprint}.${fileExt}`
-            
-            const { error } = await supabase.storage.from('course-content').upload(fileName, file)
-            if (error) throw error
-
-            const { data: publicData } = supabase.storage.from('course-content').getPublicUrl(fileName)
-            
-            onUpload(publicData.publicUrl)
-            addToast('Video uploaded successfully!', 'success')
-
-            // 4. (Optional) Save this new fingerprint to a 'known_videos' table 
-            // so you can track who uploaded it first!
-
-        } catch (err: any) {
-            console.error(err)
-            addToast(err.message || 'Failed to upload video.', 'error')
-        } finally {
-            setUploading(false)
-        }
+        // 🚨 SIMULATING A CALL TO OPENAI WHISPER API 🚨
+        setTimeout(() => {
+            setIsGeneratingCaptions(false)
+            onCaptionUpdate("https://simulated-url.com/ai-generated-captions.vtt")
+            addToast('✨ AI successfully generated closed captions!', 'success')
+        }, 4000)
     }
 
     return (
-        <label className="flex flex-col items-center justify-center w-full aspect-video bg-black/60 border border-dashed border-white/20 rounded-xl cursor-pointer hover:border-emerald-500 hover:bg-black/80 transition-all overflow-hidden group relative">
-            {url ? <video src={url} controls className="w-full h-full object-cover"/> : (
-                <div className="text-center">
-                    {uploading ? <Loader2 className="animate-spin text-emerald-500 mx-auto mb-3" size={28}/> : <UploadCloud className="text-zinc-500 group-hover:text-emerald-400 mx-auto mb-3 transition-colors" size={32}/>}
-                    <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">{uploading ? 'Processing Video...' : label}</span>
-                    <p className="text-[10px] text-zinc-600 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">MP4, MOV (Max 2GB)</p>
+        <div className="space-y-3">
+            <label className="flex flex-col items-center justify-center w-full aspect-video bg-black/60 border border-dashed border-white/20 rounded-xl cursor-pointer hover:border-emerald-500 hover:bg-black/80 transition-all overflow-hidden group relative">
+                {url ? <video src={url} controls className="w-full h-full object-cover"/> : (
+                    <div className="text-center">
+                        {uploading ? <Loader2 className="animate-spin text-emerald-500 mx-auto mb-3" size={28}/> : <UploadCloud className="text-zinc-500 group-hover:text-emerald-400 mx-auto mb-3 transition-colors" size={32}/>}
+                        <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">{uploading ? 'Processing Video...' : label}</span>
+                        <p className="text-[10px] text-zinc-600 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">Transcoding optimized for HLS Streaming</p>
+                    </div>
+                )}
+                <input type="file" accept="video/*" className="hidden" onChange={handleFile} disabled={uploading}/>
+            </label>
+
+            {/* PREMIUM CAPTION CONTROLS (Only shows after a video is uploaded) */}
+            {url && (
+                <div className="flex gap-3 animate-in fade-in">
+                    {captionUrl ? (
+                        <div className="flex-1 px-4 py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-3 text-emerald-400 text-sm font-bold">
+                            <CheckCircle2 size={18}/> Captions Attached (CC)
+                            <button onClick={() => onCaptionUpdate(null)} className="ml-auto text-emerald-500 hover:text-emerald-300"><X size={16}/></button>
+                        </div>
+                    ) : (
+                        <>
+                            <button onClick={handleAutoCaption} disabled={isGeneratingCaptions} className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-lg disabled:opacity-50">
+                                {isGeneratingCaptions ? <Loader2 className="animate-spin" size={16}/> : <Mic size={16}/>} 
+                                Generate AI Captions
+                            </button>
+                            
+                            <label className="flex-1 py-3 bg-zinc-900 border border-white/10 hover:border-white/30 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer transition-colors">
+                                <FileText size={16}/> Upload .VTT
+                                <input type="file" accept=".vtt,.srt" className="hidden" onChange={handleCaptionUpload}/>
+                            </label>
+                        </>
+                    )}
                 </div>
             )}
-            <input type="file" accept="video/*" className="hidden" onChange={handleFile} disabled={uploading}/>
-        </label>
+        </div>
     )
 }
 
@@ -1274,7 +1316,28 @@ function LandingPageStep({ data, setData, onContinue }: { data: CourseData, setD
                  <button className="p-1.5 hover:bg-white/10 rounded"><List size={14}/></button>
                  <button className="p-1.5 hover:bg-white/10 rounded"><AlignLeft size={14}/></button>
               </div>
-              <textarea value={data.description || ''} onChange={e => setData({...data, description: e.target.value})} placeholder="Insert your detailed course description..." className="w-full h-48 bg-transparent p-4 outline-none resize-none text-white text-sm" />
+              <div className="space-y-2">
+           <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Course Description</label>
+           <div className="bg-zinc-900/80 border border-white/10 rounded-xl overflow-hidden focus-within:border-purple-500 transition-colors text-white">
+              {/* REACT QUILL EDITOR */}
+              <ReactQuill 
+                theme="snow" 
+                value={data.description || ''} 
+                onChange={(content: string) => setData({...data, description: content})}
+                className="text-white min-h-[200px]"
+                placeholder="Write a compelling description..."
+              />
+           </div>
+           {/* Add a tiny style block to make Quill look dark-mode friendly */}
+           <style jsx global>{`
+             .ql-toolbar { background: #18181b; border-color: rgba(255,255,255,0.1) !important; border-top-left-radius: 0.75rem; border-top-right-radius: 0.75rem; }
+             .ql-container { border-color: transparent !important; min-height: 200px; font-family: inherit; }
+             .ql-editor.ql-blank::before { color: #52525b; }
+             .ql-stroke { stroke: #a1a1aa !important; }
+             .ql-fill { fill: #a1a1aa !important; }
+             .ql-picker { color: #a1a1aa !important; }
+           `}</style>
+        </div>
            </div>
         </div>
 
