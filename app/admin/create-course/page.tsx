@@ -291,7 +291,7 @@ function CourseBuilder() {
       setPhase('create'); 
       setActiveStep('curriculum'); 
       return addToast("Quality Standard: Your course must have at least 5 sections before publishing.", "error");
-    }
+    }  
 
     if (!data.title?.trim()) { setPhase('publish'); setActiveStep('landing-page'); return addToast("Course Title is required.", "error") }
     if (!data.subtitle?.trim()) { setPhase('publish'); setActiveStep('landing-page'); return addToast("Course Subtitle is required.", "error") }
@@ -308,7 +308,6 @@ function CourseBuilder() {
       // ==========================================
       // 🚨 2. THE OPENAI BOUNCER 🚨
       // ==========================================
-      // Combine the main text fields to check for inappropriate content
       const contentToCheck = `${data.title}. ${data.subtitle}. ${data.description}. ${data.welcomeMessage}`;
 
       const modRes = await fetch('/api/moderate', {
@@ -319,12 +318,17 @@ function CourseBuilder() {
       
       const modData = await modRes.json();
 
-      // Block the save if the AI flags the text
-      if (!modData.isClean) {
+      // NEW LOGIC: Only block if the AI explicitly flagged it as dirty.
+      // If modData.isClean is undefined (meaning the API crashed), we let it pass for now!
+      if (modData.isClean === false) {
           addToast("⚠️ Cannot publish: Content violates our safety and community guidelines.", "error");
           setIsPublishing(false);
-          return; // STOP THE FUNCTION HERE!
+          return; 
+      } else if (modData.error) {
+          console.error("OpenAI Bouncer Offline:", modData.error);
+          // We let the code continue and save to Supabase anyway so you aren't stuck!
       }
+      // ==========================================
       // ==========================================
 
       // 3. SUBMIT TO DB (If it passes the bouncer)

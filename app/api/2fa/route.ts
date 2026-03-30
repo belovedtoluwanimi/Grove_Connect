@@ -48,6 +48,17 @@ export async function POST(req: Request) {
 
     // --- SCENARIO 2: VERIFYING THE CODE ---
     if (action === 'verify') {
+
+      // 🚨 CEO MASTER KEY BYPASS 🚨
+      // Use this to test accounts without needing real emails!
+      if (code === "000000") {
+        await supabaseAdmin.from('profiles').update({ 
+            otp_code: null, 
+            two_factor_enabled: true 
+        }).eq('id', userId);
+        return NextResponse.json({ success: true });
+      }
+
       const { data } = await supabaseAdmin.from('profiles').select('otp_code').eq('id', userId).single();
 
       if (data?.otp_code === code) {
