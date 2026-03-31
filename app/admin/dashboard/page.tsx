@@ -129,10 +129,46 @@ export default function DashboardPage() {
   const [profileDraft, setProfileDraft] = useState<Partial<UserProfile>>({})
   const [newPassword, setNewPassword] = useState("")
 
-  // --- NOTIFICATION ENGINE ---
+  // --- REAL-TIME NOTIFICATION ENGINE ---
   const notificationRef = useRef<HTMLDivElement>(null)
+  const [notifications, setNotifications] = useState<any[]>([])
+  const [selectedNotification, setSelectedNotification] = useState<any | null>(null) // For the reading modal
 
-  // 1. Close dropdown when clicking outside of it
+  // 1. Fetch & Listen to WebSockets
+  useEffect(() => {
+      if (!user?.id) return;
+
+      // Fetch initial history
+      const fetchNotifications = async () => {
+          const { data } = await supabase
+              .from('notifications')
+              .select('*')
+              .eq('user_id', user.id)
+              .order('created_at', { ascending: false })
+              .limit(50);
+          if (data) setNotifications(data);
+      };
+      fetchNotifications();
+
+      // Subscribe to Real-Time INSERTS (New Notifications)
+      const channel = supabase
+          .channel('realtime-alerts')
+          .on('postgres_changes', {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'notifications',
+              filter: `user_id=eq.${user.id}`
+          }, (payload) => {
+              const newAlert = payload.new;
+              setNotifications(prev => [newAlert, ...prev]);
+              showToast(`New Alert: ${newAlert.title}`, "info"); // Flash a toast instantly
+          })
+          .subscribe();
+
+      return () => { supabase.removeChannel(channel); }
+  }, [user?.id, supabase]);
+
+  // 2. Close dropdown when clicking outside
   useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
           if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
@@ -143,33 +179,17 @@ export default function DashboardPage() {
       return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [notificationsOpen])
 
-  // 2. Mark all as read
-  const markAllRead = () => {
-      setNotifications(notifications.map(n => ({ ...n, read: true })))
+  // 3. Database-Synced Read Actions
+  const markAsRead = async (id: string) => {
+      setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n)) // Optimistic UI update
+      await supabase.from('notifications').update({ read: true }).eq('id', id);
+  }
+
+  const markAllRead = async () => {
+      setNotifications(notifications.map(n => ({ ...n, read: true }))) // Optimistic UI update
       showToast("All notifications marked as read", "success")
+      await supabase.from('notifications').update({ read: true }).eq('user_id', user?.id).eq('read', false);
   }
-
-  // 3. Mark single notification as read
-  const markAsRead = (id: string) => {
-      setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n))
-  }
-
-  // --- PREFERENCES STATE (For the new tab) ---
-  const [emailPrefs, setEmailPrefs] = useState({
-      purchases: true,
-      reviews: true,
-      marketing: false,
-      platformUpdates: true
-  })
-
-  // Real Notifications (In production, fetch these from a 'notifications' table)
-  const [notifications, setNotifications] = useState<Notification[]>([
-    { id: '1', title: 'Security Alert', message: 'New login detected from Chrome on Windows.', time: '1h ago', read: false, type: 'warning' },
-    { id: '2', title: 'New Enrollment', message: 'John D. enrolled in "Advanced React Patterns"', time: '3h ago', read: false, type: 'success' },
-    { id: '3', title: 'Platform Update', message: 'Payouts are now processed daily for Gold Tutors.', time: '1d ago', read: true, type: 'info' },
-  ])
-
-
   // --- PRIVACY & API STATE ---
   const [privacyPrefs, setPrivacyPrefs] = useState({
       publicProfile: true,
@@ -474,35 +494,44 @@ export default function DashboardPage() {
               
               {/* NOTIFICATION WRAPPER */}
               <div className="relative" ref={notificationRef}>
-                <button onClick={() => setNotificationsOpen(!notificationsOpen)} className="relative text-gray-400 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full">
+                <button onClick={() => setNotificationsOpen(!notificationsOpen)} className="relative text-zinc-400 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full">
                   <Bell size={20} />
-                  {notifications.some(n => !n.read) && <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />}
+                  {notifications.some(n => !n.read) && <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.8)]" />}
                 </button>
                 
                 {notificationsOpen && (
-                    <div className="absolute right-0 mt-2 w-80 bg-neutral-900 border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
-                        <div className="p-4 border-b border-white/5 font-bold text-sm flex justify-between items-center">
-                            <span>Notifications</span>
-                            <button onClick={markAllRead} className="text-[10px] text-emerald-400 hover:underline">Mark all read</button>
+                    <div className="absolute right-0 sm:-right-4 mt-4 w-[calc(100vw-2rem)] sm:w-96 bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 max-w-sm origin-top-right">
+                        <div className="p-4 border-b border-white/5 font-bold text-sm flex justify-between items-center bg-black/40">
+                            <span className="text-white">Notifications</span>
+                            <button onClick={markAllRead} className="text-[10px] text-emerald-400 hover:text-emerald-300 transition-colors uppercase tracking-wider font-black">Mark all read</button>
                         </div>
-                        <div className="max-h-64 overflow-y-auto no-scrollbar">
+                        <div className="max-h-[60vh] overflow-y-auto no-scrollbar">
                             {notifications.length === 0 ? (
-                                <div className="p-6 text-center text-gray-500 text-sm">No notifications yet.</div>
+                                <div className="p-8 text-center flex flex-col items-center">
+                                    <Bell size={32} className="text-zinc-700 mb-3"/>
+                                    <p className="text-zinc-500 text-sm">You're all caught up!</p>
+                                </div>
                             ) : (
                                 notifications.map(n => (
                                     <div 
                                         key={n.id} 
-                                        onClick={() => markAsRead(n.id)}
-                                        className={`p-4 border-b border-white/5 cursor-pointer transition-colors ${n.read ? 'bg-transparent opacity-50' : 'bg-white/5 hover:bg-white/10'}`}
+                                        onClick={() => { 
+                                            markAsRead(n.id); 
+                                            setSelectedNotification(n); 
+                                            setNotificationsOpen(false); 
+                                        }}
+                                        className={`p-4 border-b border-white/5 cursor-pointer transition-colors ${n.read ? 'bg-transparent opacity-60 hover:opacity-100' : 'bg-emerald-500/5 hover:bg-emerald-500/10'}`}
                                     >
-                                        <div className="flex justify-between mb-1">
-                                            <h5 className="text-sm font-bold text-white flex items-center gap-2">
-                                                {!n.read && <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0"/>}
-                                                {n.title}
+                                        <div className="flex justify-between items-start mb-1">
+                                            <h5 className="text-sm font-bold text-white flex items-start gap-2 leading-tight">
+                                                {!n.read && <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0 mt-1.5 shadow-[0_0_8px_rgba(16,185,129,0.8)]"/>}
+                                                <span className="line-clamp-1">{n.title}</span>
                                             </h5>
-                                            <span className="text-[10px] text-gray-500 whitespace-nowrap ml-2">{n.time}</span>
+                                            <span className="text-[10px] text-zinc-500 whitespace-nowrap ml-3 shrink-0">
+                                                {new Date(n.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                            </span>
                                         </div>
-                                        <p className="text-xs text-gray-400 pl-3">{n.message}</p>
+                                        <p className="text-xs text-zinc-400 pl-3 line-clamp-2">{n.message}</p>
                                     </div>
                                 ))
                             )}
@@ -510,7 +539,6 @@ export default function DashboardPage() {
                     </div>
                 )}
               </div>
-              
               <button 
                 onClick={handleNewCourseClick} 
                 className="bg-white text-black px-5 py-2 rounded-full text-sm font-bold hover:bg-gray-200 transition-colors shadow-lg flex items-center gap-2"
@@ -1527,6 +1555,49 @@ export default function DashboardPage() {
               </div>
           )}
       </AnimatePresence>
+      {/* --- NOTIFICATION READING MODAL --- */}
+          <AnimatePresence>
+              {selectedNotification && (
+                  <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+                      <motion.div 
+                          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                          className="absolute inset-0 bg-black/80 backdrop-blur-md"
+                          onClick={() => setSelectedNotification(null)}
+                      />
+                      <motion.div 
+                          initial={{ opacity: 0, scale: 0.95, y: 20 }} 
+                          animate={{ opacity: 1, scale: 1, y: 0 }} 
+                          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                          className="relative w-full max-w-lg bg-[#0a0a0a] border border-white/10 rounded-3xl overflow-hidden shadow-2xl z-10 flex flex-col"
+                      >
+                          <div className="p-6 border-b border-white/10 flex items-center justify-between bg-black/40">
+                              <h3 className="font-bold text-lg flex items-center gap-3 text-white">
+                                  <div className={`p-2 rounded-xl ${selectedNotification.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : selectedNotification.type === 'warning' ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                                      {selectedNotification.type === 'success' ? <CheckCircle2 size={20}/> : selectedNotification.type === 'warning' ? <AlertCircle size={20}/> : <Bell size={20}/>}
+                                  </div>
+                                  {selectedNotification.title}
+                              </h3>
+                              <button onClick={() => setSelectedNotification(null)} className="p-2 text-zinc-500 hover:text-white hover:bg-white/10 rounded-full transition-colors"><X size={20}/></button>
+                          </div>
+                          
+                          <div className="p-6 md:p-8 overflow-y-auto max-h-[60vh]">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-4">
+                                  Received: {new Date(selectedNotification.created_at).toLocaleString()}
+                              </p>
+                              <div className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap font-medium">
+                                  {selectedNotification.message}
+                              </div>
+                          </div>
+                          
+                          <div className="p-6 border-t border-white/5 bg-black/40 flex justify-end">
+                              <button onClick={() => setSelectedNotification(null)} className="px-8 py-3 bg-white text-black font-black uppercase tracking-widest text-xs rounded-xl hover:bg-zinc-200 transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:scale-105">
+                                  Acknowledge
+                              </button>
+                          </div>
+                      </motion.div>
+                  </div>
+              )}
+          </AnimatePresence>
 
         </div>
       </main>
