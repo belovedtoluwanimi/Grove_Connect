@@ -1345,7 +1345,7 @@ export default function DashboardPage() {
                                     <p className="text-xs text-zinc-500 mt-1">Download a JSON file containing your profile, courses, and financial history.</p>
                                 </div>
                                 <button onClick={() => {
-    showToast("Compiling your data. Download will start automatically.", "info");
+    showToast("Compiling your data. Download will start automatically.", "success");
     // Simply opening the GET route in a new window triggers the file download!
     window.open('/api/export', '_blank');
 }} className="flex items-center gap-2 px-5 py-2.5 bg-black border border-white/10 text-white rounded-xl font-bold text-sm hover:bg-zinc-900 transition-colors">
