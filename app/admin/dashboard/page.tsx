@@ -187,13 +187,23 @@ export default function DashboardPage() {
       }
   }
 
-  const handleGenerateNewKey = () => {
+  const handleGenerateNewKey = async () => {
       setIsGeneratingKey(true)
-      setTimeout(() => {
-          setApiKey(`pk_live_grove_${Math.random().toString(36).substring(2, 15)}...`)
-          setIsGeneratingKey(false)
-          showToast("New API Key generated successfully.", "success")
-      }, 1500)
+      try {
+          const res = await fetch('/api/developer', {
+              method: 'POST',
+              body: JSON.stringify({ action: 'roll_key' })
+          });
+          const data = await res.json();
+          if (data.success) {
+              setApiKey(data.key);
+              showToast("New API Key generated successfully.", "success");
+          } else throw new Error(data.error);
+      } catch (err: any) {
+          showToast(err.message, "error");
+      } finally {
+          setIsGeneratingKey(false);
+      }
   }
 
   // --- HELPERS ---
@@ -1335,10 +1345,12 @@ export default function DashboardPage() {
                                     <p className="text-xs text-zinc-500 mt-1">Download a JSON file containing your profile, courses, and financial history.</p>
                                 </div>
                                 <button onClick={() => {
-                                    showToast("Compiling your data. We will email you the secure download link shortly.", "success")
-                                }} className="flex items-center gap-2 px-5 py-2.5 bg-black border border-white/10 text-white rounded-xl font-bold text-sm hover:bg-zinc-900 transition-colors">
-                                    <Download size={16}/> Request Export
-                                </button>
+    showToast("Compiling your data. Download will start automatically.", "info");
+    // Simply opening the GET route in a new window triggers the file download!
+    window.open('/api/export', '_blank');
+}} className="flex items-center gap-2 px-5 py-2.5 bg-black border border-white/10 text-white rounded-xl font-bold text-sm hover:bg-zinc-900 transition-colors">
+    <Download size={16}/> Request Export
+</button>
                             </div>
                         </div>
                      </div>
