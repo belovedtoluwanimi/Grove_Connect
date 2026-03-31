@@ -190,6 +190,57 @@ export default function DashboardPage() {
       showToast("All notifications marked as read", "success")
       await supabase.from('notifications').update({ read: true }).eq('user_id', user?.id).eq('read', false);
   }
+
+  // --- GLOBAL SEARCH ENGINE ---
+  const searchRef = useRef<HTMLDivElement>(null)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
+
+  // 1. Close search when clicking outside
+  useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+          if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+              setIsSearchOpen(false)
+          }
+      }
+      if (isSearchOpen) document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isSearchOpen])
+
+  // 2. The Search Algorithm
+  const searchResults = useMemo(() => {
+      if (!searchQuery.trim()) return { courses: [], settings: [] }
+      const q = searchQuery.toLowerCase()
+      
+      // Filter Dynamic Courses
+      const matchedCourses = courses.filter(c => c.title.toLowerCase().includes(q))
+      
+      // Filter Static Settings Pages
+      const settingsPages = [
+          { id: 'profile', label: 'Public Profile & Bio', icon: User },
+          { id: 'security', label: 'Trust & Security (2FA, Password)', icon: Shield },
+          { id: 'payouts', label: 'Payouts, Wallet & Taxes', icon: CreditCard },
+          { id: 'preferences', label: 'Notification Preferences', icon: Bell },
+          { id: 'privacy', label: 'Privacy & Data Export (GDPR)', icon: Eye },
+          { id: 'integrations', label: 'API Keys & Webhooks', icon: Code }
+      ]
+      const matchedSettings = settingsPages.filter(s => s.label.toLowerCase().includes(q))
+
+      return { courses: matchedCourses, settings: matchedSettings }
+  }, [searchQuery, courses])
+
+  // 3. The Navigation Router
+  const handleSearchNavigation = (type: 'course' | 'setting', id: string, courseObj?: Course) => {
+      if (type === 'setting') {
+          setCurrentView('settings')
+          setSettingsTab(id as any)
+      } else if (type === 'course' && courseObj) {
+          setSelectedCourse(courseObj)
+          setCurrentView('course_detail')
+      }
+      setIsSearchOpen(false)
+      setSearchQuery("") // Clear search after navigation
+  }
   // --- PRIVACY & API STATE ---
   const [privacyPrefs, setPrivacyPrefs] = useState({
       publicProfile: true,
@@ -492,9 +543,75 @@ export default function DashboardPage() {
         
         {/* Header */}
         <header className="h-20 border-b border-white/5 bg-black/50 backdrop-blur-xl sticky top-0 z-10 flex items-center justify-between px-8 py-8">
-          <div className="flex items-center gap-4 text-gray-400 bg-white/5 px-4 py-2.5 rounded-full border border-white/10 w-full max-w-[150px] sm:max-w-xs md:w-96">
-            <Search size={16} />
-            <input type="text" placeholder="Search analytics..." className="bg-transparent outline-none text-sm w-full text-white" />
+          {/* GLOBAL SEARCH WRAPPER */}
+          <div className="relative w-full max-w-[150px] sm:max-w-xs md:w-96 z-50" ref={searchRef}>
+            <div className={`flex items-center gap-3 text-zinc-400 bg-[#0a0a0a] px-4 py-2.5 border transition-colors ${isSearchOpen && searchQuery ? 'border-emerald-500/50 rounded-t-2xl rounded-b-none' : 'border-white/10 rounded-full focus-within:border-white/30'}`}>
+              <Search size={16} className={isSearchOpen && searchQuery ? "text-emerald-500" : ""} />
+              <input 
+                type="text" 
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setIsSearchOpen(true); }}
+                onFocus={() => setIsSearchOpen(true)}
+                placeholder="Search courses, settings..." 
+                className="bg-transparent outline-none text-sm w-full text-white placeholder-zinc-600" 
+              />
+              {searchQuery && (
+                  <button onClick={() => { setSearchQuery(""); setIsSearchOpen(false); }} className="text-zinc-500 hover:text-white">
+                      <X size={14} />
+                  </button>
+              )}
+            </div>
+
+            {/* SEARCH RESULTS DROPDOWN */}
+            {isSearchOpen && searchQuery.trim().length > 0 && (
+                <div className="absolute top-full left-0 w-full bg-[#0a0a0a] border border-white/10 border-t-0 rounded-b-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1 max-h-[70vh] overflow-y-auto no-scrollbar">
+                    
+                    {searchResults.courses.length === 0 && searchResults.settings.length === 0 ? (
+                        <div className="p-6 text-center text-zinc-500 text-sm">No results found for "{searchQuery}"</div>
+                    ) : (
+                        <div className="py-2">
+                            {/* Course Results */}
+                            {searchResults.courses.length > 0 && (
+                                <div className="mb-2">
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 px-4 py-2">Courses</h4>
+                                    {searchResults.courses.map(course => (
+                                        <button 
+                                            key={course.id} 
+                                            onClick={() => handleSearchNavigation('course', course.id, course)}
+                                            className="w-full text-left px-4 py-3 hover:bg-white/5 flex items-center gap-3 transition-colors group"
+                                        >
+                                            <div className="p-2 bg-zinc-900 rounded-lg group-hover:bg-emerald-500/20 group-hover:text-emerald-400 transition-colors"><BookOpen size={16}/></div>
+                                            <div>
+                                                <p className="text-sm font-bold text-white line-clamp-1">{course.title}</p>
+                                                <p className="text-[10px] text-zinc-500 uppercase">{course.status} • ${course.price}</p>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Settings Results */}
+                            {searchResults.settings.length > 0 && (
+                                <div>
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 px-4 py-2">Settings & Configuration</h4>
+                                    {searchResults.settings.map(setting => (
+                                        <button 
+                                            key={setting.id} 
+                                            onClick={() => handleSearchNavigation('setting', setting.id)}
+                                            className="w-full text-left px-4 py-3 hover:bg-white/5 flex items-center gap-3 transition-colors group"
+                                        >
+                                            <div className="p-2 bg-zinc-900 rounded-lg group-hover:bg-blue-500/20 group-hover:text-blue-400 transition-colors">
+                                                <setting.icon size={16}/>
+                                            </div>
+                                            <p className="text-sm font-bold text-white">{setting.label}</p>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
           </div>
           <div className="flex items-center gap-6">
               
