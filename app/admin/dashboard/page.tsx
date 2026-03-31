@@ -161,7 +161,7 @@ export default function DashboardPage() {
           }, (payload) => {
               const newAlert = payload.new;
               setNotifications(prev => [newAlert, ...prev]);
-              showToast(`New Alert: ${newAlert.title}`, "info"); // Flash a toast instantly
+              showToast(`New Alert: ${newAlert.title}`, "success"); // Flash a toast instantly
           })
           .subscribe();
 
@@ -195,6 +195,12 @@ export default function DashboardPage() {
       publicProfile: true,
       showCourses: true,
       allowDirectMessages: false
+  })
+  const [emailPrefs, setEmailPrefs] = useState({
+      purchases: true,
+      reviews: true,
+      marketing: false,
+      platformUpdates: true
   })
   const [apiKey, setApiKey] = useState<string | null>("pk_live_grove_5a9b8c7d6e...")
   const [webhookUrl, setWebhookUrl] = useState("")
@@ -485,7 +491,7 @@ export default function DashboardPage() {
       <main className="flex-1 flex flex-col relative overflow-y-auto h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-neutral-900 via-black to-black">
         
         {/* Header */}
-        <header className="h-20 border-b border-white/5 bg-black/50 backdrop-blur-xl sticky top-0 z-10 flex items-center justify-between px-8">
+        <header className="h-20 border-b border-white/5 bg-black/50 backdrop-blur-xl sticky top-0 z-10 flex items-center justify-between px-8 py-8">
           <div className="flex items-center gap-4 text-gray-400 bg-white/5 px-4 py-2.5 rounded-full border border-white/10 w-full max-w-[150px] sm:max-w-xs md:w-96">
             <Search size={16} />
             <input type="text" placeholder="Search analytics..." className="bg-transparent outline-none text-sm w-full text-white" />
