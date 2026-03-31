@@ -937,186 +937,321 @@ export default function DashboardPage() {
           )}
       </AnimatePresence> */}
 
-      {/* === SETTINGS VIEW === */}
+      {/* === PREMIUM SETTINGS VIEW === */}
           {currentView === 'settings' && user && (
-            <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-              <div className="lg:col-span-1 flex overflow-x-auto gap-2 pb-2 lg:pb-0 lg:flex-col lg:space-y-1 no-scrollbar">
-               {['profile', 'security', 'payouts', 'preferences'].map((tab) => (
-                  <button key={tab} onClick={() => setSettingsTab(tab as any)} className={`whitespace-nowrap px-4 py-3 rounded-lg text-sm font-medium capitalize transition-all ${settingsTab === tab ? 'bg-white text-black font-bold' : 'text-gray-400 hover:bg-white/5'}`}>{tab}</button>
-               ))}
+            <motion.div initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} className="max-w-6xl mx-auto flex flex-col lg:flex-row gap-8">
+              
+              {/* --- PREMIUM SIDEBAR NAV --- */}
+              <div className="w-full lg:w-64 shrink-0 flex overflow-x-auto lg:flex-col gap-2 pb-4 lg:pb-0 no-scrollbar">
+                <h3 className="text-xs font-black text-zinc-500 uppercase tracking-widest px-4 mb-2 hidden lg:block">Account Settings</h3>
+                
+                {[
+                  { id: 'profile', label: 'Public Profile', icon: User },
+                  { id: 'security', label: 'Trust & Security', icon: Shield },
+                  { id: 'payouts', label: 'Payouts & Taxes', icon: CreditCard },
+                  { id: 'preferences', label: 'Notifications', icon: Bell }
+                ].map((tab) => (
+                  <button 
+                    key={tab.id} 
+                    onClick={() => setSettingsTab(tab.id as any)} 
+                    className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+                      settingsTab === tab.id 
+                        ? 'bg-zinc-800/80 text-white shadow-sm border border-white/10' 
+                        : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
+                    }`}
+                  >
+                    <tab.icon size={18} className={settingsTab === tab.id ? "text-emerald-400" : "text-zinc-500"} />
+                    {tab.label}
+                  </button>
+                ))}
               </div>
 
-               <div className="lg:col-span-3 bg-neutral-900/40 border border-white/5 rounded-2xl p-8 min-h-[600px]">
+              {/* --- SETTINGS CONTENT AREA --- */}
+              <div className="flex-1 space-y-6 min-h-[600px] pb-24">
                   
-                  {/* PROFILE SETTINGS */}
+                  {/* 1. PROFILE SETTINGS */}
                   {settingsTab === 'profile' && (
-                     <div className="space-y-8 animate-in fade-in">
-                        <div className="flex justify-between items-center border-b border-white/10 pb-4">
-                            <h3 className="text-xl font-bold">Personal Information</h3>
-                            {user.is_verified ? (
-                                <span className="flex items-center gap-1 text-green-400 text-xs font-bold bg-green-900/20 px-3 py-1 rounded-full"><CheckCircle2 size={12}/> Verified Tutor</span>
-                            ) : (
-                                <button onClick={() => setShowKYCModal(true)} className="flex items-center gap-1 text-yellow-400 text-xs font-bold bg-yellow-900/20 px-3 py-1 rounded-full hover:bg-yellow-900/40">Verify Identity</button>
-                            )}
-                        </div>
+                     <div className="space-y-6 animate-in fade-in duration-500">
                         
-                        <div className="flex items-center gap-6">
-                           <div className="w-24 h-24 rounded-full bg-neutral-800 border-2 border-dashed border-white/20 flex items-center justify-center relative overflow-hidden group">
-                              {user.avatar_url ? <img src={user.avatar_url} className="w-full h-full object-cover" alt="Avatar" /> : <ImageIcon className="text-gray-500" />}
-                              <label className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
-                                {isUploadingAvatar ? <Loader2 className="animate-spin text-white" /> : <><Edit size={16} className="text-white mb-1"/><span className="text-[10px] font-bold text-white">CHANGE</span></>}
-                                <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} />
-                              </label>
-                           </div>
-                           <div><p className="font-bold text-lg">{user.full_name}</p><p className="text-sm text-gray-500">{user.email}</p></div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                           <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Nationality</label>
-                             <select className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none focus:border-green-500" defaultValue={user.nationality || ''} onChange={(e) => setProfileDraft({...profileDraft, nationality: e.target.value})}>
-                                <option value="" disabled>Select Country</option>
-                                {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
-                             </select>
-                           </div>
-                           <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Phone Number</label><input defaultValue={user.phone} onChange={(e)=>setProfileDraft({...profileDraft, phone: e.target.value})} className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none focus:border-green-500" placeholder="+1 (555) 000-0000" /></div>
-                           <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Address Line</label><input defaultValue={user.address} onChange={(e)=>setProfileDraft({...profileDraft, address: e.target.value})} className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none focus:border-green-500" /></div>
-                           <div className="grid grid-cols-2 gap-4">
-                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">City</label><input defaultValue={user.city} onChange={(e)=>setProfileDraft({...profileDraft, city: e.target.value})} className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none" /></div>
-                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Zip Code</label><input defaultValue={user.zip} onChange={(e)=>setProfileDraft({...profileDraft, zip: e.target.value})} className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none" /></div>
-                           </div>
-                        </div>
-                        
-                        <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Bio</label><textarea defaultValue={user.bio} onChange={(e)=>setProfileDraft({...profileDraft, bio: e.target.value})} className="w-full h-32 bg-black border border-white/10 rounded-lg p-3 outline-none resize-none focus:border-green-500" /></div>
-                        
-                        {/* SOCIAL MEDIA */}
-                        <div className="pt-4 border-t border-white/10">
-                            <h4 className="text-sm font-bold text-white mb-4">Social Links</h4>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="flex items-center gap-2 bg-black border border-white/10 rounded-lg px-3 py-2">
-                                    <Twitter size={16} className="text-gray-500"/>
-                                    <input defaultValue={user.social_twitter} onChange={(e)=>setProfileDraft({...profileDraft, social_twitter: e.target.value})} placeholder="Twitter Username" className="bg-transparent outline-none text-sm w-full"/>
-                                </div>
-                                <div className="flex items-center gap-2 bg-black border border-white/10 rounded-lg px-3 py-2">
-                                    <Linkedin size={16} className="text-gray-500"/>
-                                    <input defaultValue={user.social_linkedin} onChange={(e)=>setProfileDraft({...profileDraft, social_linkedin: e.target.value})} placeholder="LinkedIn Profile" className="bg-transparent outline-none text-sm w-full"/>
-                                </div>
-                                <div className="flex items-center gap-2 bg-black border border-white/10 rounded-lg px-3 py-2">
-                                    <Instagram size={16} className="text-gray-500"/>
-                                    <input defaultValue={user.social_instagram} onChange={(e)=>setProfileDraft({...profileDraft, social_instagram: e.target.value})} placeholder="Instagram Handle" className="bg-transparent outline-none text-sm w-full"/>
-                                </div>
-                                <div className="flex items-center gap-2 bg-black border border-white/10 rounded-lg px-3 py-2">
-                                    <Mail size={16} className="text-gray-500"/>
-                                    <input defaultValue={user.email} disabled className="bg-transparent outline-none text-sm w-full text-gray-500 cursor-not-allowed"/>
-                                </div>
+                        {/* Avatar & Header Card */}
+                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl flex flex-col sm:flex-row items-center sm:items-start gap-8 relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-emerald-900/20 to-transparent pointer-events-none" />
+                            
+                            <div className="relative z-10 group">
+                               <div className="w-32 h-32 rounded-full bg-zinc-900 border-4 border-[#0a0a0a] shadow-2xl flex items-center justify-center overflow-hidden relative">
+                                  {user.avatar_url ? <img src={user.avatar_url} className="w-full h-full object-cover" alt="Avatar" /> : <ImageIcon className="text-zinc-600" size={32} />}
+                                  <label className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-all duration-300">
+                                    {isUploadingAvatar ? <Loader2 className="animate-spin text-white" /> : <><Edit size={18} className="text-white mb-1"/><span className="text-[10px] font-bold text-white uppercase tracking-wider">Upload</span></>}
+                                    <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} />
+                                  </label>
+                               </div>
+                               {user.is_verified && (
+                                   <div className="absolute bottom-0 right-0 w-8 h-8 bg-emerald-500 rounded-full border-4 border-[#0a0a0a] flex items-center justify-center" title="Verified Tutor">
+                                       <CheckCircle2 size={16} className="text-[#0a0a0a]"/>
+                                   </div>
+                               )}
                             </div>
-                        </div>
-
-                        <div className="flex justify-end">
-                            <button onClick={()=>updateProfile(profileDraft)} className="bg-white text-black px-6 py-2 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors">Save Changes</button>
-                        </div>
-                     </div>
-                  )}
-
-                  {/* SECURITY (2FA & KYC) */}
-                  {settingsTab === 'security' && (
-                     <div className="space-y-8 animate-in fade-in">
-                        <h3 className="text-xl font-bold border-b border-white/10 pb-4">Trust & Security</h3>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* --- KYC VERIFICATION CARD --- */}
-                            <div className={`p-6 rounded-2xl border ${user.is_verified ? 'bg-emerald-900/10 border-emerald-500/30' : 'bg-neutral-800/50 border-white/10'}`}>
-                                <div className="flex items-start justify-between mb-4">
-                                    <div className={`p-3 rounded-xl ${user.is_verified ? 'bg-emerald-500/20' : 'bg-blue-500/20'}`}>
-                                        <User size={24} className={user.is_verified ? "text-emerald-400" : "text-blue-400"} />
-                                    </div>
-                                    {user.is_verified && <CheckCircle2 className="text-emerald-500" />}
-                                </div>
-                                <h4 className="font-bold text-white mb-2">Identity Verification</h4>
-                                <p className="text-xs text-gray-400 mb-6">Required to publish courses on Grove Connect.</p>
-                                
-                                {user.is_verified ? (
-                                    <span className="inline-block px-3 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-full">Verified Tutor</span>
-                                ) : (
-                                    <button onClick={() => setShowKYCModal(true)} className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-lg transition-colors">Start KYC Process</button>
-                                )}
-                            </div>
-
-                            {/* --- EMAIL 2FA CARD --- */}
-                            <div className={`p-6 rounded-2xl border ${user.two_factor_enabled ? 'bg-emerald-900/10 border-emerald-500/30' : 'bg-neutral-800/50 border-white/10'}`}>
-                                <div className="flex items-start justify-between mb-4">
-                                    <div className={`p-3 rounded-xl ${user.two_factor_enabled ? 'bg-emerald-500/20' : 'bg-neutral-700'}`}>
-                                        <Shield size={24} className={user.two_factor_enabled ? "text-emerald-400" : "text-gray-400"} />
-                                    </div>
-                                    {user.two_factor_enabled && <CheckCircle2 className="text-emerald-500" />}
-                                </div>
-                                <h4 className="font-bold text-white mb-2">Email 2-Factor Auth</h4>
-                                <p className="text-xs text-gray-400 mb-6">Receive a secure OTP via email when logging in.</p>
-                                
-                                {user.two_factor_enabled ? (
-                                    <span className="inline-block px-3 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-full">2FA Active</span>
-                                ) : (
-                                    <button 
-                                        onClick={async (e) => {
-                                            const btn = e.currentTarget;
-                                            btn.disabled = true;
-                                            btn.innerText = "Sending...";
-                                            
-                                            try {
-                                                await fetch('/api/2fa', {
-                                                    method: 'POST',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({ action: 'send', email: user.email, userId: user.id })
-                                                });
-                                                setShow2FASetup(true);
-                                                showToast("OTP sent to your email!", "success");
-                                            } catch (err) {
-                                                showToast("Failed to send email.", "error");
-                                            } finally {
-                                                btn.disabled = false;
-                                                btn.innerText = "Enable Email 2FA";
-                                            }
-                                        }} 
-                                        className="w-full py-2 bg-white text-black hover:bg-gray-200 text-sm font-bold rounded-lg transition-colors disabled:opacity-50"
-                                    >
-                                        Enable Email 2FA
+                            
+                            <div className="flex-1 z-10 text-center sm:text-left mt-2">
+                                <h2 className="text-2xl font-black text-white">{user.full_name}</h2>
+                                <p className="text-sm text-zinc-400 mb-4">{user.email}</p>
+                                {!user.is_verified && (
+                                    <button onClick={() => setShowKYCModal(true)} className="px-4 py-2 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-xs font-bold hover:bg-blue-500/20 transition-colors">
+                                        Verify Identity to Publish
                                     </button>
                                 )}
                             </div>
                         </div>
 
-                        {/* --- OTP INPUT MODAL --- */}
-                        {show2FASetup && !user.two_factor_enabled && (
-                            <div className="p-6 bg-neutral-900 border border-white/10 rounded-xl max-w-md">
-                                <h4 className="font-bold text-white mb-2">Check your email</h4>
-                                <p className="text-xs text-gray-400 mb-4">We sent a 6-digit code to {user.email}. Enter it below to enable 2FA.</p>
-                                <div className="flex gap-2">
-                                    <input 
-                                        value={twoFACode} 
-                                        onChange={(e)=>setTwoFACode(e.target.value.replace(/\D/g, ''))} 
-                                        placeholder="000000" 
-                                        className="flex-1 bg-black border border-white/10 rounded p-2 text-center tracking-[1em] font-mono outline-none focus:border-emerald-500" 
-                                        maxLength={6} 
-                                    />
-                                    <button onClick={handleEnable2FA} className="bg-emerald-600 hover:bg-emerald-500 px-6 rounded font-bold text-sm transition-colors">Verify</button>
+                        {/* Details Card */}
+                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl space-y-6">
+                            <h3 className="text-lg font-bold border-b border-white/5 pb-4">Public Profile Information</h3>
+                            
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Public URL</label>
+                                <div className="flex bg-black border border-white/10 rounded-xl overflow-hidden focus-within:border-emerald-500/50 transition-colors">
+                                    <span className="px-4 py-3 bg-zinc-900 border-r border-white/5 text-zinc-500 text-sm hidden sm:block">groveconnect.com/tutor/</span>
+                                    <input disabled defaultValue={user.id.substring(0,8)} className="bg-transparent px-4 py-3 text-sm text-white w-full outline-none text-zinc-400" />
                                 </div>
                             </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                               <div className="space-y-2">
+                                 <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Nationality</label>
+                                 <select className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500/50 text-white appearance-none" defaultValue={user.nationality || ''} onChange={(e) => setProfileDraft({...profileDraft, nationality: e.target.value})}>
+                                    <option value="" disabled>Select Country</option>
+                                    {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                 </select>
+                               </div>
+                               <div className="space-y-2"><label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Phone Number</label><input defaultValue={user.phone} onChange={(e)=>setProfileDraft({...profileDraft, phone: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500/50 text-white" placeholder="+1 (555) 000-0000" /></div>
+                            </div>
+                            
+                            <div className="space-y-2"><label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Instructor Bio</label><textarea defaultValue={user.bio} onChange={(e)=>setProfileDraft({...profileDraft, bio: e.target.value})} placeholder="Tell students about your expertise..." className="w-full h-32 bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none resize-none focus:border-emerald-500/50 text-white" /></div>
+                        </div>
+
+                        {/* Social Card */}
+                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl space-y-6">
+                            <h3 className="text-lg font-bold border-b border-white/5 pb-4">Social Links</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Twitter / X</label>
+                                    <div className="flex items-center gap-3 bg-black border border-white/10 rounded-xl px-4 py-3 focus-within:border-emerald-500/50">
+                                        <Twitter size={16} className="text-zinc-500"/><input defaultValue={user.social_twitter} onChange={(e)=>setProfileDraft({...profileDraft, social_twitter: e.target.value})} placeholder="Username" className="bg-transparent outline-none text-sm w-full text-white"/>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">LinkedIn</label>
+                                    <div className="flex items-center gap-3 bg-black border border-white/10 rounded-xl px-4 py-3 focus-within:border-emerald-500/50">
+                                        <Linkedin size={16} className="text-zinc-500"/><input defaultValue={user.social_linkedin} onChange={(e)=>setProfileDraft({...profileDraft, social_linkedin: e.target.value})} placeholder="Profile URL" className="bg-transparent outline-none text-sm w-full text-white"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end sticky bottom-6 z-20">
+                            <button onClick={()=>updateProfile(profileDraft)} className="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest text-sm transition-all shadow-[0_0_30px_rgba(16,185,129,0.2)] hover:shadow-[0_0_40px_rgba(16,185,129,0.4)] hover:-translate-y-0.5">Save Profile</button>
+                        </div>
+                     </div>
+                  )}
+
+                  {/* 2. SECURITY SETTINGS */}
+                  {settingsTab === 'security' && (
+                     <div className="space-y-6 animate-in fade-in duration-500">
+                        
+                        {/* 2FA Card */}
+                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-6">
+                            <div className="flex items-start gap-4">
+                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${user.two_factor_enabled ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-[0_0_20px_rgba(16,185,129,0.3)]' : 'bg-zinc-800'}`}>
+                                    <Shield size={24} className={user.two_factor_enabled ? "text-[#0a0a0a]" : "text-zinc-500"} />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-white flex items-center gap-2">Two-Factor Authentication {user.two_factor_enabled && <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] uppercase tracking-widest rounded border border-emerald-500/20">Active</span>}</h3>
+                                    <p className="text-sm text-zinc-400 mt-1">Add an extra layer of security to your account. Highly recommended.</p>
+                                </div>
+                            </div>
+                            
+                            {!user.two_factor_enabled && !show2FASetup && (
+                                <button onClick={async (e) => {
+                                    const btn = e.currentTarget; btn.disabled = true; btn.innerText = "Sending...";
+                                    try {
+                                        await fetch('/api/2fa', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send', email: user.email, userId: user.id }) });
+                                        setShow2FASetup(true); showToast("OTP sent to your email!", "success");
+                                    } catch (err) { showToast("Failed to send email.", "error"); } 
+                                    finally { btn.disabled = false; btn.innerText = "Enable 2FA"; }
+                                }} className="px-6 py-3 bg-white text-black hover:bg-zinc-200 text-sm font-bold rounded-xl transition-colors whitespace-nowrap">
+                                    Enable 2FA
+                                </button>
+                            )}
+                        </div>
+
+                        {show2FASetup && !user.two_factor_enabled && (
+                            <motion.div initial={{opacity:0, height:0}} animate={{opacity:1, height:'auto'}} className="p-8 bg-zinc-900/50 border border-emerald-500/20 rounded-3xl">
+                                <h4 className="font-bold text-white mb-2">Check your email</h4>
+                                <p className="text-sm text-zinc-400 mb-6">We sent a 6-digit code to <span className="text-white">{user.email}</span>.</p>
+                                <div className="flex max-w-md gap-3">
+                                    <input value={twoFACode} onChange={(e)=>setTwoFACode(e.target.value.replace(/\D/g, ''))} placeholder="000000" className="flex-1 bg-black border border-white/10 rounded-xl p-3 text-center tracking-[1em] font-mono text-xl outline-none focus:border-emerald-500 text-white" maxLength={6} />
+                                    <button onClick={handleEnable2FA} className="bg-emerald-600 hover:bg-emerald-500 px-8 rounded-xl font-bold text-sm transition-colors text-white">Verify</button>
+                                </div>
+                            </motion.div>
                         )}
 
-                        <div className="space-y-4 pt-8 border-t border-white/10 max-w-md">
-                           <h4 className="text-sm font-bold text-gray-400 uppercase">Change Password</h4>
-                           <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="New Password" className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none focus:border-white/30 transition-colors" />
-                           <button onClick={handlePasswordUpdate} className="w-full bg-white text-black px-6 py-3 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors">Update Password</button>
+                        {/* Password Card */}
+                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl space-y-6">
+                           <h3 className="text-lg font-bold border-b border-white/5 pb-4">Change Password</h3>
+                           <div className="max-w-md space-y-4">
+                               <div className="space-y-2"><label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">New Password</label><input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-white/30 transition-colors text-white" /></div>
+                               <button onClick={handlePasswordUpdate} className="bg-zinc-800 text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-zinc-700 transition-colors border border-white/5">Update Password</button>
+                           </div>
                         </div>
+
+                        {/* Active Sessions (Simulated Premium Feature) */}
+                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl space-y-4">
+                           <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                               <h3 className="text-lg font-bold">Active Sessions</h3>
+                               <button className="text-xs text-red-400 hover:text-red-300 font-bold">Revoke All Others</button>
+                           </div>
+                           <div className="flex items-center justify-between p-4 bg-zinc-900/50 rounded-xl border border-white/5">
+                               <div className="flex items-center gap-4">
+                                   <div className="p-3 bg-black rounded-lg"><Smartphone size={20} className="text-emerald-500"/></div>
+                                   <div><p className="font-bold text-sm text-white flex items-center gap-2">Current Session <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"/></p><p className="text-xs text-zinc-500">Chrome on macOS • Lagos, Nigeria</p></div>
+                               </div>
+                           </div>
+                        </div>
+                     </div>
+                  )}
+
+                  {/* 3. PAYOUTS & TAXES */}
+                  {settingsTab === 'payouts' && (
+                     <div className="space-y-6 animate-in fade-in duration-500">
+                        
+                        {/* Premium Wallet Dashboard */}
+                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl overflow-hidden relative">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 blur-[100px] pointer-events-none" />
+                            <h3 className="text-lg font-bold mb-8">Grove Wallet</h3>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div>
+                                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2">Available for Payout</p>
+                                    <h2 className="text-5xl font-black text-white mb-6">${(overallStats.revenue * 0.8).toFixed(2)}</h2>
+                                    <button onClick={() => {
+                                        if (!user?.payout_method || !user?.payout_details) return showToast("Please configure payout details first.", "error")
+                                        if ((overallStats.revenue * 0.8) < 50) return showToast("Minimum payout is $50.00", "error")
+                                        showToast("Payout request submitted via Stripe Connect.", "success")
+                                    }} className="w-full sm:w-auto px-8 py-3 bg-white text-black hover:bg-zinc-200 font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)]">
+                                        Withdraw Funds
+                                    </button>
+                                </div>
+                                <div className="border-l border-white/5 pl-8 flex flex-col justify-center">
+                                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2">Pending Clearance (30 Days)</p>
+                                    <h2 className="text-3xl font-black text-zinc-300 mb-2">${(overallStats.revenue * 0.2).toFixed(2)}</h2>
+                                    <p className="text-xs text-zinc-500 leading-relaxed">Funds are held in escrow for 30 days to accommodate student refunds.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Connected Accounts */}
+                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl space-y-6">
+                            <h3 className="text-lg font-bold border-b border-white/5 pb-4">Connected Account</h3>
+                            
+                            {(!user.nationality) ? (
+                                <div className="text-center py-8 text-zinc-500 text-sm">Please set your Nationality in the Profile tab to configure payouts.</div>
+                            ) : (
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                                    <div className="lg:col-span-1 space-y-3">
+                                        {(PAYOUT_MAPPING[user.nationality] || PAYOUT_MAPPING['default']).map(method => (
+                                            <label key={method} className={`flex items-center justify-between p-4 border rounded-xl cursor-pointer transition-all ${user.payout_method === method ? 'bg-emerald-500/10 border-emerald-500/50' : 'bg-black border-white/5 hover:border-white/20'}`}>
+                                                <div className="flex items-center gap-3">
+                                                    <CreditCard size={16} className={user.payout_method === method ? "text-emerald-400" : "text-zinc-500"}/>
+                                                    <span className={`text-sm font-bold ${user.payout_method === method ? "text-white" : "text-zinc-400"}`}>{method}</span>
+                                                </div>
+                                                <input type="radio" name="payout" checked={user.payout_method === method} onChange={() => updateProfile({ payout_method: method })} className="hidden" />
+                                            </label>
+                                        ))}
+                                    </div>
+
+                                    {user.payout_method && (
+                                        <div className="lg:col-span-2 p-6 bg-black border border-white/5 rounded-2xl animate-in fade-in">
+                                            <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-3">
+                                                {user.payout_method === 'PayPal' ? 'PayPal Email Address' : user.payout_method.includes('Crypto') ? 'USDT Wallet Address (TRC20)' : 'Bank Account Number / IBAN'}
+                                            </label>
+                                            <input 
+                                                defaultValue={(user as any).payout_details || ''} 
+                                                onChange={(e)=>setProfileDraft({...profileDraft, payout_details: e.target.value})}
+                                                placeholder="Enter secure details..." 
+                                                className="w-full bg-zinc-900 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-emerald-500/50 text-white font-mono mb-6" 
+                                            />
+                                            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-white/5 pt-6">
+                                                <p className="text-xs text-yellow-500 flex items-center gap-1"><AlertCircle size={14} className="shrink-0"/> Double check before saving.</p>
+                                                <button onClick={() => updateProfile(profileDraft)} className="w-full sm:w-auto bg-zinc-800 text-white px-6 py-2.5 rounded-lg font-bold text-sm hover:bg-zinc-700 transition-colors border border-white/5">Save Account</button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Tax Documents (Simulated) */}
+                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl flex items-center justify-between">
+                            <div>
+                                <h3 className="text-sm font-bold text-white mb-1">Tax Documents (W-8BEN / W-9)</h3>
+                                <p className="text-xs text-zinc-500">Required for end-of-year tax reporting.</p>
+                            </div>
+                            <button className="px-4 py-2 bg-black border border-white/10 text-zinc-400 rounded-lg text-xs font-bold hover:text-white transition-colors">Submit Form</button>
+                        </div>
+                     </div>
+                  )}
+
+                  {/* 4. NOTIFICATION PREFERENCES */}
+                  {settingsTab === 'preferences' && (
+                     <div className="space-y-6 animate-in fade-in duration-500">
+                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl">
+                            <h3 className="text-lg font-bold border-b border-white/5 pb-4 mb-6">Email Notifications</h3>
+                            
+                            <div className="space-y-2">
+                                {[
+                                    { id: 'purchases', title: 'Course Purchases', desc: 'Get notified immediately when a student buys your course.' },
+                                    { id: 'reviews', title: 'Student Reviews & Q&A', desc: 'Receive a daily digest of new student questions and ratings.' },
+                                    { id: 'marketing', title: 'Grove Academy Marketing', desc: 'Tips on how to grow your audience and platform news.' },
+                                    { id: 'platformUpdates', title: 'Platform Updates', desc: 'Important technical updates regarding Grove Connect.' }
+                                ].map((pref) => (
+                                    <div key={pref.id} className="flex items-center justify-between p-5 bg-black border border-white/5 rounded-2xl hover:border-white/10 transition-colors group">
+                                        <div>
+                                            <h4 className="font-bold text-white text-sm">{pref.title}</h4>
+                                            <p className="text-xs text-zinc-500 mt-1">{pref.desc}</p>
+                                        </div>
+                                        {/* PREMIUM FRAMER MOTION TOGGLE */}
+                                        <div 
+                                            onClick={() => setEmailPrefs(prev => ({...prev, [pref.id]: !(prev as any)[pref.id]}))} 
+                                            className={`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-300 ${ (emailPrefs as any)[pref.id] ? 'bg-emerald-500' : 'bg-zinc-800'}`}
+                                        >
+                                            <motion.div 
+                                                layout 
+                                                transition={{ type: "spring", stiffness: 700, damping: 30 }}
+                                                className="w-4 h-4 bg-white rounded-full shadow-sm"
+                                                style={{ marginLeft: (emailPrefs as any)[pref.id] ? '24px' : '0px' }}
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="flex justify-end pt-8">
+                                <button onClick={() => showToast("Preferences updated successfully!", "success")} className="bg-white text-black px-6 py-3 rounded-xl font-bold text-sm hover:bg-zinc-200 transition-colors">Save Preferences</button>
+                            </div>
+                        </div>
+
                         {/* --- DANGER ZONE --- */}
-                        <div className="pt-12 mt-12 border-t border-red-500/20">
-                            <h4 className="text-lg font-bold text-red-500 mb-2">Danger Zone</h4>
-                            <p className="text-sm text-gray-400 mb-6">Permanently delete your account and all associated course data. This action cannot be undone.</p>
-                            <div className="p-6 bg-red-950/20 border border-red-500/20 rounded-xl flex items-center justify-between">
+                        <div className="p-8 bg-[#0a0a0a] border border-red-500/20 rounded-3xl relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-[50px] pointer-events-none" />
+                            <h4 className="text-lg font-bold text-red-500 mb-2 relative z-10">Danger Zone</h4>
+                            <p className="text-sm text-zinc-400 mb-6 relative z-10">Permanently delete your account and all associated course data. This action cannot be undone.</p>
+                            
+                            <div className="p-6 bg-black border border-red-500/20 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
                                 <div>
                                     <h5 className="font-bold text-white text-sm">Delete Tutor Account</h5>
-                                    <p className="text-xs text-red-200/60 mt-1">You must process all pending payouts before deleting.</p>
+                                    <p className="text-xs text-red-400/60 mt-1">You must process all pending payouts before deleting.</p>
                                 </div>
-                                <button onClick={() => showToast("Please contact support to initiate account deletion.", "error")} className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors border border-red-500/50">
+                                <button onClick={() => showToast("Please contact support to initiate account deletion.", "error")} className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all border border-red-500/20 w-full sm:w-auto text-center whitespace-nowrap">
                                     Delete Account
                                 </button>
                             </div>
@@ -1124,133 +1259,10 @@ export default function DashboardPage() {
                      </div>
                   )}
 
-                  {/* PAYOUTS & WITHDRAWALS */}
-                  {settingsTab === 'payouts' && (
-                     <div className="space-y-8 animate-in fade-in">
-                        
-                        {/* --- 1. THE WALLET BALANCES --- */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="p-6 bg-gradient-to-br from-emerald-900/40 to-black border border-emerald-500/30 rounded-2xl">
-                                <p className="text-sm font-bold text-emerald-500 mb-1 uppercase tracking-wider">Available for Payout</p>
-                                <h2 className="text-4xl font-black text-white mb-4">${(overallStats.revenue * 0.8).toFixed(2)}</h2>
-                                <button 
-                                    onClick={() => {
-                                        if (!user?.payout_method || !user?.payout_details) {
-                                            return showToast("Please save your payout account details below first.", "error")
-                                        }
-                                        if ((overallStats.revenue * 0.8) < 50) {
-                                            return showToast("Minimum payout is $50.00", "error")
-                                        }
-                                        showToast("Payout request submitted! Processing takes 3-5 days.", "success")
-                                    }}
-                                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-colors shadow-lg"
-                                >
-                                    Request Withdrawal
-                                </button>
-                            </div>
-                            <div className="p-6 bg-neutral-900/40 border border-white/5 rounded-2xl flex flex-col justify-center">
-                                <p className="text-sm font-bold text-gray-500 mb-1 uppercase tracking-wider">Pending Clearance</p>
-                                <h2 className="text-3xl font-black text-gray-300 mb-2">${(overallStats.revenue * 0.2).toFixed(2)}</h2>
-                                <p className="text-xs text-gray-500">Funds clear 30 days after a student purchases to account for refunds.</p>
-                            </div>
-                        </div>
-
-                        <h3 className="text-xl font-bold border-b border-white/10 pb-4 mt-8">Payout Method</h3>
-                        
-                        {(!user.nationality) ? (
-                            <div className="text-center py-10 text-gray-500"><p>Please set your Nationality in the Profile tab to see payout options.</p></div>
-                        ) : (
-                            <div className="space-y-6">
-                                <div className="space-y-3">
-                                    {(PAYOUT_MAPPING[user.nationality] || PAYOUT_MAPPING['default']).map(method => (
-                                        <label key={method} className={`flex items-center justify-between p-4 border rounded-xl cursor-pointer transition-all ${user.payout_method === method ? 'bg-emerald-900/20 border-emerald-500' : 'bg-neutral-900 border-white/10 hover:border-white/30'}`}>
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-2 bg-white rounded-full"><CreditCard size={16} className="text-black"/></div>
-                                                <span className="font-bold">{method}</span>
-                                            </div>
-                                            <input type="radio" name="payout" checked={user.payout_method === method} onChange={() => updateProfile({ payout_method: method })} className="accent-emerald-500 w-5 h-5" />
-                                        </label>
-                                    ))}
-                                </div>
-
-                                {/* --- 2. THE ACCOUNT DETAILS INPUT --- */}
-                                {user.payout_method && (
-                                    <div className="p-6 bg-black border border-white/10 rounded-xl space-y-4 animate-in fade-in">
-                                        <div>
-                                            <label className="text-xs font-bold text-gray-500 uppercase">
-                                                {user.payout_method === 'PayPal' ? 'PayPal Email Address' : 
-                                                 user.payout_method.includes('Crypto') ? 'USDT Wallet Address (TRC20)' : 
-                                                 'Bank Account Details (IBAN / Account Number)'}
-                                            </label>
-                                            <input 
-                                                defaultValue={user.payout_details || ''} 
-                                                onChange={(e)=>setProfileDraft({...profileDraft, payout_details: e.target.value})}
-                                                placeholder="Enter your account details here..." 
-                                                className="w-full mt-2 bg-neutral-900 border border-white/10 rounded-lg p-3 outline-none focus:border-emerald-500 text-white" 
-                                            />
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <p className="text-xs text-yellow-500 flex items-center gap-1"><AlertCircle size={12}/> Double check these details.</p>
-                                            <button onClick={() => updateProfile(profileDraft)} className="bg-white text-black px-6 py-2 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors">
-                                                Save Details
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                     </div>
-                  )}
-
-                    {/* NOTIFICATION PREFERENCES */}
-                  {settingsTab === 'preferences' && (
-                     <div className="space-y-8 animate-in fade-in">
-                        <h3 className="text-xl font-bold border-b border-white/10 pb-4">Notification Preferences</h3>
-                        <p className="text-sm text-gray-400 mb-6">Choose what updates you want to receive via email.</p>
-
-                        <div className="space-y-4">
-                            {/* Toggle 1 */}
-                            <div className="flex items-center justify-between p-4 bg-black border border-white/10 rounded-xl">
-                                <div>
-                                    <h4 className="font-bold text-white text-sm">Course Purchases</h4>
-                                    <p className="text-xs text-gray-500">Get notified immediately when a student buys your course.</p>
-                                </div>
-                                <div onClick={() => setEmailPrefs({...emailPrefs, purchases: !emailPrefs.purchases})} className={`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${emailPrefs.purchases ? 'bg-emerald-500' : 'bg-neutral-700'}`}>
-                                    <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform ${emailPrefs.purchases ? 'translate-x-6' : 'translate-x-0'}`} />
-                                </div>
-                            </div>
-
-                            {/* Toggle 2 */}
-                            <div className="flex items-center justify-between p-4 bg-black border border-white/10 rounded-xl">
-                                <div>
-                                    <h4 className="font-bold text-white text-sm">Student Reviews & Q&A</h4>
-                                    <p className="text-xs text-gray-500">Receive a daily digest of new student questions and ratings.</p>
-                                </div>
-                                <div onClick={() => setEmailPrefs({...emailPrefs, reviews: !emailPrefs.reviews})} className={`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${emailPrefs.reviews ? 'bg-emerald-500' : 'bg-neutral-700'}`}>
-                                    <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform ${emailPrefs.reviews ? 'translate-x-6' : 'translate-x-0'}`} />
-                                </div>
-                            </div>
-
-                            {/* Toggle 3 */}
-                            <div className="flex items-center justify-between p-4 bg-black border border-white/10 rounded-xl">
-                                <div>
-                                    <h4 className="font-bold text-white text-sm">Grove Academy Marketing</h4>
-                                    <p className="text-xs text-gray-500">Tips on how to grow your audience and platform news.</p>
-                                </div>
-                                <div onClick={() => setEmailPrefs({...emailPrefs, marketing: !emailPrefs.marketing})} className={`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${emailPrefs.marketing ? 'bg-emerald-500' : 'bg-neutral-700'}`}>
-                                    <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform ${emailPrefs.marketing ? 'translate-x-6' : 'translate-x-0'}`} />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex justify-end pt-4">
-                            <button onClick={() => showToast("Preferences updated successfully!", "success")} className="bg-white text-black px-6 py-2 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors">Save Preferences</button>
-                        </div>
-                     </div>
-                  )}
-               </div>
+              </div>
             </motion.div>
           )}
+
 
       <AnimatePresence>
           {showKYCModal && (
