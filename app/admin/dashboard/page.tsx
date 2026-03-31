@@ -110,7 +110,7 @@ export default function DashboardPage() {
   
   // UI State
   const [currentView, setCurrentView] = useState<'overview' | 'courses' | 'settings' | 'course_detail'>('overview')
-  const [settingsTab, setSettingsTab] = useState<'profile' | 'security' | 'payouts'>('profile')
+  const [settingsTab, setSettingsTab] = useState<'profile' | 'security' | 'payouts' | 'preferences'>('profile')
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null)
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
@@ -124,6 +124,39 @@ export default function DashboardPage() {
 
   const [profileDraft, setProfileDraft] = useState<Partial<UserProfile>>({})
   const [newPassword, setNewPassword] = useState("")
+
+  // --- NOTIFICATION ENGINE ---
+  const notificationRef = useRef<HTMLDivElement>(null)
+
+  // 1. Close dropdown when clicking outside of it
+  useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+          if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+              setNotificationsOpen(false)
+          }
+      }
+      if (notificationsOpen) document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [notificationsOpen])
+
+  // 2. Mark all as read
+  const markAllRead = () => {
+      setNotifications(notifications.map(n => ({ ...n, read: true })))
+      showToast("All notifications marked as read", "success")
+  }
+
+  // 3. Mark single notification as read
+  const markAsRead = (id: string) => {
+      setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n))
+  }
+
+  // --- PREFERENCES STATE (For the new tab) ---
+  const [emailPrefs, setEmailPrefs] = useState({
+      purchases: true,
+      reviews: true,
+      marketing: false,
+      platformUpdates: true
+  })
 
   // Real Notifications (In production, fetch these from a 'notifications' table)
   const [notifications, setNotifications] = useState<Notification[]>([
@@ -397,38 +430,52 @@ export default function DashboardPage() {
             <input type="text" placeholder="Search analytics..." className="bg-transparent outline-none text-sm w-full text-white" />
           </div>
           <div className="flex items-center gap-6">
-              <div className="relative">
+              
+              {/* NOTIFICATION WRAPPER */}
+              <div className="relative" ref={notificationRef}>
                 <button onClick={() => setNotificationsOpen(!notificationsOpen)} className="relative text-gray-400 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full">
                   <Bell size={20} />
                   {notifications.some(n => !n.read) && <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />}
                 </button>
+                
                 {notificationsOpen && (
                     <div className="absolute right-0 mt-2 w-80 bg-neutral-900 border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
                         <div className="p-4 border-b border-white/5 font-bold text-sm flex justify-between items-center">
                             <span>Notifications</span>
-                            <button className="text-[10px] text-green-400 hover:underline">Mark all read</button>
+                            <button onClick={markAllRead} className="text-[10px] text-emerald-400 hover:underline">Mark all read</button>
                         </div>
-                        <div className="max-h-64 overflow-y-auto">
-                            {notifications.map(n => (
-                                <div key={n.id} className={`p-4 border-b border-white/5 hover:bg-white/5 cursor-pointer ${n.read ? 'opacity-50' : 'opacity-100'}`}>
-                                    <div className="flex justify-between mb-1">
-                                        <h5 className="text-sm font-bold text-white">{n.title}</h5>
-                                        <span className="text-[10px] text-gray-500">{n.time}</span>
+                        <div className="max-h-64 overflow-y-auto no-scrollbar">
+                            {notifications.length === 0 ? (
+                                <div className="p-6 text-center text-gray-500 text-sm">No notifications yet.</div>
+                            ) : (
+                                notifications.map(n => (
+                                    <div 
+                                        key={n.id} 
+                                        onClick={() => markAsRead(n.id)}
+                                        className={`p-4 border-b border-white/5 cursor-pointer transition-colors ${n.read ? 'bg-transparent opacity-50' : 'bg-white/5 hover:bg-white/10'}`}
+                                    >
+                                        <div className="flex justify-between mb-1">
+                                            <h5 className="text-sm font-bold text-white flex items-center gap-2">
+                                                {!n.read && <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0"/>}
+                                                {n.title}
+                                            </h5>
+                                            <span className="text-[10px] text-gray-500 whitespace-nowrap ml-2">{n.time}</span>
+                                        </div>
+                                        <p className="text-xs text-gray-400 pl-3">{n.message}</p>
                                     </div>
-                                    <p className="text-xs text-gray-400">{n.message}</p>
-                                </div>
-                            ))}
+                                ))
+                            )}
                         </div>
                     </div>
                 )}
-             </div>
-             
-             <button 
+              </div>
+              
+              <button 
                 onClick={handleNewCourseClick} 
                 className="bg-white text-black px-5 py-2 rounded-full text-sm font-bold hover:bg-gray-200 transition-colors shadow-lg flex items-center gap-2"
-             >
-               <Plus size={16} /> New Course
-             </button>
+              >
+                <Plus size={16} /> New Course
+              </button>
           </div>
         </header>
 
@@ -894,7 +941,7 @@ export default function DashboardPage() {
           {currentView === 'settings' && user && (
             <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} className="grid grid-cols-1 lg:grid-cols-4 gap-8">
               <div className="lg:col-span-1 flex overflow-x-auto gap-2 pb-2 lg:pb-0 lg:flex-col lg:space-y-1 no-scrollbar">
-               {['profile', 'security', 'payouts'].map((tab) => (
+               {['profile', 'security', 'payouts', 'preferences'].map((tab) => (
                   <button key={tab} onClick={() => setSettingsTab(tab as any)} className={`whitespace-nowrap px-4 py-3 rounded-lg text-sm font-medium capitalize transition-all ${settingsTab === tab ? 'bg-white text-black font-bold' : 'text-gray-400 hover:bg-white/5'}`}>{tab}</button>
                ))}
               </div>
@@ -1060,6 +1107,20 @@ export default function DashboardPage() {
                            <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="New Password" className="w-full bg-black border border-white/10 rounded-lg p-3 outline-none focus:border-white/30 transition-colors" />
                            <button onClick={handlePasswordUpdate} className="w-full bg-white text-black px-6 py-3 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors">Update Password</button>
                         </div>
+                        {/* --- DANGER ZONE --- */}
+                        <div className="pt-12 mt-12 border-t border-red-500/20">
+                            <h4 className="text-lg font-bold text-red-500 mb-2">Danger Zone</h4>
+                            <p className="text-sm text-gray-400 mb-6">Permanently delete your account and all associated course data. This action cannot be undone.</p>
+                            <div className="p-6 bg-red-950/20 border border-red-500/20 rounded-xl flex items-center justify-between">
+                                <div>
+                                    <h5 className="font-bold text-white text-sm">Delete Tutor Account</h5>
+                                    <p className="text-xs text-red-200/60 mt-1">You must process all pending payouts before deleting.</p>
+                                </div>
+                                <button onClick={() => showToast("Please contact support to initiate account deletion.", "error")} className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors border border-red-500/50">
+                                    Delete Account
+                                </button>
+                            </div>
+                        </div>
                      </div>
                   )}
 
@@ -1138,6 +1199,53 @@ export default function DashboardPage() {
                                 )}
                             </div>
                         )}
+                     </div>
+                  )}
+
+                    {/* NOTIFICATION PREFERENCES */}
+                  {settingsTab === 'preferences' && (
+                     <div className="space-y-8 animate-in fade-in">
+                        <h3 className="text-xl font-bold border-b border-white/10 pb-4">Notification Preferences</h3>
+                        <p className="text-sm text-gray-400 mb-6">Choose what updates you want to receive via email.</p>
+
+                        <div className="space-y-4">
+                            {/* Toggle 1 */}
+                            <div className="flex items-center justify-between p-4 bg-black border border-white/10 rounded-xl">
+                                <div>
+                                    <h4 className="font-bold text-white text-sm">Course Purchases</h4>
+                                    <p className="text-xs text-gray-500">Get notified immediately when a student buys your course.</p>
+                                </div>
+                                <div onClick={() => setEmailPrefs({...emailPrefs, purchases: !emailPrefs.purchases})} className={`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${emailPrefs.purchases ? 'bg-emerald-500' : 'bg-neutral-700'}`}>
+                                    <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform ${emailPrefs.purchases ? 'translate-x-6' : 'translate-x-0'}`} />
+                                </div>
+                            </div>
+
+                            {/* Toggle 2 */}
+                            <div className="flex items-center justify-between p-4 bg-black border border-white/10 rounded-xl">
+                                <div>
+                                    <h4 className="font-bold text-white text-sm">Student Reviews & Q&A</h4>
+                                    <p className="text-xs text-gray-500">Receive a daily digest of new student questions and ratings.</p>
+                                </div>
+                                <div onClick={() => setEmailPrefs({...emailPrefs, reviews: !emailPrefs.reviews})} className={`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${emailPrefs.reviews ? 'bg-emerald-500' : 'bg-neutral-700'}`}>
+                                    <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform ${emailPrefs.reviews ? 'translate-x-6' : 'translate-x-0'}`} />
+                                </div>
+                            </div>
+
+                            {/* Toggle 3 */}
+                            <div className="flex items-center justify-between p-4 bg-black border border-white/10 rounded-xl">
+                                <div>
+                                    <h4 className="font-bold text-white text-sm">Grove Academy Marketing</h4>
+                                    <p className="text-xs text-gray-500">Tips on how to grow your audience and platform news.</p>
+                                </div>
+                                <div onClick={() => setEmailPrefs({...emailPrefs, marketing: !emailPrefs.marketing})} className={`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${emailPrefs.marketing ? 'bg-emerald-500' : 'bg-neutral-700'}`}>
+                                    <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform ${emailPrefs.marketing ? 'translate-x-6' : 'translate-x-0'}`} />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end pt-4">
+                            <button onClick={() => showToast("Preferences updated successfully!", "success")} className="bg-white text-black px-6 py-2 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors">Save Preferences</button>
+                        </div>
                      </div>
                   )}
                </div>
