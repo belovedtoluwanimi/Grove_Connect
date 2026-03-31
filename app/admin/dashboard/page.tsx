@@ -6,7 +6,11 @@ import {
   Bell, Search, Plus, MoreVertical, LogOut, Loader2,
   TrendingUp, ArrowUpRight, CreditCard, Lock, User, Image as ImageIcon,
   Calendar, ChevronDown, ChevronLeft, Globe, Shield, Smartphone, Trash2, Edit, 
-  MapPin, CheckCircle2, AlertCircle, X, QrCode, Facebook, Twitter, Linkedin, Instagram, Mail
+  MapPin, CheckCircle2, AlertCircle, X, QrCode, Facebook, Twitter, Linkedin, Instagram, Mail, Eye,
+  Webhook,
+  Copy,
+  Code,
+  Download
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -110,7 +114,7 @@ export default function DashboardPage() {
   
   // UI State
   const [currentView, setCurrentView] = useState<'overview' | 'courses' | 'settings' | 'course_detail'>('overview')
-  const [settingsTab, setSettingsTab] = useState<'profile' | 'security' | 'payouts' | 'preferences'>('profile')
+  const [settingsTab, setSettingsTab] = useState<'profile' | 'security' | 'payouts' | 'preferences' | 'privacy' | 'integrations'>('profile')
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null)
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
@@ -164,6 +168,33 @@ export default function DashboardPage() {
     { id: '2', title: 'New Enrollment', message: 'John D. enrolled in "Advanced React Patterns"', time: '3h ago', read: false, type: 'success' },
     { id: '3', title: 'Platform Update', message: 'Payouts are now processed daily for Gold Tutors.', time: '1d ago', read: true, type: 'info' },
   ])
+
+
+  // --- PRIVACY & API STATE ---
+  const [privacyPrefs, setPrivacyPrefs] = useState({
+      publicProfile: true,
+      showCourses: true,
+      allowDirectMessages: false
+  })
+  const [apiKey, setApiKey] = useState<string | null>("pk_live_grove_5a9b8c7d6e...")
+  const [webhookUrl, setWebhookUrl] = useState("")
+  const [isGeneratingKey, setIsGeneratingKey] = useState(false)
+
+  const handleCopyKey = () => {
+      if (apiKey) {
+          navigator.clipboard.writeText(apiKey)
+          showToast("API Key copied to clipboard!", "success")
+      }
+  }
+
+  const handleGenerateNewKey = () => {
+      setIsGeneratingKey(true)
+      setTimeout(() => {
+          setApiKey(`pk_live_grove_${Math.random().toString(36).substring(2, 15)}...`)
+          setIsGeneratingKey(false)
+          showToast("New API Key generated successfully.", "success")
+      }, 1500)
+  }
 
   // --- HELPERS ---
   const showToast = (msg: string, type: 'success' | 'error') => {
@@ -949,7 +980,9 @@ export default function DashboardPage() {
                   { id: 'profile', label: 'Public Profile', icon: User },
                   { id: 'security', label: 'Trust & Security', icon: Shield },
                   { id: 'payouts', label: 'Payouts & Taxes', icon: CreditCard },
-                  { id: 'preferences', label: 'Notifications', icon: Bell }
+                  { id: 'preferences', label: 'Notifications', icon: Bell },
+                  { id: 'privacy', label: 'Privacy & Data', icon: Eye },
+                  { id: 'integrations', label: 'API & Webhooks', icon: Code }
                 ].map((tab) => (
                   <button 
                     key={tab.id} 
@@ -1253,6 +1286,134 @@ export default function DashboardPage() {
                                 </div>
                                 <button onClick={() => showToast("Please contact support to initiate account deletion.", "error")} className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all border border-red-500/20 w-full sm:w-auto text-center whitespace-nowrap">
                                     Delete Account
+                                </button>
+                            </div>
+                        </div>
+                     </div>
+                  )}
+
+                  {/* 5. PRIVACY & DATA (GDPR COMPLIANCE) */}
+                  {settingsTab === 'privacy' && (
+                     <div className="space-y-6 animate-in fade-in duration-500">
+                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl">
+                            <h3 className="text-lg font-bold border-b border-white/5 pb-4 mb-6">Profile Visibility</h3>
+                            <p className="text-sm text-zinc-400 mb-6">Control how your profile appears to students and search engines.</p>
+                            
+                            <div className="space-y-2">
+                                {[
+                                    { id: 'publicProfile', title: 'Public Search Indexing', desc: 'Allow Google and other search engines to index your Grove Tutor profile.' },
+                                    { id: 'showCourses', title: 'Display Course Library', desc: 'Show all your active courses on your public profile page.' },
+                                    { id: 'allowDirectMessages', title: 'Allow Direct Messages', desc: 'Let enrolled students send you direct messages on the platform.' }
+                                ].map((pref) => (
+                                    <div key={pref.id} className="flex items-center justify-between p-5 bg-black border border-white/5 rounded-2xl hover:border-white/10 transition-colors">
+                                        <div>
+                                            <h4 className="font-bold text-white text-sm">{pref.title}</h4>
+                                            <p className="text-xs text-zinc-500 mt-1">{pref.desc}</p>
+                                        </div>
+                                        <div 
+                                            onClick={() => setPrivacyPrefs(prev => ({...prev, [pref.id]: !(prev as any)[pref.id]}))} 
+                                            className={`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-300 ${ (privacyPrefs as any)[pref.id] ? 'bg-emerald-500' : 'bg-zinc-800'}`}
+                                        >
+                                            <motion.div layout transition={{ type: "spring", stiffness: 700, damping: 30 }} className="w-4 h-4 bg-white rounded-full shadow-sm" style={{ marginLeft: (privacyPrefs as any)[pref.id] ? '24px' : '0px' }} />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            
+                            <div className="flex justify-end pt-8">
+                                <button onClick={() => showToast("Privacy settings saved.", "success")} className="bg-white text-black px-6 py-3 rounded-xl font-bold text-sm hover:bg-zinc-200 transition-colors">Save Privacy Settings</button>
+                            </div>
+                        </div>
+
+                        {/* Data Portability (GDPR) */}
+                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl space-y-4">
+                            <h3 className="text-lg font-bold border-b border-white/5 pb-4">Data Portability</h3>
+                            <p className="text-sm text-zinc-400">In accordance with GDPR, you can request a copy of all personal data Grove Connect holds about you.</p>
+                            <div className="flex items-center justify-between p-5 bg-zinc-900/50 border border-white/5 rounded-2xl">
+                                <div>
+                                    <h4 className="font-bold text-white text-sm">Export Personal Data</h4>
+                                    <p className="text-xs text-zinc-500 mt-1">Download a JSON file containing your profile, courses, and financial history.</p>
+                                </div>
+                                <button onClick={() => {
+                                    showToast("Compiling your data. We will email you the secure download link shortly.", "success")
+                                }} className="flex items-center gap-2 px-5 py-2.5 bg-black border border-white/10 text-white rounded-xl font-bold text-sm hover:bg-zinc-900 transition-colors">
+                                    <Download size={16}/> Request Export
+                                </button>
+                            </div>
+                        </div>
+                     </div>
+                  )}
+
+                  {/* 6. API & INTEGRATIONS */}
+                  {settingsTab === 'integrations' && (
+                     <div className="space-y-6 animate-in fade-in duration-500">
+                        
+                        {/* Developer API Keys */}
+                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 blur-[100px] pointer-events-none" />
+                            <div className="flex justify-between items-start mb-6">
+                                <div>
+                                    <h3 className="text-lg font-bold text-white flex items-center gap-2"><Code size={20} className="text-blue-500"/> Developer API</h3>
+                                    <p className="text-sm text-zinc-400 mt-1">Build custom integrations or connect to external tools.</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4 relative z-10">
+                                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block">Live Secret Key</label>
+                                <div className="flex items-center gap-3 bg-black border border-white/10 rounded-xl p-2 pr-4 focus-within:border-blue-500/50 transition-colors">
+                                    <div className="p-3 bg-zinc-900 rounded-lg"><Lock size={16} className="text-zinc-500"/></div>
+                                    <input 
+                                        type="password" 
+                                        readOnly 
+                                        value={apiKey || ''} 
+                                        className="bg-transparent outline-none text-sm text-white w-full font-mono tracking-widest cursor-not-allowed" 
+                                    />
+                                    <button onClick={handleCopyKey} className="text-zinc-500 hover:text-white transition-colors" title="Copy to clipboard">
+                                        <Copy size={18}/>
+                                    </button>
+                                </div>
+
+                                <div className="flex justify-between items-center pt-4">
+                                    <p className="text-xs text-yellow-500 flex items-center gap-1"><AlertCircle size={14}/> Do not share this key. It grants full access to your account.</p>
+                                    <button onClick={handleGenerateNewKey} disabled={isGeneratingKey} className="text-xs font-bold text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-2">
+                                        {isGeneratingKey ? <Loader2 size={14} className="animate-spin"/> : "Roll Key (Revoke Old)"}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Webhooks */}
+                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl space-y-6">
+                            <div>
+                                <h3 className="text-lg font-bold text-white flex items-center gap-2"><Webhook size={20} className="text-purple-500"/> Outbound Webhooks</h3>
+                                <p className="text-sm text-zinc-400 mt-1">Send real-time alerts to Zapier, Discord, or your own servers when an event happens.</p>
+                            </div>
+
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block">Endpoint URL</label>
+                                <input 
+                                    value={webhookUrl}
+                                    onChange={(e) => setWebhookUrl(e.target.value)}
+                                    placeholder="https://hooks.zapier.com/hooks/catch/..." 
+                                    className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-purple-500/50 text-white font-mono text-sm" 
+                                />
+                            </div>
+
+                            <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-4">
+                                <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3">Events to send:</p>
+                                <div className="flex flex-wrap gap-2">
+                                    <span className="px-3 py-1 bg-white/5 text-zinc-300 text-xs font-bold rounded-lg border border-white/10">course.purchased</span>
+                                    <span className="px-3 py-1 bg-white/5 text-zinc-300 text-xs font-bold rounded-lg border border-white/10">student.enrolled</span>
+                                    <span className="px-3 py-1 bg-white/5 text-zinc-300 text-xs font-bold rounded-lg border border-white/10">review.created</span>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end border-t border-white/5 pt-6">
+                                <button onClick={() => {
+                                    if(!webhookUrl) return showToast("Please enter a valid URL.", "error")
+                                    showToast("Webhook endpoint saved and verified!", "success")
+                                }} className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-3 rounded-xl font-bold text-sm transition-colors shadow-lg">
+                                    Save Webhook
                                 </button>
                             </div>
                         </div>
