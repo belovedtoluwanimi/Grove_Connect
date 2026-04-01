@@ -5,7 +5,8 @@ import {
   User, Shield, Camera, Lock, Key, Smartphone, 
   Loader2, ArrowLeft, CheckCircle2, AlertCircle,
   MonitorPlay, HardDriveDownload, Bell, Palette, Link as LinkIcon,
-  Fingerprint, Laptop
+  Fingerprint, Laptop,
+  Plus
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -211,7 +212,7 @@ export default function StudentSettingsPage() {
               throw new Error("Biometrics are not supported on this browser or device.")
           }
 
-          showMessage("Waking up biometric scanner...", "info")
+          showMessage("Waking up biometric scanner...", "success")
 
           // Formulate a WebAuthn challenge. 
           // (In a full backend setup, this challenge string comes from Supabase)
@@ -288,8 +289,8 @@ export default function StudentSettingsPage() {
 
         <AnimatePresence>
             {message && (
-                <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className={`mb-8 p-4 rounded-xl border flex items-center gap-3 ${message.type === 'success' ? 'bg-green-500/10 border-green-500/20 text-green-400' : message.type === 'info' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
-                    {message.type === 'success' ? <CheckCircle2 size={20} /> : message.type === 'info' ? <Loader2 size={20} className="animate-spin" /> : <AlertCircle size={20} />}
+                <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className={`mb-8 p-4 rounded-xl border flex items-center gap-3 ${message.type === 'success' ? 'bg-green-500/10 border-green-500/20 text-green-400' : message.type === 'error' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+                    {message.type === 'success' ? <CheckCircle2 size={20} /> : message.type === 'error' ? <Loader2 size={20} className="animate-spin" /> : <AlertCircle size={20} />}
                     <span className="text-sm font-bold">{message.text}</span>
                 </motion.div>
             )}
