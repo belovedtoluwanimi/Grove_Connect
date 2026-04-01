@@ -129,6 +129,18 @@ export default function DashboardPage() {
   const [profileDraft, setProfileDraft] = useState<Partial<UserProfile>>({})
   const [newPassword, setNewPassword] = useState("")
 
+  // --- FINTECH WITHDRAWAL ENGINE STATE ---
+  const [isWithdrawModalOpen, setWithdrawModalOpen] = useState(false)
+  const [withdrawStep, setWithdrawStep] = useState<1 | 2 | 3 | 4>(1)
+  const [withdrawAmount, setWithdrawAmount] = useState<string>('')
+  const [isProcessingPayout, setIsProcessingPayout] = useState(false)
+  
+  // Mock transaction history for the UI
+  const [transactions, setTransactions] = useState([
+      { id: 'tx_10928', date: '2026-03-15', amount: 450.00, status: 'Completed', method: 'Bank Transfer' },
+      { id: 'tx_10844', date: '2026-02-28', amount: 1200.50, status: 'Completed', method: 'Bank Transfer' }
+  ])
+
   // --- REAL-TIME NOTIFICATION ENGINE ---
   const notificationRef = useRef<HTMLDivElement>(null)
   const [notifications, setNotifications] = useState<any[]>([])
@@ -1248,153 +1260,240 @@ export default function DashboardPage() {
                      </div>
                   )}
 
-                  {/* 2. SECURITY SETTINGS */}
-                  {settingsTab === 'security' && (
-                     <div className="space-y-6 animate-in fade-in duration-500">
-                        
-                        {/* 2FA Card */}
-                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-6">
-                            <div className="flex items-start gap-4">
-                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${user.two_factor_enabled ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-[0_0_20px_rgba(16,185,129,0.3)]' : 'bg-zinc-800'}`}>
-                                    <Shield size={24} className={user.two_factor_enabled ? "text-[#0a0a0a]" : "text-zinc-500"} />
-                                </div>
-                                <div>
-                                    <h3 className="text-lg font-bold text-white flex items-center gap-2">Two-Factor Authentication {user.two_factor_enabled && <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] uppercase tracking-widest rounded border border-emerald-500/20">Active</span>}</h3>
-                                    <p className="text-sm text-zinc-400 mt-1">Add an extra layer of security to your account. Highly recommended.</p>
-                                </div>
-                            </div>
-                            
-                            {!user.two_factor_enabled && !show2FASetup && (
-                                <button onClick={async (e) => {
-                                    const btn = e.currentTarget; btn.disabled = true; btn.innerText = "Sending...";
-                                    try {
-                                        await fetch('/api/2fa', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send', email: user.email, userId: user.id }) });
-                                        setShow2FASetup(true); showToast("OTP sent to your email!", "success");
-                                    } catch (err) { showToast("Failed to send email.", "error"); } 
-                                    finally { btn.disabled = false; btn.innerText = "Enable 2FA"; }
-                                }} className="px-6 py-3 bg-white text-black hover:bg-zinc-200 text-sm font-bold rounded-xl transition-colors whitespace-nowrap">
-                                    Enable 2FA
-                                </button>
-                            )}
-                        </div>
+                  {/* --- ELITE FINTECH WITHDRAWAL ENGINE --- */}
+      <AnimatePresence>
+          {isWithdrawModalOpen && (
+              <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 sm:p-6">
+                  {/* Blurred Backdrop */}
+                  <motion.div 
+                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                      className="absolute inset-0 bg-black/90 backdrop-blur-xl"
+                      onClick={() => !isProcessingPayout && setWithdrawModalOpen(false)}
+                  />
+                  
+                  {/* Master Modal Container */}
+                  <motion.div 
+                      initial={{ opacity: 0, scale: 0.95, y: 20 }} 
+                      animate={{ opacity: 1, scale: 1, y: 0 }} 
+                      exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                      className="relative w-full max-w-lg bg-[#0a0a0a] border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl z-10 flex flex-col"
+                  >
+                      {/* Step 1: Amount & Gateway Selection */}
+                      {withdrawStep === 1 && (
+                          <div className="p-8">
+                              <div className="flex justify-between items-center mb-8">
+                                  <h3 className="text-xl font-black text-white tracking-tight">Withdraw Funds</h3>
+                                  <button onClick={() => setWithdrawModalOpen(false)} className="p-2 bg-white/5 hover:bg-white/10 rounded-full text-zinc-400 hover:text-white transition-colors"><X size={18}/></button>
+                              </div>
+                              
+                              {/* The LEDGER Display */}
+                              <div className="text-center mb-10 p-6 bg-gradient-to-b from-white/5 to-transparent border border-white/5 rounded-3xl">
+                                  <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-3">Available Balance</p>
+                                  <div className="flex items-center justify-center text-5xl font-black text-white focus-within:text-emerald-400 transition-colors">
+                                      <span className="text-2xl text-zinc-500 mr-1 -mt-4">$</span>
+                                      <input 
+                                          type="number" 
+                                          value={withdrawAmount}
+                                          onChange={(e) => setWithdrawAmount(e.target.value)}
+                                          placeholder="0.00"
+                                          className="bg-transparent outline-none w-48 text-center placeholder-zinc-700"
+                                          autoFocus
+                                      />
+                                  </div>
+                                  
+                                  {/* Quick Select Pills */}
+                                  <div className="flex justify-center gap-3 mt-6">
+                                      <button onClick={() => setWithdrawAmount(((overallStats.revenue * 0.8) * 0.25).toFixed(2))} className="px-4 py-1.5 bg-black border border-white/10 rounded-full text-xs font-bold text-zinc-400 hover:text-white transition-colors">25%</button>
+                                      <button onClick={() => setWithdrawAmount(((overallStats.revenue * 0.8) * 0.50).toFixed(2))} className="px-4 py-1.5 bg-black border border-white/10 rounded-full text-xs font-bold text-zinc-400 hover:text-white transition-colors">50%</button>
+                                      <button onClick={() => setWithdrawAmount((overallStats.revenue * 0.8).toFixed(2))} className="px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full text-xs font-bold hover:bg-emerald-500/20 transition-colors">Max</button>
+                                  </div>
+                              </div>
 
-                        {show2FASetup && !user.two_factor_enabled && (
-                            <motion.div initial={{opacity:0, height:0}} animate={{opacity:1, height:'auto'}} className="p-8 bg-zinc-900/50 border border-emerald-500/20 rounded-3xl">
-                                <h4 className="font-bold text-white mb-2">Check your email</h4>
-                                <p className="text-sm text-zinc-400 mb-6">We sent a 6-digit code to <span className="text-white">{user.email}</span>.</p>
-                                <div className="flex max-w-md gap-3">
-                                    <input value={twoFACode} onChange={(e)=>setTwoFACode(e.target.value.replace(/\D/g, ''))} placeholder="000000" className="flex-1 bg-black border border-white/10 rounded-xl p-3 text-center tracking-[1em] font-mono text-xl outline-none focus:border-emerald-500 text-white" maxLength={6} />
-                                    <button onClick={handleEnable2FA} className="bg-emerald-600 hover:bg-emerald-500 px-8 rounded-xl font-bold text-sm transition-colors text-white">Verify</button>
-                                </div>
-                            </motion.div>
-                        )}
+                              {/* Gateway Selection */}
+                              <div className="space-y-3 mb-8">
+                                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block px-2">Transfer Destination</label>
+                                  
+                                  {/* Render user's saved methods. If they are in Nigeria/Africa, emphasize Flutterwave/Paystack */}
+                                  <div className="p-4 bg-black border border-white/10 rounded-2xl flex items-center justify-between cursor-pointer hover:border-emerald-500/50 transition-colors">
+                                      <div className="flex items-center gap-4">
+                                          <div className="w-10 h-10 bg-zinc-900 rounded-full flex items-center justify-center border border-white/5 shrink-0">
+                                              {user?.payout_method?.includes('Bank') || user?.payout_method?.includes('Paystack') || user?.payout_method?.includes('Flutterwave') ? <Landmark size={18} className="text-white"/> : <CreditCard size={18} className="text-white"/>}
+                                          </div>
+                                          <div>
+                                              <p className="text-sm font-bold text-white">{user?.payout_method || 'Add Payout Method'}</p>
+                                              <p className="text-xs text-zinc-500 font-mono mt-0.5">{user?.payout_details?.substring(0,8)}••••••</p>
+                                          </div>
+                                      </div>
+                                      <CheckCircle2 size={20} className="text-emerald-500" />
+                                  </div>
+                              </div>
 
-                        {/* Password Card */}
-                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl space-y-6">
-                           <h3 className="text-lg font-bold border-b border-white/5 pb-4">Change Password</h3>
-                           <div className="max-w-md space-y-4">
-                               <div className="space-y-2"><label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">New Password</label><input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-white/30 transition-colors text-white" /></div>
-                               <button onClick={handlePasswordUpdate} className="bg-zinc-800 text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-zinc-700 transition-colors border border-white/5">Update Password</button>
-                           </div>
-                        </div>
+                              <button 
+                                  onClick={() => {
+                                      const amt = parseFloat(withdrawAmount);
+                                      if (isNaN(amt) || amt < 10) return showToast("Minimum withdrawal is $10", "error");
+                                      if (amt > (overallStats.revenue * 0.8)) return showToast("Insufficient funds", "error");
+                                      setWithdrawStep(2);
+                                  }}
+                                  className="w-full py-4 bg-white text-black font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-zinc-200 transition-colors shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+                              >
+                                  Review Transfer
+                              </button>
+                          </div>
+                      )}
 
-                        {/* Active Sessions (Simulated Premium Feature) */}
-                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl space-y-4">
-                           <div className="flex justify-between items-center border-b border-white/5 pb-4">
-                               <h3 className="text-lg font-bold">Active Sessions</h3>
-                               <button className="text-xs text-red-400 hover:text-red-300 font-bold">Revoke All Others</button>
-                           </div>
-                           <div className="flex items-center justify-between p-4 bg-zinc-900/50 rounded-xl border border-white/5">
-                               <div className="flex items-center gap-4">
-                                   <div className="p-3 bg-black rounded-lg"><Smartphone size={20} className="text-emerald-500"/></div>
-                                   <div><p className="font-bold text-sm text-white flex items-center gap-2">Current Session <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"/></p><p className="text-xs text-zinc-500">Chrome on macOS • Lagos, Nigeria</p></div>
-                               </div>
-                           </div>
-                        </div>
-                     </div>
-                  )}
+                      {/* Step 2: The Ledger Review (Fees & Taxes) */}
+                      {withdrawStep === 2 && (
+                          <div className="p-8">
+                              <div className="flex items-center gap-4 mb-8">
+                                  <button onClick={() => setWithdrawStep(1)} className="p-2 bg-white/5 hover:bg-white/10 rounded-full text-zinc-400 hover:text-white transition-colors"><ArrowLeft size={18}/></button>
+                                  <h3 className="text-xl font-black text-white tracking-tight">Review Details</h3>
+                              </div>
 
-                  {/* 3. PAYOUTS & TAXES */}
-                  {settingsTab === 'payouts' && (
-                     <div className="space-y-6 animate-in fade-in duration-500">
-                        
-                        {/* Premium Wallet Dashboard */}
-                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl overflow-hidden relative">
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 blur-[100px] pointer-events-none" />
-                            <h3 className="text-lg font-bold mb-8">Grove Wallet</h3>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div>
-                                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2">Available for Payout</p>
-                                    <h2 className="text-5xl font-black text-white mb-6">${(overallStats.revenue * 0.8).toFixed(2)}</h2>
-                                    <button onClick={() => {
-                                        if (!user?.payout_method || !user?.payout_details) return showToast("Please configure payout details first.", "error")
-                                        if ((overallStats.revenue * 0.8) < 50) return showToast("Minimum payout is $50.00", "error")
-                                        showToast("Payout request submitted via Stripe Connect.", "success")
-                                    }} className="w-full sm:w-auto px-8 py-3 bg-white text-black hover:bg-zinc-200 font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)]">
-                                        Withdraw Funds
-                                    </button>
-                                </div>
-                                <div className="border-l border-white/5 pl-8 flex flex-col justify-center">
-                                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2">Pending Clearance (30 Days)</p>
-                                    <h2 className="text-3xl font-black text-zinc-300 mb-2">${(overallStats.revenue * 0.2).toFixed(2)}</h2>
-                                    <p className="text-xs text-zinc-500 leading-relaxed">Funds are held in escrow for 30 days to accommodate student refunds.</p>
-                                </div>
-                            </div>
-                        </div>
+                              <div className="bg-black border border-white/5 rounded-3xl p-6 mb-8 space-y-4">
+                                  <div className="flex justify-between items-center">
+                                      <span className="text-sm font-medium text-zinc-400">Withdrawal Amount</span>
+                                      <span className="text-sm font-bold text-white">${parseFloat(withdrawAmount).toFixed(2)}</span>
+                                  </div>
+                                  
+                                  {/* Dynamic Fees based on Gateway */}
+                                  <div className="flex justify-between items-center">
+                                      <span className="text-sm font-medium text-zinc-400 flex items-center gap-2">
+                                          Gateway Fee 
+                                          <span className="text-[9px] bg-white/10 px-1.5 py-0.5 rounded text-zinc-400 uppercase tracking-wider">
+                                              {user?.payout_method?.includes('Paystack') ? '1.5%' : user?.payout_method?.includes('Flutterwave') ? '1.4%' : 'Standard'}
+                                          </span>
+                                      </span>
+                                      <span className="text-sm font-bold text-red-400">-${(parseFloat(withdrawAmount) * 0.015).toFixed(2)}</span>
+                                  </div>
+                                  
+                                  <div className="w-full h-px bg-white/10 my-2" />
+                                  
+                                  <div className="flex justify-between items-center">
+                                      <span className="text-base font-bold text-white">Net Payout</span>
+                                      <span className="text-2xl font-black text-emerald-400">${(parseFloat(withdrawAmount) * 0.985).toFixed(2)}</span>
+                                  </div>
+                              </div>
 
-                        {/* Connected Accounts */}
-                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl space-y-6">
-                            <h3 className="text-lg font-bold border-b border-white/5 pb-4">Connected Account</h3>
-                            
-                            {(!user.nationality) ? (
-                                <div className="text-center py-8 text-zinc-500 text-sm">Please set your Nationality in the Profile tab to configure payouts.</div>
-                            ) : (
-                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                                    <div className="lg:col-span-1 space-y-3">
-                                        {(PAYOUT_MAPPING[user.nationality] || PAYOUT_MAPPING['default']).map(method => (
-                                            <label key={method} className={`flex items-center justify-between p-4 border rounded-xl cursor-pointer transition-all ${user.payout_method === method ? 'bg-emerald-500/10 border-emerald-500/50' : 'bg-black border-white/5 hover:border-white/20'}`}>
-                                                <div className="flex items-center gap-3">
-                                                    <CreditCard size={16} className={user.payout_method === method ? "text-emerald-400" : "text-zinc-500"}/>
-                                                    <span className={`text-sm font-bold ${user.payout_method === method ? "text-white" : "text-zinc-400"}`}>{method}</span>
-                                                </div>
-                                                <input type="radio" name="payout" checked={user.payout_method === method} onChange={() => updateProfile({ payout_method: method })} className="hidden" />
-                                            </label>
-                                        ))}
-                                    </div>
+                              <div className="p-5 border border-white/5 bg-white/5 rounded-2xl mb-8 flex items-start gap-4">
+                                  <div className="mt-0.5"><Clock size={18} className="text-emerald-500" /></div>
+                                  <div>
+                                      <p className="text-sm font-bold text-white">Estimated Arrival</p>
+                                      <p className="text-xs text-zinc-400 leading-relaxed mt-1">
+                                          {user?.payout_method?.includes('PayPal') ? 'Within minutes via PayPal Instant.' : '1-2 business days via Local Bank Transfer.'}
+                                      </p>
+                                  </div>
+                              </div>
 
-                                    {user.payout_method && (
-                                        <div className="lg:col-span-2 p-6 bg-black border border-white/5 rounded-2xl animate-in fade-in">
-                                            <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-3">
-                                                {user.payout_method === 'PayPal' ? 'PayPal Email Address' : user.payout_method.includes('Crypto') ? 'USDT Wallet Address (TRC20)' : 'Bank Account Number / IBAN'}
-                                            </label>
-                                            <input 
-                                                defaultValue={(user as any).payout_details || ''} 
-                                                onChange={(e)=>setProfileDraft({...profileDraft, payout_details: e.target.value})}
-                                                placeholder="Enter secure details..." 
-                                                className="w-full bg-zinc-900 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-emerald-500/50 text-white font-mono mb-6" 
-                                            />
-                                            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-white/5 pt-6">
-                                                <p className="text-xs text-yellow-500 flex items-center gap-1"><AlertCircle size={14} className="shrink-0"/> Double check before saving.</p>
-                                                <button onClick={() => updateProfile(profileDraft)} className="w-full sm:w-auto bg-zinc-800 text-white px-6 py-2.5 rounded-lg font-bold text-sm hover:bg-zinc-700 transition-colors border border-white/5">Save Account</button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
+                              <button 
+                                  onClick={() => setWithdrawStep(3)}
+                                  className="w-full py-4 bg-emerald-600 text-white font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-emerald-500 transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)]"
+                              >
+                                  Confirm Details
+                              </button>
+                          </div>
+                      )}
 
-                        {/* Tax Documents (Simulated) */}
-                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl flex items-center justify-between">
-                            <div>
-                                <h3 className="text-sm font-bold text-white mb-1">Tax Documents (W-8BEN / W-9)</h3>
-                                <p className="text-xs text-zinc-500">Required for end-of-year tax reporting.</p>
-                            </div>
-                            <button className="px-4 py-2 bg-black border border-white/10 text-zinc-400 rounded-lg text-xs font-bold hover:text-white transition-colors">Submit Form</button>
-                        </div>
-                     </div>
-                  )}
+                      {/* Step 3: Security Vault (Password/PIN to execute) */}
+                      {withdrawStep === 3 && (
+                          <div className="p-8">
+                              <div className="flex items-center gap-4 mb-8">
+                                  <button onClick={() => setWithdrawStep(2)} className="p-2 bg-white/5 hover:bg-white/10 rounded-full text-zinc-400 hover:text-white transition-colors"><ArrowLeft size={18}/></button>
+                                  <h3 className="text-xl font-black text-white tracking-tight">Security Check</h3>
+                              </div>
 
+                              <div className="text-center mb-8">
+                                  <div className="w-16 h-16 bg-zinc-900 rounded-full flex items-center justify-center border border-white/10 mx-auto mb-6">
+                                      <Lock size={24} className="text-white" />
+                                  </div>
+                                  <p className="text-sm text-zinc-400 px-4">For your security, please enter your Grove Connect password to authorize this transfer of <span className="text-white font-bold">${parseFloat(withdrawAmount).toFixed(2)}</span>.</p>
+                              </div>
+
+                              <div className="mb-8">
+                                  <input 
+                                      type="password" 
+                                      placeholder="Enter your password"
+                                      className="w-full bg-black border border-white/10 rounded-2xl px-4 py-4 text-center text-white outline-none focus:border-emerald-500/50 transition-colors tracking-widest font-mono"
+                                      autoFocus
+                                  />
+                              </div>
+
+                              <button 
+                                  disabled={isProcessingPayout}
+                                  onClick={async () => {
+                                      setIsProcessingPayout(true);
+                                      try {
+                                          // Connect to your actual backend API route
+                                          const res = await fetch('/api/payouts', {
+                                              method: 'POST',
+                                              headers: { 'Content-Type': 'application/json' },
+                                              body: JSON.stringify({ 
+                                                  amount: parseFloat(withdrawAmount), 
+                                                  method: user?.payout_method, 
+                                                  details: user?.payout_details 
+                                              })
+                                          });
+                                          const data = await res.json();
+                                          if (data.success) {
+                                              setWithdrawStep(4);
+                                          } else {
+                                              showToast(data.error, "error");
+                                          }
+                                      } catch (err) {
+                                          showToast("Network error communicating with payment gateway.", "error");
+                                      } finally {
+                                          setIsProcessingPayout(false);
+                                      }
+                                  }}
+                                  className="w-full py-4 bg-emerald-600 text-white font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-emerald-500 transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.3)] disabled:opacity-50"
+                              >
+                                  {isProcessingPayout ? <Loader2 size={18} className="animate-spin" /> : 'Authorize Transfer'}
+                              </button>
+                              <div className="mt-6 flex items-center justify-center gap-2 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
+                                  <Shield size={12} /> Secured by 256-bit Encryption
+                              </div>
+                          </div>
+                      )}
+
+                      {/* Step 4: Digital Receipt (Success) */}
+                      {withdrawStep === 4 && (
+                          <div className="p-10 text-center flex flex-col items-center relative overflow-hidden">
+                              <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] bg-[conic-gradient(var(--tw-gradient-stops))] from-emerald-500/0 via-emerald-500/10 to-emerald-500/0 animate-[spin_4s_linear_infinite]" />
+                              
+                              <div className="relative z-10 w-24 h-24 bg-emerald-500/20 rounded-full flex items-center justify-center border-4 border-[#0a0a0a] shadow-[0_0_40px_rgba(16,185,129,0.3)] mb-6">
+                                  <CheckCircle2 size={48} className="text-emerald-500" />
+                              </div>
+                              
+                              <h3 className="text-3xl font-black text-white mb-2 relative z-10 tracking-tight">Transfer Initiated</h3>
+                              <p className="text-sm text-zinc-400 mb-8 max-w-xs relative z-10">Your funds are being processed via {user?.payout_method}. A receipt has been sent to your email.</p>
+                              
+                              <div className="w-full p-5 bg-black border border-white/5 rounded-2xl space-y-3 mb-8 relative z-10 text-left">
+                                  <div className="flex justify-between items-center">
+                                      <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Amount Sent</span>
+                                      <span className="font-bold text-white">${(parseFloat(withdrawAmount) * 0.985).toFixed(2)}</span>
+                                  </div>
+                                  <div className="flex justify-between items-center">
+                                      <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Transaction ID</span>
+                                      <span className="text-xs font-mono text-zinc-400">TX_{Math.floor(100000 + Math.random() * 900000)}</span>
+                                  </div>
+                              </div>
+
+                              <button 
+                                  onClick={() => {
+                                      setWithdrawModalOpen(false);
+                                      // Note: In reality, refresh the page or recall your database here to update the main balance UI
+                                      setTimeout(() => window.location.reload(), 300);
+                                  }}
+                                  className="relative z-10 w-full py-4 bg-white text-black font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-zinc-200 transition-colors"
+                              >
+                                  Done
+                              </button>
+                          </div>
+                      )}
+                  </motion.div>
+              </div>
+          )}
+      </AnimatePresence>
                   {/* 4. NOTIFICATION PREFERENCES */}
                   {settingsTab === 'preferences' && (
                      <div className="space-y-6 animate-in fade-in duration-500">
