@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react'
 import { 
   User, Shield, Camera, Lock, Key, Smartphone, 
   Loader2, ArrowLeft, CheckCircle2, AlertCircle,
-  MonitorPlay, HardDriveDownload, Bell, Palette, Link as LinkIcon
+  MonitorPlay, HardDriveDownload, Bell, Palette, Link as LinkIcon,
+  Fingerprint, Laptop
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -28,6 +29,7 @@ export default function StudentSettingsPage() {
   const [newPassword, setNewPassword] = useState('')
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false)
   const [activeSessions, setActiveSessions] = useState<any[]>([])
+  const [passkeys, setPasskeys] = useState<any[]>([]) // Biometric devices
 
   // Premium Learner Preferences State
   const [prefs, setPrefs] = useState({
@@ -59,14 +61,12 @@ export default function StudentSettingsPage() {
           email: user.email || ''
       })
       
-      // Load real preferences from database
       if (profile?.student_prefs) {
           setPrefs({ ...prefs, ...profile.student_prefs })
       }
       
       setTwoFactorEnabled(profile?.two_factor_enabled || false)
 
-      // Get real session data (Supabase auth sessions)
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
           setActiveSessions([{
@@ -117,7 +117,6 @@ export default function StudentSettingsPage() {
   const handleSavePreferences = async () => {
       setSaving(true)
       try {
-          // REAL GLOBAL SAVE: Writes directly to the JSONB column in Supabase
           const { error } = await supabase
               .from('profiles')
               .update({ student_prefs: prefs })
@@ -127,7 +126,6 @@ export default function StudentSettingsPage() {
           
           showMessage('Preferences saved globally!', 'success')
           
-          // Apply theme settings immediately to the DOM if needed
           if (prefs.theme === 'light') document.documentElement.classList.add('light-theme')
           else document.documentElement.classList.remove('light-theme')
           
@@ -138,7 +136,6 @@ export default function StudentSettingsPage() {
       }
   }
 
-  // Real Web API Cache Clearing
   const handleClearCache = async () => {
       if ('caches' in window) {
           try {
@@ -204,6 +201,68 @@ export default function StudentSettingsPage() {
       }
   }
 
+  // --- BIOMETRIC / PASSKEY ENGINE ---
+  const handleRegisterBiometric = async () => {
+      try {
+          setSaving(true)
+          
+          // Check if the browser supports hardware authenticators
+          if (!window.PublicKeyCredential) {
+              throw new Error("Biometrics are not supported on this browser or device.")
+          }
+
+          showMessage("Waking up biometric scanner...", "info")
+
+          // Formulate a WebAuthn challenge. 
+          // (In a full backend setup, this challenge string comes from Supabase)
+          const challenge = new Uint8Array(32);
+          window.crypto.getRandomValues(challenge);
+          const userIdArray = new Uint8Array(16);
+          window.crypto.getRandomValues(userIdArray);
+
+          const publicKeyCredentialCreationOptions: PublicKeyCredentialCreationOptions = {
+              challenge: challenge,
+              rp: { name: "Grove Connect", id: window.location.hostname },
+              user: {
+                  id: userIdArray,
+                  name: user.email,
+                  displayName: user.full_name
+              },
+              pubKeyCredParams: [{ alg: -7, type: "public-key" }, { alg: -257, type: "public-key" }],
+              authenticatorSelection: {
+                  authenticatorAttachment: "platform", // Forces TouchID/FaceID/Windows Hello
+                  userVerification: "required"
+              },
+              timeout: 60000,
+              attestation: "none"
+          };
+
+          // 🚨 THIS LINE TRIGGERS THE NATIVE OS FINGERPRINT/FACE SCANNER 🚨
+          const credential = await navigator.credentials.create({
+              publicKey: publicKeyCredentialCreationOptions
+          });
+
+          if (credential) {
+              // Successfully scanned! Add to our local list for the UI.
+              setPasskeys(prev => [...prev, { 
+                  id: credential.id, 
+                  name: navigator.userAgent.includes('Mac') ? 'MacBook Touch ID' : navigator.userAgent.includes('iPhone') ? 'iPhone Face ID' : 'Hardware Authenticator',
+                  date: new Date().toISOString()
+              }])
+              showMessage("Biometric device registered successfully!", "success")
+          }
+          
+      } catch (err: any) {
+          if (err.name === 'NotAllowedError') {
+              showMessage("Biometric registration canceled.", "error")
+          } else {
+              showMessage(err.message || "Failed to register biometric device.", "error")
+          }
+      } finally {
+          setSaving(false)
+      }
+  }
+
   if (loading) return (
     <div className="min-h-screen bg-[#050505] flex items-center justify-center">
         <Loader2 className="animate-spin text-green-500" size={40} />
@@ -229,8 +288,8 @@ export default function StudentSettingsPage() {
 
         <AnimatePresence>
             {message && (
-                <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className={`mb-8 p-4 rounded-xl border flex items-center gap-3 ${message.type === 'success' ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
-                    {message.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+                <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className={`mb-8 p-4 rounded-xl border flex items-center gap-3 ${message.type === 'success' ? 'bg-green-500/10 border-green-500/20 text-green-400' : message.type === 'info' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+                    {message.type === 'success' ? <CheckCircle2 size={20} /> : message.type === 'info' ? <Loader2 size={20} className="animate-spin" /> : <AlertCircle size={20} />}
                     <span className="text-sm font-bold">{message.text}</span>
                 </motion.div>
             )}
@@ -312,9 +371,64 @@ export default function StudentSettingsPage() {
                     {activeTab === 'security' && (
                         <motion.div key="security" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
                             
+                            {/* BIOMETRIC LOGIN (PASSKEYS) */}
+                            <div className="p-8 bg-[#0a0a0a] border border-emerald-500/20 rounded-3xl relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 blur-[100px] pointer-events-none" />
+                                
+                                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
+                                    <div className="flex items-start gap-4">
+                                        <div className="p-3 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-black shadow-[0_0_20px_rgba(16,185,129,0.3)] shrink-0">
+                                            <Fingerprint size={28} />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-xl font-bold text-white mb-1">Biometric Login (Passkeys)</h2>
+                                            <p className="text-sm text-emerald-100/60 max-w-sm">Use Touch ID, Face ID, or Windows Hello to log in instantly without typing a password.</p>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={handleRegisterBiometric} 
+                                        disabled={saving}
+                                        className="w-full md:w-auto px-6 py-3 bg-white text-black hover:bg-zinc-200 text-sm font-bold rounded-xl transition-colors whitespace-nowrap shadow-lg flex items-center justify-center gap-2"
+                                    >
+                                        {saving ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Register Device
+                                    </button>
+                                </div>
+
+                                {passkeys.length > 0 && (
+                                    <div className="mt-8 border-t border-white/5 pt-6 relative z-10">
+                                        <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4">Registered Devices</h4>
+                                        <div className="space-y-3">
+                                            {passkeys.map((pk, idx) => (
+                                                <div key={idx} className="flex items-center justify-between p-4 bg-black/50 border border-white/10 rounded-xl">
+                                                    <div className="flex items-center gap-3">
+                                                        <Laptop size={18} className="text-emerald-500" />
+                                                        <div>
+                                                            <p className="text-sm font-bold text-white">{pk.name}</p>
+                                                            <p className="text-xs text-zinc-500">Added on {new Date(pk.date).toLocaleDateString()}</p>
+                                                        </div>
+                                                    </div>
+                                                    <button onClick={() => setPasskeys(passkeys.filter(p => p.id !== pk.id))} className="text-xs font-bold text-red-500 hover:text-red-400">Remove</button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Two-Factor Authentication */}
+                            <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                                <div>
+                                    <h2 className="text-lg font-bold mb-1 flex items-center gap-2">Two-Factor Authentication {twoFactorEnabled && <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] uppercase tracking-widest rounded border border-emerald-500/20">Active</span>}</h2>
+                                    <p className="text-sm text-zinc-400 max-w-sm">Secure your learner account with an email OTP code.</p>
+                                </div>
+                                <button className="px-6 py-2.5 bg-zinc-800 text-white rounded-xl text-sm font-bold hover:bg-zinc-700 transition-colors border border-white/5 whitespace-nowrap">
+                                    {twoFactorEnabled ? 'Manage 2FA' : 'Enable 2FA'}
+                                </button>
+                            </div>
+
                             {/* Change Password */}
                             <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl">
-                                <h2 className="text-xl font-bold mb-6 border-b border-white/5 pb-4">Change Password</h2>
+                                <h2 className="text-lg font-bold mb-6 border-b border-white/5 pb-4">Change Password</h2>
                                 <div className="space-y-5 max-w-md">
                                     <div>
                                         <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">New Password</label>
@@ -328,11 +442,11 @@ export default function StudentSettingsPage() {
                                 </div>
                             </div>
 
-                            {/* Active Sessions (Device Management) */}
+                            {/* Active Sessions */}
                             <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl">
                                 <div className="flex justify-between items-center border-b border-white/5 pb-4 mb-6">
                                     <h2 className="text-xl font-bold">Active Sessions</h2>
-                                    <button className="text-xs font-bold text-red-400 hover:text-red-300 transition-colors">Sign out of all other devices</button>
+                                    <button className="text-xs font-bold text-red-400 hover:text-red-300 transition-colors">Sign out all others</button>
                                 </div>
                                 <div className="space-y-3">
                                     {activeSessions.map((session, i) => (
