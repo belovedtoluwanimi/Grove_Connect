@@ -1144,18 +1144,35 @@ export default function DashboardPage() {
           )}
       </AnimatePresence> */}
 
-      {/* === PREMIUM SETTINGS VIEW === */}
+      {/* === PREMIUM TUTOR SETTINGS VIEW === */}
           {currentView === 'settings' && user && (
             <motion.div initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} className="max-w-6xl mx-auto flex flex-col lg:flex-row gap-8">
               
               {/* --- PREMIUM SIDEBAR NAV --- */}
               <div className="w-full lg:w-64 shrink-0 flex overflow-x-auto lg:flex-col gap-2 pb-4 lg:pb-0 no-scrollbar">
-                <h3 className="text-xs font-black text-zinc-500 uppercase tracking-widest px-4 mb-2 hidden lg:block">Account Settings</h3>
+                <h3 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-4 mb-2 hidden lg:block">Account Settings</h3>
                 
                 {[
                   { id: 'profile', label: 'Public Profile', icon: User },
                   { id: 'security', label: 'Trust & Security', icon: Shield },
                   { id: 'payouts', label: 'Payouts & Taxes', icon: CreditCard },
+                ].map((tab) => (
+                  <button 
+                    key={tab.id} 
+                    onClick={() => setSettingsTab(tab.id as any)} 
+                    className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
+                      settingsTab === tab.id 
+                        ? 'bg-zinc-800/80 text-white shadow-sm border border-white/10' 
+                        : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
+                    }`}
+                  >
+                    <tab.icon size={18} className={settingsTab === tab.id ? "text-emerald-400" : "text-zinc-500"} />
+                    {tab.label}
+                  </button>
+                ))}
+
+                <h3 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-4 mb-2 mt-6 hidden lg:block">Platform & Data</h3>
+                {[
                   { id: 'preferences', label: 'Notifications', icon: Bell },
                   { id: 'privacy', label: 'Privacy & Data', icon: Eye },
                   { id: 'integrations', label: 'API & Webhooks', icon: Code }
@@ -1163,7 +1180,7 @@ export default function DashboardPage() {
                   <button 
                     key={tab.id} 
                     onClick={() => setSettingsTab(tab.id as any)} 
-                    className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+                    className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
                       settingsTab === tab.id 
                         ? 'bg-zinc-800/80 text-white shadow-sm border border-white/10' 
                         : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
@@ -1181,9 +1198,8 @@ export default function DashboardPage() {
                   {/* 1. PROFILE SETTINGS */}
                   {settingsTab === 'profile' && (
                      <div className="space-y-6 animate-in fade-in duration-500">
-                        
                         {/* Avatar & Header Card */}
-                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl flex flex-col sm:flex-row items-center sm:items-start gap-8 relative overflow-hidden">
+                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl flex flex-col sm:flex-row items-center sm:items-start gap-8 relative overflow-hidden shadow-2xl">
                             <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-emerald-900/20 to-transparent pointer-events-none" />
                             
                             <div className="relative z-10 group">
@@ -1263,7 +1279,468 @@ export default function DashboardPage() {
                      </div>
                   )}
 
-                  {/* --- ELITE FINTECH WITHDRAWAL ENGINE --- */}
+                  {/* 2. TRUST & SECURITY TAB */}
+                  {settingsTab === 'security' && (
+                     <div className="space-y-6 animate-in fade-in duration-500">
+                        {/* KYC Verification Card */}
+                        <div className={`p-8 rounded-3xl border shadow-xl ${user.is_verified ? 'bg-[#0a0a0a] border-emerald-500/30' : 'bg-[#0a0a0a] border-white/5'}`}>
+                            <div className="flex items-start justify-between mb-4">
+                                <div className={`p-3 rounded-xl ${user.is_verified ? 'bg-emerald-500/20' : 'bg-blue-500/20'}`}>
+                                    <User size={24} className={user.is_verified ? "text-emerald-400" : "text-blue-400"} />
+                                </div>
+                                {user.is_verified && <CheckCircle2 className="text-emerald-500" size={28} />}
+                            </div>
+                            <h4 className="text-xl font-bold text-white mb-2">Identity Verification (KYC)</h4>
+                            <p className="text-sm text-gray-400 mb-6">Required by financial regulations before you can publish courses or withdraw payouts on Grove Connect.</p>
+                            
+                            {user.is_verified ? (
+                                <span className="inline-block px-4 py-2 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-lg uppercase tracking-widest border border-emerald-500/20">Verified Tutor</span>
+                            ) : (
+                                <button onClick={() => setShowKYCModal(true)} className="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-lg">Start KYC Process</button>
+                            )}
+                        </div>
+
+                        {/* 2FA Card */}
+                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
+                            <div className="flex items-start gap-4">
+                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${user.two_factor_enabled ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-[0_0_20px_rgba(16,185,129,0.3)]' : 'bg-zinc-800'}`}>
+                                    <Shield size={24} className={user.two_factor_enabled ? "text-[#0a0a0a]" : "text-zinc-500"} />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-white flex items-center gap-2">Two-Factor Authentication {user.two_factor_enabled && <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] uppercase tracking-widest rounded border border-emerald-500/20">Active</span>}</h3>
+                                    <p className="text-sm text-zinc-400 mt-1">Add an extra layer of security to your account. Highly recommended.</p>
+                                </div>
+                            </div>
+                            
+                            {!user.two_factor_enabled && !show2FASetup && (
+                                <button onClick={async (e) => {
+                                    const btn = e.currentTarget; btn.disabled = true; btn.innerText = "Sending...";
+                                    try {
+                                        await fetch('/api/2fa', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send', email: user.email, userId: user.id }) });
+                                        setShow2FASetup(true); showToast("OTP sent to your email!", "success");
+                                    } catch (err) { showToast("Failed to send email.", "error"); } 
+                                    finally { btn.disabled = false; btn.innerText = "Enable 2FA"; }
+                                }} className="px-6 py-3 bg-white text-black hover:bg-zinc-200 text-sm font-bold rounded-xl transition-colors whitespace-nowrap">
+                                    Enable 2FA
+                                </button>
+                            )}
+                        </div>
+
+                        {show2FASetup && !user.two_factor_enabled && (
+                            <motion.div initial={{opacity:0, height:0}} animate={{opacity:1, height:'auto'}} className="p-8 bg-zinc-900/50 border border-emerald-500/20 rounded-3xl">
+                                <h4 className="font-bold text-white mb-2">Check your email</h4>
+                                <p className="text-sm text-zinc-400 mb-6">We sent a 6-digit code to <span className="text-white">{user.email}</span>.</p>
+                                <div className="flex max-w-md gap-3">
+                                    <input value={twoFACode} onChange={(e)=>setTwoFACode(e.target.value.replace(/\D/g, ''))} placeholder="000000" className="flex-1 bg-black border border-white/10 rounded-xl p-3 text-center tracking-[1em] font-mono text-xl outline-none focus:border-emerald-500 text-white" maxLength={6} />
+                                    <button onClick={handleEnable2FA} className="bg-emerald-600 hover:bg-emerald-500 px-8 rounded-xl font-bold text-sm transition-colors text-white">Verify</button>
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {/* Password Card */}
+                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl space-y-6 shadow-xl">
+                           <h3 className="text-lg font-bold border-b border-white/5 pb-4">Change Password</h3>
+                           <div className="max-w-md space-y-4">
+                               <div className="space-y-2"><label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">New Password</label><input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-white/30 transition-colors text-white" /></div>
+                               <button onClick={handlePasswordUpdate} className="bg-zinc-800 text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-zinc-700 transition-colors border border-white/5">Update Password</button>
+                           </div>
+                        </div>
+                     </div>
+                  )}
+
+                  {/* 3. FINTECH PAYOUTS TAB */}
+                  {settingsTab === 'payouts' && (
+                     <div className="space-y-6 animate-in fade-in duration-500">
+                        
+                        {/* Premium Wallet Dashboard */}
+                        <div className="p-8 bg-gradient-to-br from-[#0a0a0a] to-[#050505] border border-white/5 rounded-3xl overflow-hidden relative shadow-2xl">
+                            <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 blur-[120px] pointer-events-none" />
+                            
+                            <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-8 relative z-10">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10"><DollarSign size={16} className="text-emerald-500"/></div>
+                                        <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-widest">Available Balance</h3>
+                                    </div>
+                                    <div className="flex items-baseline gap-2">
+                                        <h2 className="text-5xl md:text-6xl font-black text-white tracking-tighter">
+                                            ${(overallStats.revenue * 0.8).toFixed(2).split('.')[0]}<span className="text-3xl text-zinc-500">.{ (overallStats.revenue * 0.8).toFixed(2).split('.')[1] }</span>
+                                        </h2>
+                                        <span className="text-emerald-500 font-bold ml-2 text-sm bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">USD</span>
+                                    </div>
+                                </div>
+                                
+                                <div className="w-full md:w-auto space-y-3">
+                                    <div className="p-4 bg-black/50 border border-white/10 rounded-2xl flex items-center justify-between gap-6 backdrop-blur-md">
+                                        <div>
+                                            <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Pending Clearance</p>
+                                            <p className="text-lg font-bold text-zinc-300">${(overallStats.revenue * 0.2).toFixed(2)}</p>
+                                        </div>
+                                        <Clock size={20} className="text-zinc-600"/>
+                                    </div>
+                                    <button 
+                                        onClick={() => {
+                                            if (!user?.payout_method || !user?.payout_details) return showToast("Please configure a payout method below first.", "error")
+                                            if ((overallStats.revenue * 0.8) < 50) return showToast("Minimum payout is $50.00", "error")
+                                            setWithdrawStep(1)
+                                            setWithdrawAmount('')
+                                            setWithdrawModalOpen(true)
+                                        }} 
+                                        className="w-full px-8 py-4 bg-white text-black hover:bg-zinc-200 font-black uppercase tracking-widest text-xs rounded-2xl transition-all shadow-[0_0_30px_rgba(255,255,255,0.15)] flex items-center justify-center gap-2"
+                                    >
+                                        Withdraw Funds <ArrowUpRight size={16}/>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Connected Accounts & Settings */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Account Link */}
+                            <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl shadow-xl">
+                                <div className="flex justify-between items-center border-b border-white/5 pb-4 mb-6">
+                                    <h3 className="text-sm font-bold text-white uppercase tracking-widest">Linked Account</h3>
+                                </div>
+                                
+                                {(!user.nationality) ? (
+                                    <div className="text-center py-4 text-zinc-500 text-sm">Set your Nationality in Profile to configure payouts.</div>
+                                ) : !user.payout_method ? (
+                                    <div className="space-y-3">
+                                        {(PAYOUT_MAPPING[user.nationality] || PAYOUT_MAPPING['default']).map(method => (
+                                            <label key={method} className="flex items-center justify-between p-4 bg-black border border-white/5 rounded-xl cursor-pointer hover:border-white/20 transition-all">
+                                                <div className="flex items-center gap-3">
+                                                    <CreditCard size={16} className="text-zinc-500"/>
+                                                    <span className="text-sm font-bold text-zinc-300">{method}</span>
+                                                </div>
+                                                <input type="radio" name="payout" onChange={() => updateProfile({ payout_method: method })} className="accent-emerald-500" />
+                                            </label>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-4 p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl">
+                                            <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center border border-white/10 shrink-0">
+                                                {user.payout_method.includes('Bank') ? <Landmark size={20} className="text-white"/> : <CreditCard size={20} className="text-white"/>}
+                                            </div>
+                                            <div className="overflow-hidden w-full">
+                                                <p className="font-bold text-white text-sm">{user.payout_method}</p>
+                                                <input 
+                                                    defaultValue={user.payout_details || ''} 
+                                                    onBlur={(e) => updateProfile({ payout_details: e.target.value })}
+                                                    placeholder="Enter Account No. / Email" 
+                                                    className="w-full bg-transparent outline-none text-xs text-zinc-500 font-mono mt-1"
+                                                />
+                                            </div>
+                                            <button onClick={() => updateProfile({ payout_method: '' })} className="p-2 hover:bg-red-500/20 rounded-full text-zinc-500 hover:text-red-400 transition-colors"><X size={16}/></button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Recent Transactions */}
+                            <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl shadow-xl">
+                                <div className="flex justify-between items-center border-b border-white/5 pb-4 mb-6">
+                                    <h3 className="text-sm font-bold text-white uppercase tracking-widest">Recent Activity</h3>
+                                </div>
+                                <div className="space-y-4 max-h-[200px] overflow-y-auto no-scrollbar">
+                                    {transactions.length === 0 ? (
+                                        <p className="text-sm text-zinc-600 text-center py-4">No recent payouts.</p>
+                                    ) : (
+                                        transactions.map((tx) => (
+                                            <div key={tx.id} className="flex items-center justify-between p-3 bg-black border border-white/5 rounded-xl">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center border border-white/10 shrink-0">
+                                                        <ArrowUpRight size={16} className="text-emerald-500" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-bold text-white">Withdrawal</p>
+                                                        <p className="text-xs text-zinc-500">{new Date(tx.date).toLocaleDateString()}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-sm font-bold text-white">${tx.amount.toFixed(2)}</p>
+                                                    <p className="text-[10px] text-emerald-400 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded inline-block mt-1">{tx.status}</p>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                     </div>
+                  )}
+
+                  {/* 4. NOTIFICATION PREFERENCES */}
+                  {settingsTab === 'preferences' && (
+                     <div className="space-y-6 animate-in fade-in duration-500">
+                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl shadow-xl">
+                            <h3 className="text-lg font-bold border-b border-white/5 pb-4 mb-6">Email Notifications</h3>
+                            
+                            <div className="space-y-3">
+                                {[
+                                    { id: 'purchases', title: 'Course Purchases', desc: 'Get notified immediately when a student buys your course.' },
+                                    { id: 'reviews', title: 'Student Reviews & Q&A', desc: 'Receive a daily digest of new student questions and ratings.' },
+                                    { id: 'marketing', title: 'Grove Academy Marketing', desc: 'Tips on how to grow your audience and platform news.' },
+                                    { id: 'platformUpdates', title: 'Platform Updates', desc: 'Important technical updates regarding Grove Connect.' }
+                                ].map((pref) => (
+                                    <div key={pref.id} className="flex items-center justify-between p-5 bg-black border border-white/5 rounded-2xl hover:border-white/10 transition-colors group">
+                                        <div>
+                                            <h4 className="font-bold text-white text-sm">{pref.title}</h4>
+                                            <p className="text-xs text-zinc-500 mt-1">{pref.desc}</p>
+                                        </div>
+                                        <div 
+                                            onClick={() => setEmailPrefs(prev => ({...prev, [pref.id]: !(prev as any)[pref.id]}))} 
+                                            className={`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-300 ${ (emailPrefs as any)[pref.id] ? 'bg-emerald-500' : 'bg-zinc-800'}`}
+                                        >
+                                            <motion.div 
+                                                layout 
+                                                transition={{ type: "spring", stiffness: 700, damping: 30 }}
+                                                className="w-4 h-4 bg-white rounded-full shadow-sm"
+                                                style={{ marginLeft: (emailPrefs as any)[pref.id] ? '24px' : '0px' }}
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="flex justify-end pt-8 border-t border-white/5 mt-6">
+                                <button onClick={() => showToast("Preferences updated successfully!", "success")} className="bg-white text-black px-8 py-3 rounded-xl font-bold text-sm hover:bg-zinc-200 transition-colors shadow-lg">Save Preferences</button>
+                            </div>
+                        </div>
+                     </div>
+                  )}
+
+                  {/* 5. PRIVACY & DATA (GDPR COMPLIANCE) */}
+                  {settingsTab === 'privacy' && (
+                     <div className="space-y-6 animate-in fade-in duration-500">
+                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl shadow-xl">
+                            <h3 className="text-lg font-bold border-b border-white/5 pb-4 mb-6">Profile Visibility</h3>
+                            <p className="text-sm text-zinc-400 mb-6">Control how your profile appears to students and search engines.</p>
+                            
+                            <div className="space-y-3">
+                                {[
+                                    { id: 'publicProfile', title: 'Public Search Indexing', desc: 'Allow Google and other search engines to index your Grove Tutor profile.' },
+                                    { id: 'showCourses', title: 'Display Course Library', desc: 'Show all your active courses on your public profile page.' },
+                                    { id: 'allowDirectMessages', title: 'Allow Direct Messages', desc: 'Let enrolled students send you direct messages on the platform.' }
+                                ].map((pref) => (
+                                    <div key={pref.id} className="flex items-center justify-between p-5 bg-black border border-white/5 rounded-2xl hover:border-white/10 transition-colors">
+                                        <div>
+                                            <h4 className="font-bold text-white text-sm">{pref.title}</h4>
+                                            <p className="text-xs text-zinc-500 mt-1">{pref.desc}</p>
+                                        </div>
+                                        <div 
+                                            onClick={() => setPrivacyPrefs(prev => ({...prev, [pref.id]: !(prev as any)[pref.id]}))} 
+                                            className={`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-300 ${ (privacyPrefs as any)[pref.id] ? 'bg-emerald-500' : 'bg-zinc-800'}`}
+                                        >
+                                            <motion.div layout transition={{ type: "spring", stiffness: 700, damping: 30 }} className="w-4 h-4 bg-white rounded-full shadow-sm" style={{ marginLeft: (privacyPrefs as any)[pref.id] ? '24px' : '0px' }} />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            
+                            <div className="flex justify-end pt-8 mt-6 border-t border-white/5">
+                                <button onClick={() => showToast("Privacy settings saved.", "success")} className="bg-white text-black px-8 py-3 rounded-xl font-bold text-sm hover:bg-zinc-200 transition-colors shadow-lg">Save Privacy Settings</button>
+                            </div>
+                        </div>
+
+                        {/* Data Portability (GDPR) */}
+                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl space-y-4 shadow-xl">
+                            <h3 className="text-lg font-bold border-b border-white/5 pb-4">Data Portability</h3>
+                            <p className="text-sm text-zinc-400">In accordance with GDPR, you can request a copy of all personal data Grove Connect holds about you.</p>
+                            <div className="flex items-center justify-between p-5 bg-black border border-white/5 rounded-2xl">
+                                <div>
+                                    <h4 className="font-bold text-white text-sm">Export Personal Data</h4>
+                                    <p className="text-xs text-zinc-500 mt-1">Download a JSON file containing your profile, courses, and financial history.</p>
+                                </div>
+                                <button onClick={() => {
+                                    showToast("Compiling your data. Download will start automatically.", "success");
+                                    window.open('/api/export', '_blank');
+                                }} className="flex items-center gap-2 px-5 py-2.5 bg-zinc-900 border border-white/10 text-white rounded-xl font-bold text-sm hover:bg-zinc-800 transition-colors">
+                                    <Download size={16}/> Request Export
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* --- DANGER ZONE --- */}
+                        <div className="p-8 bg-[#0a0a0a] border border-red-500/20 rounded-3xl relative overflow-hidden shadow-2xl mt-12">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-[50px] pointer-events-none" />
+                            <h4 className="text-lg font-bold text-red-500 mb-2 relative z-10">Danger Zone</h4>
+                            <p className="text-sm text-zinc-400 mb-6 relative z-10">Permanently delete your account and all associated course data. This action cannot be undone.</p>
+                            
+                            <div className="p-6 bg-black border border-red-500/20 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
+                                <div>
+                                    <h5 className="font-bold text-white text-sm">Delete Tutor Account</h5>
+                                    <p className="text-xs text-red-400/60 mt-1">You must process all pending payouts before deleting.</p>
+                                </div>
+                                <button onClick={() => showToast("Please contact support to initiate account deletion.", "error")} className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all border border-red-500/20 w-full sm:w-auto text-center whitespace-nowrap">
+                                    Delete Account
+                                </button>
+                            </div>
+                        </div>
+                     </div>
+                  )}
+
+                  {/* 6. API & INTEGRATIONS */}
+                  {settingsTab === 'integrations' && (
+                     <div className="space-y-6 animate-in fade-in duration-500">
+                        {/* Developer API Keys */}
+                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl relative overflow-hidden shadow-xl">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 blur-[100px] pointer-events-none" />
+                            <div className="flex justify-between items-start mb-6">
+                                <div>
+                                    <h3 className="text-lg font-bold text-white flex items-center gap-2"><Code size={20} className="text-blue-500"/> Developer API</h3>
+                                    <p className="text-sm text-zinc-400 mt-1">Build custom integrations or connect to external tools.</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4 relative z-10">
+                                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block">Live Secret Key</label>
+                                <div className="flex items-center gap-3 bg-black border border-white/10 rounded-xl p-2 pr-4 focus-within:border-blue-500/50 transition-colors">
+                                    <div className="p-3 bg-zinc-900 rounded-lg"><Lock size={16} className="text-zinc-500"/></div>
+                                    <input 
+                                        type="password" 
+                                        readOnly 
+                                        value={apiKey || ''} 
+                                        className="bg-transparent outline-none text-sm text-white w-full font-mono tracking-widest cursor-not-allowed" 
+                                    />
+                                    <button onClick={handleCopyKey} className="text-zinc-500 hover:text-white transition-colors" title="Copy to clipboard">
+                                        <Copy size={18}/>
+                                    </button>
+                                </div>
+
+                                <div className="flex justify-between items-center pt-4 border-t border-white/5 mt-4">
+                                    <p className="text-xs text-yellow-500 flex items-center gap-1"><AlertCircle size={14}/> Do not share this key.</p>
+                                    <button onClick={handleGenerateNewKey} disabled={isGeneratingKey} className="text-xs font-bold text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-2">
+                                        {isGeneratingKey ? <Loader2 size={14} className="animate-spin"/> : "Roll Key (Revoke Old)"}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Webhooks */}
+                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl space-y-6 shadow-xl">
+                            <div>
+                                <h3 className="text-lg font-bold text-white flex items-center gap-2"><Webhook size={20} className="text-purple-500"/> Outbound Webhooks</h3>
+                                <p className="text-sm text-zinc-400 mt-1">Send real-time alerts to Zapier, Discord, or your own servers when an event happens.</p>
+                            </div>
+
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block">Endpoint URL</label>
+                                <input 
+                                    value={webhookUrl}
+                                    onChange={(e) => setWebhookUrl(e.target.value)}
+                                    placeholder="https://hooks.zapier.com/hooks/catch/..." 
+                                    className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-purple-500/50 text-white font-mono text-sm" 
+                                />
+                            </div>
+
+                            <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-4">
+                                <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3">Events to send:</p>
+                                <div className="flex flex-wrap gap-2">
+                                    <span className="px-3 py-1 bg-white/5 text-zinc-300 text-xs font-bold rounded-lg border border-white/10">course.purchased</span>
+                                    <span className="px-3 py-1 bg-white/5 text-zinc-300 text-xs font-bold rounded-lg border border-white/10">student.enrolled</span>
+                                    <span className="px-3 py-1 bg-white/5 text-zinc-300 text-xs font-bold rounded-lg border border-white/10">review.created</span>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end border-t border-white/5 pt-6">
+                                <button onClick={() => {
+                                    if(!webhookUrl) return showToast("Please enter a valid URL.", "error")
+                                    showToast("Webhook endpoint saved and verified!", "success")
+                                }} className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl font-bold text-sm transition-colors shadow-lg">
+                                    Save Webhook
+                                </button>
+                            </div>
+                        </div>
+                     </div>
+                  )}
+
+              </div>
+            </motion.div>
+          )}
+
+      {/* --- KYC VERIFICATION MODAL (SMILE ID) --- */}
+      <AnimatePresence>
+          {showKYCModal && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                  <motion.div 
+                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                      className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                      onClick={() => !isVerifying && setShowKYCModal(false)}
+                  />
+                  <motion.div 
+                      initial={{ opacity: 0, scale: 0.95, y: 20 }} 
+                      animate={{ opacity: 1, scale: 1, y: 0 }} 
+                      exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                      className="relative w-full max-w-lg bg-[#0a0a0a] border border-white/10 rounded-3xl overflow-hidden shadow-2xl z-10 flex flex-col max-h-[90vh]"
+                  >
+                      <div className="p-6 border-b border-white/10 flex items-center justify-between bg-black/40">
+                          <div>
+                              <h2 className="text-xl font-bold flex items-center gap-2"><Shield className="text-emerald-500"/> Tutor Verification</h2>
+                              <p className="text-xs text-zinc-400 mt-1">Required before publishing courses on Grove Academy.</p>
+                          </div>
+                          {!isVerifying && (
+                              <button onClick={() => setShowKYCModal(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={20}/></button>
+                          )}
+                      </div>
+
+                      <div className="p-6 overflow-y-auto flex-1 flex flex-col items-center justify-center min-h-[400px]">
+                          {isVerifying ? (
+                              <div className="w-full h-full flex items-center justify-center relative">
+                                  <SmileCameraWrapper 
+                                  user={user}
+                                      onSuccess={async (detail: any) => {
+                                          const { error } = await supabase
+                                              .from('profiles')
+                                              .update({ is_verified: true })
+                                              .eq('id', user?.id)
+                                              
+                                          if (!error) {
+                                              setUser(prev => prev ? {...prev, is_verified: true} : null)
+                                              setShowKYCModal(false)
+                                              showToast("Identity Verified Successfully!", "success")
+                                              if (user?.two_factor_enabled) {
+                                                  setTimeout(() => router.push('/admin/create-course'), 500)
+                                              }
+                                          } else {
+                                              showToast("Database update failed.", "error")
+                                          }
+                                      }}
+                                      onError={(detail: any) => {
+                                          showToast("Camera error. Please ensure permissions are granted.", "error")
+                                          setIsVerifying(false)
+                                      }}
+                                  />
+                              </div>
+                              ) : (
+                              <div className="text-center space-y-6">
+                                  <div className="flex justify-center gap-4">
+                                      <div className="w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20"><User size={32} className="text-emerald-400"/></div>
+                                      <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center border border-blue-500/20"><Smartphone size={32} className="text-blue-400"/></div>
+                                  </div>
+                                  <div>
+                                      <h3 className="text-2xl font-bold mb-2 text-white">Prove you're human</h3>
+                                      <p className="text-zinc-400 text-sm max-w-sm mx-auto leading-relaxed">
+                                          To maintain trust and safety for our students, all Grove Academy tutors must complete a quick 3D liveness check.
+                                      </p>
+                                  </div>
+                                  <div className="bg-black/40 border border-white/5 rounded-xl p-4 text-left space-y-3">
+                                      <div className="flex items-start gap-3"><CheckCircle2 size={16} className="text-emerald-500 mt-0.5 shrink-0"/><p className="text-xs text-zinc-300">Takes less than 30 seconds</p></div>
+                                      <div className="flex items-start gap-3"><CheckCircle2 size={16} className="text-emerald-500 mt-0.5 shrink-0"/><p className="text-xs text-zinc-300">Ensure you are in a well-lit room</p></div>
+                                      <div className="flex items-start gap-3"><CheckCircle2 size={16} className="text-emerald-500 mt-0.5 shrink-0"/><p className="text-xs text-zinc-300">Remove glasses or hats for the scan</p></div>
+                                  </div>
+                                  <button onClick={() => setIsVerifying(true)} className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-[0_0_30px_rgba(16,185,129,0.3)] transition-colors flex items-center justify-center gap-2">
+                                      Start Verification <ArrowUpRight size={18} />
+                                  </button>
+                              </div>
+                          )}
+                      </div>
+                  </motion.div>
+              </div>
+          )}
+      </AnimatePresence>
+
+      {/* --- ELITE FINTECH WITHDRAWAL ENGINE --- */}
       <AnimatePresence>
           {isWithdrawModalOpen && (
               <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 sm:p-6">
@@ -1484,8 +1961,8 @@ export default function DashboardPage() {
                               <button 
                                   onClick={() => {
                                       setWithdrawModalOpen(false);
-                                      // Note: In reality, refresh the page or recall your database here to update the main balance UI
-                                      setTimeout(() => window.location.reload(), 300);
+                                      // Optimistically update transaction list
+                                      setTransactions([{ id: `tx_${Math.floor(Math.random()*10000)}`, date: new Date().toISOString(), amount: parseFloat(withdrawAmount), status: 'Pending', method: user?.payout_method || 'Bank Transfer' }, ...transactions]);
                                   }}
                                   className="relative z-10 w-full py-4 bg-white text-black font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-zinc-200 transition-colors"
                               >
@@ -1497,289 +1974,7 @@ export default function DashboardPage() {
               </div>
           )}
       </AnimatePresence>
-                  {/* 4. NOTIFICATION PREFERENCES */}
-                  {settingsTab === 'preferences' && (
-                     <div className="space-y-6 animate-in fade-in duration-500">
-                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl">
-                            <h3 className="text-lg font-bold border-b border-white/5 pb-4 mb-6">Email Notifications</h3>
-                            
-                            <div className="space-y-2">
-                                {[
-                                    { id: 'purchases', title: 'Course Purchases', desc: 'Get notified immediately when a student buys your course.' },
-                                    { id: 'reviews', title: 'Student Reviews & Q&A', desc: 'Receive a daily digest of new student questions and ratings.' },
-                                    { id: 'marketing', title: 'Grove Academy Marketing', desc: 'Tips on how to grow your audience and platform news.' },
-                                    { id: 'platformUpdates', title: 'Platform Updates', desc: 'Important technical updates regarding Grove Connect.' }
-                                ].map((pref) => (
-                                    <div key={pref.id} className="flex items-center justify-between p-5 bg-black border border-white/5 rounded-2xl hover:border-white/10 transition-colors group">
-                                        <div>
-                                            <h4 className="font-bold text-white text-sm">{pref.title}</h4>
-                                            <p className="text-xs text-zinc-500 mt-1">{pref.desc}</p>
-                                        </div>
-                                        {/* PREMIUM FRAMER MOTION TOGGLE */}
-                                        <div 
-                                            onClick={() => setEmailPrefs(prev => ({...prev, [pref.id]: !(prev as any)[pref.id]}))} 
-                                            className={`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-300 ${ (emailPrefs as any)[pref.id] ? 'bg-emerald-500' : 'bg-zinc-800'}`}
-                                        >
-                                            <motion.div 
-                                                layout 
-                                                transition={{ type: "spring", stiffness: 700, damping: 30 }}
-                                                className="w-4 h-4 bg-white rounded-full shadow-sm"
-                                                style={{ marginLeft: (emailPrefs as any)[pref.id] ? '24px' : '0px' }}
-                                            />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
 
-                            <div className="flex justify-end pt-8">
-                                <button onClick={() => showToast("Preferences updated successfully!", "success")} className="bg-white text-black px-6 py-3 rounded-xl font-bold text-sm hover:bg-zinc-200 transition-colors">Save Preferences</button>
-                            </div>
-                        </div>
-
-                        {/* --- DANGER ZONE --- */}
-                        <div className="p-8 bg-[#0a0a0a] border border-red-500/20 rounded-3xl relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-[50px] pointer-events-none" />
-                            <h4 className="text-lg font-bold text-red-500 mb-2 relative z-10">Danger Zone</h4>
-                            <p className="text-sm text-zinc-400 mb-6 relative z-10">Permanently delete your account and all associated course data. This action cannot be undone.</p>
-                            
-                            <div className="p-6 bg-black border border-red-500/20 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
-                                <div>
-                                    <h5 className="font-bold text-white text-sm">Delete Tutor Account</h5>
-                                    <p className="text-xs text-red-400/60 mt-1">You must process all pending payouts before deleting.</p>
-                                </div>
-                                <button onClick={() => showToast("Please contact support to initiate account deletion.", "error")} className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all border border-red-500/20 w-full sm:w-auto text-center whitespace-nowrap">
-                                    Delete Account
-                                </button>
-                            </div>
-                        </div>
-                     </div>
-                  )}
-
-                  {/* 5. PRIVACY & DATA (GDPR COMPLIANCE) */}
-                  {settingsTab === 'privacy' && (
-                     <div className="space-y-6 animate-in fade-in duration-500">
-                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl">
-                            <h3 className="text-lg font-bold border-b border-white/5 pb-4 mb-6">Profile Visibility</h3>
-                            <p className="text-sm text-zinc-400 mb-6">Control how your profile appears to students and search engines.</p>
-                            
-                            <div className="space-y-2">
-                                {[
-                                    { id: 'publicProfile', title: 'Public Search Indexing', desc: 'Allow Google and other search engines to index your Grove Tutor profile.' },
-                                    { id: 'showCourses', title: 'Display Course Library', desc: 'Show all your active courses on your public profile page.' },
-                                    { id: 'allowDirectMessages', title: 'Allow Direct Messages', desc: 'Let enrolled students send you direct messages on the platform.' }
-                                ].map((pref) => (
-                                    <div key={pref.id} className="flex items-center justify-between p-5 bg-black border border-white/5 rounded-2xl hover:border-white/10 transition-colors">
-                                        <div>
-                                            <h4 className="font-bold text-white text-sm">{pref.title}</h4>
-                                            <p className="text-xs text-zinc-500 mt-1">{pref.desc}</p>
-                                        </div>
-                                        <div 
-                                            onClick={() => setPrivacyPrefs(prev => ({...prev, [pref.id]: !(prev as any)[pref.id]}))} 
-                                            className={`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-300 ${ (privacyPrefs as any)[pref.id] ? 'bg-emerald-500' : 'bg-zinc-800'}`}
-                                        >
-                                            <motion.div layout transition={{ type: "spring", stiffness: 700, damping: 30 }} className="w-4 h-4 bg-white rounded-full shadow-sm" style={{ marginLeft: (privacyPrefs as any)[pref.id] ? '24px' : '0px' }} />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                            
-                            <div className="flex justify-end pt-8">
-                                <button onClick={() => showToast("Privacy settings saved.", "success")} className="bg-white text-black px-6 py-3 rounded-xl font-bold text-sm hover:bg-zinc-200 transition-colors">Save Privacy Settings</button>
-                            </div>
-                        </div>
-
-                        {/* Data Portability (GDPR) */}
-                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl space-y-4">
-                            <h3 className="text-lg font-bold border-b border-white/5 pb-4">Data Portability</h3>
-                            <p className="text-sm text-zinc-400">In accordance with GDPR, you can request a copy of all personal data Grove Connect holds about you.</p>
-                            <div className="flex items-center justify-between p-5 bg-zinc-900/50 border border-white/5 rounded-2xl">
-                                <div>
-                                    <h4 className="font-bold text-white text-sm">Export Personal Data</h4>
-                                    <p className="text-xs text-zinc-500 mt-1">Download a JSON file containing your profile, courses, and financial history.</p>
-                                </div>
-                                <button onClick={() => {
-    showToast("Compiling your data. Download will start automatically.", "success");
-    // Simply opening the GET route in a new window triggers the file download!
-    window.open('/api/export', '_blank');
-}} className="flex items-center gap-2 px-5 py-2.5 bg-black border border-white/10 text-white rounded-xl font-bold text-sm hover:bg-zinc-900 transition-colors">
-    <Download size={16}/> Request Export
-</button>
-                            </div>
-                        </div>
-                     </div>
-                  )}
-
-                  {/* 6. API & INTEGRATIONS */}
-                  {settingsTab === 'integrations' && (
-                     <div className="space-y-6 animate-in fade-in duration-500">
-                        
-                        {/* Developer API Keys */}
-                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 blur-[100px] pointer-events-none" />
-                            <div className="flex justify-between items-start mb-6">
-                                <div>
-                                    <h3 className="text-lg font-bold text-white flex items-center gap-2"><Code size={20} className="text-blue-500"/> Developer API</h3>
-                                    <p className="text-sm text-zinc-400 mt-1">Build custom integrations or connect to external tools.</p>
-                                </div>
-                            </div>
-
-                            <div className="space-y-4 relative z-10">
-                                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block">Live Secret Key</label>
-                                <div className="flex items-center gap-3 bg-black border border-white/10 rounded-xl p-2 pr-4 focus-within:border-blue-500/50 transition-colors">
-                                    <div className="p-3 bg-zinc-900 rounded-lg"><Lock size={16} className="text-zinc-500"/></div>
-                                    <input 
-                                        type="password" 
-                                        readOnly 
-                                        value={apiKey || ''} 
-                                        className="bg-transparent outline-none text-sm text-white w-full font-mono tracking-widest cursor-not-allowed" 
-                                    />
-                                    <button onClick={handleCopyKey} className="text-zinc-500 hover:text-white transition-colors" title="Copy to clipboard">
-                                        <Copy size={18}/>
-                                    </button>
-                                </div>
-
-                                <div className="flex justify-between items-center pt-4">
-                                    <p className="text-xs text-yellow-500 flex items-center gap-1"><AlertCircle size={14}/> Do not share this key. It grants full access to your account.</p>
-                                    <button onClick={handleGenerateNewKey} disabled={isGeneratingKey} className="text-xs font-bold text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-2">
-                                        {isGeneratingKey ? <Loader2 size={14} className="animate-spin"/> : "Roll Key (Revoke Old)"}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Webhooks */}
-                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl space-y-6">
-                            <div>
-                                <h3 className="text-lg font-bold text-white flex items-center gap-2"><Webhook size={20} className="text-purple-500"/> Outbound Webhooks</h3>
-                                <p className="text-sm text-zinc-400 mt-1">Send real-time alerts to Zapier, Discord, or your own servers when an event happens.</p>
-                            </div>
-
-                            <div className="space-y-3">
-                                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block">Endpoint URL</label>
-                                <input 
-                                    value={webhookUrl}
-                                    onChange={(e) => setWebhookUrl(e.target.value)}
-                                    placeholder="https://hooks.zapier.com/hooks/catch/..." 
-                                    className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-purple-500/50 text-white font-mono text-sm" 
-                                />
-                            </div>
-
-                            <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-4">
-                                <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3">Events to send:</p>
-                                <div className="flex flex-wrap gap-2">
-                                    <span className="px-3 py-1 bg-white/5 text-zinc-300 text-xs font-bold rounded-lg border border-white/10">course.purchased</span>
-                                    <span className="px-3 py-1 bg-white/5 text-zinc-300 text-xs font-bold rounded-lg border border-white/10">student.enrolled</span>
-                                    <span className="px-3 py-1 bg-white/5 text-zinc-300 text-xs font-bold rounded-lg border border-white/10">review.created</span>
-                                </div>
-                            </div>
-
-                            <div className="flex justify-end border-t border-white/5 pt-6">
-                                <button onClick={() => {
-                                    if(!webhookUrl) return showToast("Please enter a valid URL.", "error")
-                                    showToast("Webhook endpoint saved and verified!", "success")
-                                }} className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-3 rounded-xl font-bold text-sm transition-colors shadow-lg">
-                                    Save Webhook
-                                </button>
-                            </div>
-                        </div>
-                     </div>
-                  )}
-
-              </div>
-            </motion.div>
-          )}
-
-
-      <AnimatePresence>
-          {showKYCModal && (
-              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                  {/* Backdrop */}
-                  <motion.div 
-                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                      className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-                      onClick={() => !isVerifying && setShowKYCModal(false)}
-                  />
-                  
-                  {/* Modal Content */}
-                  <motion.div 
-                      initial={{ opacity: 0, scale: 0.95, y: 20 }} 
-                      animate={{ opacity: 1, scale: 1, y: 0 }} 
-                      exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                      className="relative w-full max-w-lg bg-neutral-900 border border-white/10 rounded-3xl overflow-hidden shadow-2xl z-10 flex flex-col max-h-[90vh]"
-                  >
-                      {/* Header */}
-                      <div className="p-6 border-b border-white/10 flex items-center justify-between bg-black/40">
-                          <div>
-                              <h2 className="text-xl font-bold flex items-center gap-2"><Shield className="text-emerald-500"/> Tutor Verification</h2>
-                              <p className="text-xs text-zinc-400 mt-1">Required before publishing courses on Grove Academy.</p>
-                          </div>
-                          {!isVerifying && (
-                              <button onClick={() => setShowKYCModal(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={20}/></button>
-                          )}
-                      </div>
-
-                      {/* Content Area */}
-                      <div className="p-6 overflow-y-auto flex-1 flex flex-col items-center justify-center min-h-[400px]">
-                          {isVerifying ? (
-                              <div className="w-full h-full flex items-center justify-center relative">
-                                  {/* SAFE INJECTION WRAPPER */}
-                                  <SmileCameraWrapper 
-                                  user={user}
-                                      onSuccess={async (detail: any) => {
-                                          console.log("Smile ID Response:", detail)
-                                          
-                                          // Update Supabase Profile
-                                          const { error } = await supabase
-                                              .from('profiles')
-                                              .update({ is_verified: true })
-                                              .eq('id', user?.id)
-                                              
-                                          if (!error) {
-                                              setUser(prev => prev ? {...prev, is_verified: true} : null)
-                                              setShowKYCModal(false)
-                                              showToast("Identity Verified Successfully!", "success")
-                                              
-                                              if (user?.two_factor_enabled) {
-                                                  setTimeout(() => router.push('/admin/create-course'), 500)
-                                              }
-                                          } else {
-                                              showToast("Database update failed.", "error")
-                                          }
-                                      }}
-                                      onError={(detail: any) => {
-                                          console.error(detail)
-                                          showToast("Camera error. Please ensure permissions are granted.", "error")
-                                          setIsVerifying(false)
-                                      }}
-                                  />
-                              </div>
-                              ) : (
-                              <div className="text-center space-y-6">
-                                  <div className="flex justify-center gap-4">
-                                      <div className="w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20"><User size={32} className="text-emerald-400"/></div>
-                                      <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center border border-blue-500/20"><Smartphone size={32} className="text-blue-400"/></div>
-                                  </div>
-                                  <div>
-                                      <h3 className="text-2xl font-bold mb-2">Prove you're human</h3>
-                                      <p className="text-zinc-400 text-sm max-w-sm mx-auto leading-relaxed">
-                                          To maintain trust and safety for our students, all Grove Academy tutors must complete a quick 3D liveness check.
-                                      </p>
-                                  </div>
-                                  <div className="bg-black/40 border border-white/5 rounded-xl p-4 text-left space-y-3">
-                                      <div className="flex items-start gap-3"><CheckCircle2 size={16} className="text-emerald-500 mt-0.5 shrink-0"/><p className="text-xs text-zinc-300">Takes less than 30 seconds</p></div>
-                                      <div className="flex items-start gap-3"><CheckCircle2 size={16} className="text-emerald-500 mt-0.5 shrink-0"/><p className="text-xs text-zinc-300">Ensure you are in a well-lit room</p></div>
-                                      <div className="flex items-start gap-3"><CheckCircle2 size={16} className="text-emerald-500 mt-0.5 shrink-0"/><p className="text-xs text-zinc-300">Remove glasses or hats for the scan</p></div>
-                                  </div>
-                                  <button onClick={() => setIsVerifying(true)} className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-[0_0_30px_rgba(16,185,129,0.3)] transition-colors flex items-center justify-center gap-2">
-                                      Start Verification <ArrowUpRight size={18} />
-                                  </button>
-                              </div>
-                          )}
-                      </div>
-                  </motion.div>
-              </div>
-          )}
-      </AnimatePresence>
       {/* --- NOTIFICATION READING MODAL --- */}
           <AnimatePresence>
               {selectedNotification && (
@@ -1844,6 +2039,7 @@ export default function DashboardPage() {
     </div>
   )
 }
+// --- SUB-COMPONENTS BELOW THIS LINE OMITTED FOR BREVITY ---
 
 // --- SUB-COMPONENTS ---
 const NavButton = ({ active, children, onClick, icon: Icon }: any) => (
