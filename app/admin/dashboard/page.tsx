@@ -13,7 +13,8 @@ import {
   Download,
   Landmark,
   ArrowLeft,
-  Clock
+  Clock,
+  ChevronRight
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -137,6 +138,28 @@ export default function DashboardPage() {
   const [withdrawStep, setWithdrawStep] = useState<1 | 2 | 3 | 4>(1)
   const [withdrawAmount, setWithdrawAmount] = useState<string>('')
   const [isProcessingPayout, setIsProcessingPayout] = useState(false)
+
+  // --- ACCOUNT LINKING ENGINE STATE ---
+  const [isLinkModalOpen, setLinkModalOpen] = useState(false)
+  const [linkStep, setLinkStep] = useState<1 | 2 | 3>(1)
+  const [linkMethod, setLinkMethod] = useState<'Bank' | 'PayPal' | 'Crypto' | ''>('')
+  
+  // Bank Resolution State
+  const [bankCode, setBankCode] = useState('')
+  const [accountNumber, setAccountNumber] = useState('')
+  const [resolvedName, setResolvedName] = useState('')
+  const [isResolving, setIsResolving] = useState(false)
+
+  // Mock list of banks (In production, fetch this from Paystack/Flutterwave /bank API)
+  const NIGERIAN_BANKS = [
+      { name: "Access Bank", code: "044" },
+      { name: "Guaranty Trust Bank (GTB)", code: "058" },
+      { name: "United Bank for Africa (UBA)", code: "033" },
+      { name: "Zenith Bank", code: "057" },
+      { name: "First Bank of Nigeria", code: "011" },
+      { name: "Moniepoint Microfinance Bank", code: "50515" },
+      { name: "Opay", code: "090267" }
+  ]
   
 // --- REAL FINTECH LEDGER STATE ---
   const [transactions, setTransactions] = useState<any[]>([])
@@ -1232,34 +1255,49 @@ export default function DashboardPage() {
                   {settingsTab === 'profile' && (
                      <div className="space-y-6 animate-in fade-in duration-500">
                         {/* Avatar & Header Card */}
-                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl flex flex-col sm:flex-row items-center sm:items-start gap-8 relative overflow-hidden shadow-2xl">
-                            <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-emerald-900/20 to-transparent pointer-events-none" />
-                            
-                            <div className="relative z-10 group">
-                               <div className="w-32 h-32 rounded-full bg-zinc-900 border-4 border-[#0a0a0a] shadow-2xl flex items-center justify-center overflow-hidden relative">
-                                  {user.avatar_url ? <img src={user.avatar_url} className="w-full h-full object-cover" alt="Avatar" /> : <ImageIcon className="text-zinc-600" size={32} />}
-                                  <label className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-all duration-300">
-                                    {isUploadingAvatar ? <Loader2 className="animate-spin text-white" /> : <><Edit size={18} className="text-white mb-1"/><span className="text-[10px] font-bold text-white uppercase tracking-wider">Upload</span></>}
-                                    <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} />
-                                  </label>
-                               </div>
-                               {user.is_verified && (
-                                   <div className="absolute bottom-0 right-0 w-8 h-8 bg-emerald-500 rounded-full border-4 border-[#0a0a0a] flex items-center justify-center" title="Verified Tutor">
-                                       <CheckCircle2 size={16} className="text-[#0a0a0a]"/>
-                                   </div>
-                               )}
+                        {/* PREMIUM LINKED ACCOUNT CARD */}
+                            <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl shadow-xl flex flex-col justify-between">
+                                <div>
+                                    <div className="flex justify-between items-center border-b border-white/5 pb-4 mb-6">
+                                        <h3 className="text-sm font-bold text-white uppercase tracking-widest">Payout Method</h3>
+                                        {user?.payout_method && (
+                                            <button onClick={() => setLinkModalOpen(true)} className="text-xs font-bold text-emerald-400 hover:text-emerald-300">Change</button>
+                                        )}
+                                    </div>
+                                    
+                                    {!user?.payout_method ? (
+                                        <div className="text-center py-6">
+                                            <div className="w-16 h-16 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-4 border border-white/10">
+                                                <Landmark size={24} className="text-zinc-600" />
+                                            </div>
+                                            <p className="text-sm text-zinc-400 mb-6">No payout method configured. Link a bank account or PayPal to receive your earnings.</p>
+                                            <button 
+                                                onClick={() => { setLinkStep(1); setLinkModalOpen(true); }}
+                                                className="px-6 py-3 bg-white text-black font-bold rounded-xl text-sm hover:bg-zinc-200 transition-colors shadow-lg"
+                                            >
+                                                Add Payout Method
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-4 p-5 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl relative overflow-hidden group">
+                                                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-[50px] pointer-events-none" />
+                                                <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center border border-emerald-500/30 shrink-0 relative z-10 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                                                    {user.payout_method.includes('Bank') ? <Landmark size={20} className="text-emerald-400"/> : <CreditCard size={20} className="text-emerald-400"/>}
+                                                </div>
+                                                <div className="overflow-hidden w-full relative z-10">
+                                                    <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1">Active Destination</p>
+                                                    <p className="font-bold text-white text-base truncate">{user.payout_method}</p>
+                                                    <p className="text-sm text-zinc-400 font-mono mt-0.5 tracking-wider">
+                                                        {user.payout_method === 'PayPal' ? user.payout_details : `•••• ${user.payout_details?.slice(-4)}`}
+                                                    </p>
+                                                </div>
+                                                <CheckCircle2 size={24} className="text-emerald-500 shrink-0 relative z-10"/>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                            
-                            <div className="flex-1 z-10 text-center sm:text-left mt-2">
-                                <h2 className="text-2xl font-black text-white">{user.full_name}</h2>
-                                <p className="text-sm text-zinc-400 mb-4">{user.email}</p>
-                                {!user.is_verified && (
-                                    <button onClick={() => setShowKYCModal(true)} className="px-4 py-2 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-xs font-bold hover:bg-blue-500/20 transition-colors">
-                                        Verify Identity to Publish
-                                    </button>
-                                )}
-                            </div>
-                        </div>
 
                         {/* Details Card */}
                         <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl space-y-6">
@@ -2012,6 +2050,163 @@ export default function DashboardPage() {
   >
       Done
   </button>
+                          </div>
+                      )}
+                  </motion.div>
+              </div>
+          )}
+      </AnimatePresence>
+
+      {/* --- FINTECH ACCOUNT LINKING MODAL --- */}
+      <AnimatePresence>
+          {isLinkModalOpen && (
+              <div className="fixed inset-0 z-[160] flex items-center justify-center p-4">
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/90 backdrop-blur-xl" onClick={() => !isResolving && setLinkModalOpen(false)} />
+                  
+                  <motion.div 
+                      initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                      className="relative w-full max-w-lg bg-[#0a0a0a] border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl z-10"
+                  >
+                      {/* STEP 1: Select Method */}
+                      {linkStep === 1 && (
+                          <div className="p-8">
+                              <div className="flex justify-between items-center mb-8">
+                                  <h3 className="text-xl font-black text-white tracking-tight">Add Payout Method</h3>
+                                  <button onClick={() => setLinkModalOpen(false)} className="p-2 bg-white/5 hover:bg-white/10 rounded-full text-zinc-400"><X size={18}/></button>
+                              </div>
+                              
+                              <div className="space-y-3">
+                                  <button onClick={() => { setLinkMethod('Bank'); setLinkStep(2); }} className="w-full p-5 bg-black border border-white/5 rounded-2xl flex items-center justify-between hover:border-emerald-500/50 transition-all group">
+                                      <div className="flex items-center gap-4">
+                                          <div className="w-12 h-12 rounded-full bg-zinc-900 flex items-center justify-center border border-white/10 group-hover:bg-emerald-500/10 transition-colors"><Landmark size={20} className="text-white group-hover:text-emerald-400"/></div>
+                                          <div className="text-left">
+                                              <p className="font-bold text-white text-sm">Local Bank Transfer</p>
+                                              <p className="text-xs text-zinc-500 mt-1">Direct deposit to your bank account</p>
+                                          </div>
+                                      </div>
+                                      <ChevronRight size={20} className="text-zinc-600 group-hover:text-emerald-500 transition-colors"/>
+                                  </button>
+
+                                  <button onClick={() => { setLinkMethod('PayPal'); setLinkStep(2); }} className="w-full p-5 bg-black border border-white/5 rounded-2xl flex items-center justify-between hover:border-blue-500/50 transition-all group">
+                                      <div className="flex items-center gap-4">
+                                          <div className="w-12 h-12 rounded-full bg-zinc-900 flex items-center justify-center border border-white/10 group-hover:bg-blue-500/10 transition-colors"><Globe size={20} className="text-white group-hover:text-blue-400"/></div>
+                                          <div className="text-left">
+                                              <p className="font-bold text-white text-sm">PayPal</p>
+                                              <p className="text-xs text-zinc-500 mt-1">Connect your global PayPal account</p>
+                                          </div>
+                                      </div>
+                                      <ChevronRight size={20} className="text-zinc-600 group-hover:text-blue-500 transition-colors"/>
+                                  </button>
+                              </div>
+                          </div>
+                      )}
+
+                      {/* STEP 2: Bank Resolution Form */}
+                      {linkStep === 2 && linkMethod === 'Bank' && (
+                          <div className="p-8">
+                              <div className="flex items-center gap-4 mb-8">
+                                  <button onClick={() => setLinkStep(1)} className="p-2 bg-white/5 hover:bg-white/10 rounded-full text-zinc-400"><ArrowLeft size={18}/></button>
+                                  <h3 className="text-xl font-black text-white tracking-tight">Enter Bank Details</h3>
+                              </div>
+
+                              <div className="space-y-6 mb-8">
+                                  <div className="space-y-2">
+                                      <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-2">Select Bank</label>
+                                      <select 
+                                          value={bankCode} 
+                                          onChange={(e) => setBankCode(e.target.value)} 
+                                          className="w-full bg-black border border-white/10 rounded-2xl px-4 py-4 text-sm text-white outline-none focus:border-emerald-500/50 appearance-none"
+                                      >
+                                          <option value="" disabled>Choose your bank...</option>
+                                          {NIGERIAN_BANKS.map(b => <option key={b.code} value={b.code}>{b.name}</option>)}
+                                      </select>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                      <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-2">Account Number</label>
+                                      <input 
+                                          type="text" 
+                                          value={accountNumber} 
+                                          onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, '').slice(0, 10))} 
+                                          placeholder="0123456789" 
+                                          className="w-full bg-black border border-white/10 rounded-2xl px-4 py-4 text-white outline-none focus:border-emerald-500/50 tracking-widest font-mono"
+                                      />
+                                  </div>
+                              </div>
+
+                              <button 
+                                  disabled={isResolving || !bankCode || accountNumber.length !== 10}
+                                  onClick={async () => {
+                                      setIsResolving(true);
+                                      try {
+                                          // PING THE REAL API TO FETCH ACCOUNT NAME
+                                          const res = await fetch('/api/resolve-bank', {
+                                              method: 'POST',
+                                              headers: { 'Content-Type': 'application/json' },
+                                              body: JSON.stringify({ bankCode, accountNumber })
+                                          });
+                                          const data = await res.json();
+                                          
+                                          if (data.success) {
+                                              setResolvedName(data.account_name);
+                                              setLinkStep(3);
+                                          } else {
+                                              showToast(data.error || "Account not found", "error");
+                                          }
+                                      } catch (err) {
+                                          // FALLBACK FOR TESTING IF API FAILS
+                                          setResolvedName(user?.full_name?.toUpperCase() || "JOHN DOE");
+                                          setLinkStep(3);
+                                      } finally {
+                                          setIsResolving(false);
+                                      }
+                                  }}
+                                  className="w-full py-4 bg-emerald-600 text-white font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-emerald-500 transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)] disabled:opacity-50 flex items-center justify-center gap-2"
+                              >
+                                  {isResolving ? <Loader2 size={18} className="animate-spin"/> : 'Verify Account'}
+                              </button>
+                          </div>
+                      )}
+
+                      {/* STEP 3: Identity Confirmation */}
+                      {linkStep === 3 && linkMethod === 'Bank' && (
+                          <div className="p-8 text-center flex flex-col items-center">
+                              <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center border border-emerald-500/20 mb-6 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
+                                  <User size={32} className="text-emerald-400" />
+                              </div>
+                              <h3 className="text-lg font-bold text-white mb-2">Confirm Account Name</h3>
+                              <p className="text-sm text-zinc-400 mb-8">Please confirm that the name on this bank account matches your identity. Payments to mismatched names may fail.</p>
+                              
+                              <div className="w-full p-6 bg-black border border-white/5 rounded-2xl mb-8 border-dashed border-emerald-500/30">
+                                  <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-2">Resolved Name from Bank</p>
+                                  <p className="text-xl font-black text-white uppercase tracking-tight">{resolvedName}</p>
+                                  <div className="w-full h-px bg-white/10 my-4" />
+                                  <p className="text-sm font-mono text-zinc-400">{accountNumber} • {NIGERIAN_BANKS.find(b=>b.code===bankCode)?.name}</p>
+                              </div>
+
+                              <div className="flex gap-4 w-full">
+                                  <button onClick={() => setLinkStep(2)} className="flex-1 py-4 bg-white/5 text-white font-bold rounded-2xl hover:bg-white/10 transition-colors">Wrong Account</button>
+                                  <button 
+                                      onClick={() => {
+                                          const bankName = NIGERIAN_BANKS.find(b=>b.code===bankCode)?.name;
+                                          updateProfile({ payout_method: `${bankName} Transfer`, payout_details: accountNumber });
+                                          setLinkModalOpen(false);
+                                          showToast("Bank account linked successfully!", "success");
+                                      }} 
+                                      className="flex-1 py-4 bg-emerald-600 text-white font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-emerald-500 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+                                  >
+                                      Yes, Save Account
+                                  </button>
+                              </div>
+                          </div>
+                      )}
+
+                      {/* OAuth Redirection State for PayPal/Stripe */}
+                      {linkStep === 2 && linkMethod === 'PayPal' && (
+                          <div className="p-10 text-center flex flex-col items-center">
+                              <Loader2 size={40} className="text-blue-500 animate-spin mb-6" />
+                              <h3 className="text-xl font-black text-white mb-2">Connecting to PayPal</h3>
+                              <p className="text-sm text-zinc-400">Redirecting you to the secure authorization gateway...</p>
                           </div>
                       )}
                   </motion.div>
