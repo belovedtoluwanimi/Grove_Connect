@@ -1442,6 +1442,7 @@ export default function DashboardPage() {
                                         </div>
 
                                         {/* 2FA Card */}
+                                        {/* 2FA Card */}
                                         <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
                                             <div className="flex items-start gap-4">
                                                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${user.two_factor_enabled ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-[0_0_20px_rgba(16,185,129,0.3)]' : 'bg-zinc-800'}`}>
@@ -1454,26 +1455,61 @@ export default function DashboardPage() {
                                             </div>
 
                                             {!user.two_factor_enabled && !show2FASetup && (
-                                                <button onClick={async (e) => {
-                                                    const btn = e.currentTarget; btn.disabled = true; btn.innerText = "Sending...";
-                                                    try {
-                                                        await fetch('/api/2fa', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send', email: user.email, userId: user.id }) });
-                                                        setShow2FASetup(true); showToast("OTP sent to your email!", "success");
-                                                    } catch (err) { showToast("Failed to send email.", "error"); }
-                                                    finally { btn.disabled = false; btn.innerText = "Enable 2FA"; }
-                                                }} className="px-6 py-3 bg-white text-black hover:bg-zinc-200 text-sm font-bold rounded-xl transition-colors whitespace-nowrap">
+                                                <button
+                                                    onClick={async (e) => {
+                                                        const btn = e.currentTarget;
+                                                        btn.disabled = true;
+                                                        btn.innerText = "Sending...";
+                                                        try {
+                                                            // PING YOUR REAL RESEND API ROUTE
+                                                            const res = await fetch('/api/2fa', {
+                                                                method: 'POST',
+                                                                headers: { 'Content-Type': 'application/json' },
+                                                                body: JSON.stringify({ action: 'send', email: user.email, userId: user.id })
+                                                            });
+
+                                                            const data = await res.json();
+
+                                                            if (data.success || res.ok) {
+                                                                setShow2FASetup(true);
+                                                                showToast("OTP sent to your email!", "success");
+                                                            } else {
+                                                                showToast(data.error || "Failed to send email.", "error");
+                                                            }
+                                                        } catch (err) {
+                                                            showToast("Network error communicating with 2FA service.", "error");
+                                                        } finally {
+                                                            btn.disabled = false;
+                                                            btn.innerText = "Enable 2FA";
+                                                        }
+                                                    }}
+                                                    className="px-6 py-3 bg-white text-black hover:bg-zinc-200 text-sm font-bold rounded-xl transition-colors whitespace-nowrap disabled:opacity-50"
+                                                >
                                                     Enable 2FA
                                                 </button>
                                             )}
                                         </div>
 
+                                        {/* The OTP Verification Box (Appears after they click the button) */}
                                         {show2FASetup && !user.two_factor_enabled && (
                                             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="p-8 bg-zinc-900/50 border border-emerald-500/20 rounded-3xl">
                                                 <h4 className="font-bold text-white mb-2">Check your email</h4>
-                                                <p className="text-sm text-zinc-400 mb-6">We sent a 6-digit code to <span className="text-white">{user.email}</span>.</p>
+                                                <p className="text-sm text-zinc-400 mb-6">We sent a secure 6-digit code to <span className="text-white">{user.email}</span>.</p>
                                                 <div className="flex max-w-md gap-3">
-                                                    <input value={twoFACode} onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, ''))} placeholder="000000" className="flex-1 bg-black border border-white/10 rounded-xl p-3 text-center tracking-[1em] font-mono text-xl outline-none focus:border-emerald-500 text-white" maxLength={6} />
-                                                    <button onClick={handleEnable2FA} className="bg-emerald-600 hover:bg-emerald-500 px-8 rounded-xl font-bold text-sm transition-colors text-white">Verify</button>
+                                                    <input
+                                                        value={twoFACode}
+                                                        onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, ''))}
+                                                        placeholder="000000"
+                                                        className="flex-1 bg-black border border-white/10 rounded-xl p-3 text-center tracking-[1em] font-mono text-xl outline-none focus:border-emerald-500 text-white"
+                                                        maxLength={6}
+                                                    />
+                                                    <button
+                                                        onClick={handleEnable2FA}
+                                                        disabled={twoFACode.length !== 6}
+                                                        className="bg-emerald-600 hover:bg-emerald-500 px-8 rounded-xl font-bold text-sm transition-colors text-white disabled:opacity-50"
+                                                    >
+                                                        Verify
+                                                    </button>
                                                 </div>
                                             </motion.div>
                                         )}
@@ -1521,11 +1557,27 @@ export default function DashboardPage() {
                                                     </div>
                                                     <button
                                                         onClick={() => {
-                                                            if (!user?.payout_method || !user?.payout_details) return showToast("Please configure a payout method below first.", "error")
-                                                            if (overallStats.availableBalance < 10) return showToast("Minimum withdrawal is $10.00", "error")
-                                                            setWithdrawStep(1)
-                                                            setWithdrawAmount('')
-                                                            setWithdrawModalOpen(true)
+                                                            // 1. THE NEW PAYOUT GATE: Check KYC First!
+                                                            if (!user?.is_verified) {
+                                                                showToast("Identity Verification required before withdrawing funds.", "error");
+                                                                setShowKYCModal(true); // Open the Smile ID camera
+                                                                return;
+                                                            }
+
+                                                            // 2. Check for linked bank account
+                                                            if (!user?.payout_method || !user?.payout_details) {
+                                                                return showToast("Please configure a payout method below first.", "error");
+                                                            }
+
+                                                            // 3. Check minimum balance
+                                                            if (overallStats.availableBalance < 10) {
+                                                                return showToast("Minimum withdrawal is $10.00", "error");
+                                                            }
+
+                                                            // 4. Open Withdrawal Modal
+                                                            setWithdrawStep(1);
+                                                            setWithdrawAmount('');
+                                                            setWithdrawModalOpen(true);
                                                         }}
                                                         className="w-full px-8 py-4 bg-white text-black hover:bg-zinc-200 font-black uppercase tracking-widest text-xs rounded-2xl transition-all shadow-[0_0_30px_rgba(255,255,255,0.15)] flex items-center justify-center gap-2"
                                                     >
