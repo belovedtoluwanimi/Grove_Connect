@@ -2330,7 +2330,7 @@ export default function DashboardPage() {
                                           className="w-full bg-black border border-white/10 rounded-2xl px-4 py-4 text-sm text-white outline-none focus:border-emerald-500/50 appearance-none"
                                       >
                                           <option value="" disabled>Choose your bank...</option>
-                                          {NIGERIAN_BANKS.map(b => <option key={b.code} value={b.code}>{b.name}</option>)}
+                                          {bankList.map(b => <option key={b.code} value={b.code}>{b.name}</option>)}
                                       </select>
                                   </div>
 
@@ -2393,14 +2393,14 @@ export default function DashboardPage() {
                                   <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-2">Resolved Name from Bank</p>
                                   <p className="text-xl font-black text-white uppercase tracking-tight">{resolvedName}</p>
                                   <div className="w-full h-px bg-white/10 my-4" />
-                                  <p className="text-sm font-mono text-zinc-400">{accountNumber} • {NIGERIAN_BANKS.find(b=>b.code===bankCode)?.name}</p>
+                                  <p className="text-sm font-mono text-zinc-400">{accountNumber} • {bankList.find(b=>b.code===bankCode)?.name}</p>
                               </div>
 
                               <div className="flex gap-4 w-full">
                                   <button onClick={() => setLinkStep(2)} className="flex-1 py-4 bg-white/5 text-white font-bold rounded-2xl hover:bg-white/10 transition-colors">Wrong Account</button>
                                   <button 
                                       onClick={() => {
-                                          const bankName = NIGERIAN_BANKS.find(b=>b.code===bankCode)?.name;
+                                          const bankName = bankList.find(b=>b.code===bankCode)?.name;
                                           updateProfile({ payout_method: `${bankName} Transfer`, payout_details: accountNumber });
                                           setLinkModalOpen(false);
                                           showToast("Bank account linked successfully!", "success");
