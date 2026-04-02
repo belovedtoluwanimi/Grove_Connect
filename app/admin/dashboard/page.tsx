@@ -143,6 +143,27 @@ export default function DashboardPage() {
   const [isLinkModalOpen, setLinkModalOpen] = useState(false)
   const [linkStep, setLinkStep] = useState<1 | 2 | 3>(1)
   const [linkMethod, setLinkMethod] = useState<'Bank' | 'PayPal' | 'Crypto' | ''>('')
+
+  // --- REAL DATA STATES ---
+  const [bankList, setBankList] = useState<{name: string, code: string}[]>([])
+  const [paypalEmail, setPayPalEmail] = useState("")
+
+  // Fetch ALL banks dynamically when the modal opens
+  useEffect(() => {
+      if (isLinkModalOpen && linkMethod === 'Bank' && bankList.length === 0) {
+          // This fetches the live list of every recognized bank in Nigeria
+          fetch('https://api.paystack.co/bank?country=nigeria')
+          .then(res => res.json())
+          .then(data => {
+              if (data.status) {
+                  // Sort them alphabetically for better UX
+                  const sortedBanks = data.data.sort((a: any, b: any) => a.name.localeCompare(b.name));
+                  setBankList(sortedBanks);
+              }
+          })
+          .catch(err => console.error("Failed to fetch live banks", err));
+      }
+  }, [isLinkModalOpen, linkMethod, bankList.length]);
   
   // Bank Resolution State
   const [bankCode, setBankCode] = useState('')
@@ -1856,7 +1877,7 @@ export default function DashboardPage() {
                           </div>
                       )}
 
-                      {/* STEP 2: Bank Resolution Form */}
+                      {/* STEP 2: REAL Bank Resolution Form */}
                       {linkStep === 2 && linkMethod === 'Bank' && (
                           <div className="p-8">
                               <div className="flex items-center gap-4 mb-8">
@@ -1872,8 +1893,11 @@ export default function DashboardPage() {
                                           onChange={(e) => setBankCode(e.target.value)} 
                                           className="w-full bg-black border border-white/10 rounded-2xl px-4 py-4 text-sm text-white outline-none focus:border-emerald-500/50 appearance-none"
                                       >
-                                          <option value="" disabled>Choose your bank...</option>
-                                          {NIGERIAN_BANKS.map(b => <option key={b.code} value={b.code}>{b.name}</option>)}
+                                          <option value="" disabled>
+                                              {bankList.length === 0 ? "Loading banks..." : "Choose your bank..."}
+                                          </option>
+                                          {/* NOW MAPPING OVER THE REAL, LIVE FETCHED BANK LIST */}
+                                          {bankList.map(b => <option key={b.code} value={b.code}>{b.name}</option>)}
                                       </select>
                                   </div>
 
@@ -1892,30 +1916,27 @@ export default function DashboardPage() {
                               <button 
                                   disabled={isResolving || !bankCode || accountNumber.length !== 10}
                                   onClick={async () => {
-    setIsResolving(true);
-    try {
-        // PING THE REAL API TO FETCH ACCOUNT NAME
-        const res = await fetch('/api/resolve-bank', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ bankCode, accountNumber })
-        });
-        
-        const data = await res.json();
-        
-        // NO MORE SIMULATIONS. IF IT FAILS, IT FAILS.
-        if (data.success) {
-            setResolvedName(data.account_name);
-            setLinkStep(3);
-        } else {
-            showToast(data.error || "Account not found", "error");
-        }
-    } catch (err) {
-        showToast("Server error. Check your API route.", "error");
-    } finally {
-        setIsResolving(false);
-    }
-}}
+                                      setIsResolving(true);
+                                      try {
+                                          const res = await fetch('/api/resolve-bank', {
+                                              method: 'POST',
+                                              headers: { 'Content-Type': 'application/json' },
+                                              body: JSON.stringify({ bankCode, accountNumber })
+                                          });
+                                          const data = await res.json();
+                                          
+                                          if (data.success) {
+                                              setResolvedName(data.account_name);
+                                              setLinkStep(3);
+                                          } else {
+                                              showToast(data.error || "Account not found. Please check details.", "error");
+                                          }
+                                      } catch (err) {
+                                          showToast("Network error. Could not connect to bank.", "error");
+                                      } finally {
+                                          setIsResolving(false);
+                                      }
+                                  }}
                                   className="w-full py-4 bg-emerald-600 text-white font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-emerald-500 transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)] disabled:opacity-50 flex items-center justify-center gap-2"
                               >
                                   {isResolving ? <Loader2 size={18} className="animate-spin"/> : 'Verify Account'}
@@ -1936,17 +1957,16 @@ export default function DashboardPage() {
                                   <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-2">Resolved Name from Bank</p>
                                   <p className="text-xl font-black text-white uppercase tracking-tight">{resolvedName}</p>
                                   <div className="w-full h-px bg-white/10 my-4" />
-                                  <p className="text-sm font-mono text-zinc-400">{accountNumber} • {NIGERIAN_BANKS.find(b=>b.code===bankCode)?.name}</p>
+                                  <p className="text-sm font-mono text-zinc-400">{accountNumber} • {bankList.find(b=>b.code===bankCode)?.name}</p>
                               </div>
 
                               <div className="flex gap-4 w-full">
                                   <button onClick={() => setLinkStep(2)} className="flex-1 py-4 bg-white/5 text-white font-bold rounded-2xl hover:bg-white/10 transition-colors">Wrong Account</button>
                                   <button 
                                       onClick={async () => {
-                                          const bankName = NIGERIAN_BANKS.find(b=>b.code===bankCode)?.name;
+                                          const bankName = bankList.find(b=>b.code===bankCode)?.name;
                                           const payoutName = `${bankName} Transfer`;
                                           
-                                          // Update database properly
                                           await updateProfile({ 
                                               payout_method: payoutName, 
                                               payout_details: accountNumber 
@@ -1962,12 +1982,42 @@ export default function DashboardPage() {
                           </div>
                       )}
 
-                      {/* OAuth Redirection State for PayPal */}
+                      {/* NEW STEP 2: Functional PayPal Form */}
                       {linkStep === 2 && linkMethod === 'PayPal' && (
-                          <div className="p-10 text-center flex flex-col items-center">
-                              <Loader2 size={40} className="text-blue-500 animate-spin mb-6" />
-                              <h3 className="text-xl font-black text-white mb-2">Connecting to PayPal</h3>
-                              <p className="text-sm text-zinc-400">Redirecting you to the secure authorization gateway...</p>
+                          <div className="p-8">
+                              <div className="flex items-center gap-4 mb-8">
+                                  <button onClick={() => setLinkStep(1)} className="p-2 bg-white/5 hover:bg-white/10 rounded-full text-zinc-400"><ArrowLeft size={18}/></button>
+                                  <h3 className="text-xl font-black text-white tracking-tight">Enter PayPal Details</h3>
+                              </div>
+
+                              <div className="space-y-6 mb-8">
+                                  <div className="space-y-2">
+                                      <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-2">PayPal Email Address</label>
+                                      <input 
+                                          type="email" 
+                                          value={paypalEmail} 
+                                          onChange={(e) => setPayPalEmail(e.target.value)} 
+                                          placeholder="tutor@example.com" 
+                                          className="w-full bg-black border border-white/10 rounded-2xl px-4 py-4 text-white outline-none focus:border-blue-500/50"
+                                          autoFocus
+                                      />
+                                  </div>
+                                  <p className="text-xs text-zinc-500 px-2 leading-relaxed">By linking your PayPal account, you authorize Grove Connect to send your payout funds directly to this email address via PayPal Payouts.</p>
+                              </div>
+
+                              <button 
+                                  disabled={!paypalEmail.includes('@') || !paypalEmail.includes('.')}
+                                  onClick={async () => {
+                                      await updateProfile({ 
+                                          payout_method: 'PayPal', 
+                                          payout_details: paypalEmail 
+                                      });
+                                      setLinkModalOpen(false);
+                                  }}
+                                  className="w-full py-4 bg-blue-600 text-white font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-blue-500 transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)] disabled:opacity-50"
+                              >
+                                  Save PayPal Account
+                              </button>
                           </div>
                       )}
                   </motion.div>
