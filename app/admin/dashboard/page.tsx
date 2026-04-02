@@ -138,11 +138,9 @@ export default function DashboardPage() {
   const [withdrawAmount, setWithdrawAmount] = useState<string>('')
   const [isProcessingPayout, setIsProcessingPayout] = useState(false)
   
-  // Mock transaction history for the UI
-  const [transactions, setTransactions] = useState([
-      { id: 'tx_10928', date: '2026-03-15', amount: 450.00, status: 'Completed', method: 'Bank Transfer' },
-      { id: 'tx_10844', date: '2026-02-28', amount: 1200.50, status: 'Completed', method: 'Bank Transfer' }
-  ])
+// --- REAL FINTECH LEDGER STATE ---
+  const [transactions, setTransactions] = useState<any[]>([])
+  const [totalWithdrawn, setTotalWithdrawn] = useState(0)
 
   // --- REAL-TIME NOTIFICATION ENGINE ---
   const notificationRef = useRef<HTMLDivElement>(null)
@@ -375,6 +373,21 @@ export default function DashboardPage() {
         })
         setCourses(processedCourses)
       }
+      // Fetch Real Payout Ledger
+      const { data: payoutData } = await supabase
+        .from('payout_requests')
+        .select('*')
+        .eq('user_id', authUser.id)
+        .order('requested_at', { ascending: false })
+
+      if (payoutData) {
+          setTransactions(payoutData)
+          // Calculate lifetime withdrawn amount (only counting completed or pending transfers)
+          const withdrawnAmount = payoutData
+              .filter(tx => tx.status !== 'failed')
+              .reduce((sum, tx) => sum + Number(tx.amount), 0)
+          setTotalWithdrawn(withdrawnAmount)
+      }
       setLoading(false)
     }
     init()
@@ -422,16 +435,36 @@ export default function DashboardPage() {
     }))
   }, [courses, timeRange])
 
-  // Calculate Overall Stats from the processed courses
-  const overallStats = {
-      revenue: courses.reduce((acc, c) => acc + c.total_revenue, 0),
-      students: courses.reduce((acc, c) => acc + (c.students_count || 0), 0),
-      // Calculate global average rating
-      rating: courses.length > 0 
-        ? (courses.reduce((acc, c) => acc + (c.average_rating || 0), 0) / courses.length).toFixed(1)
-        : "N/A",
-      courses: courses.length
-  }
+  // Calculate Overall Stats & Ledger Balance
+  const overallStats = useMemo(() => {
+      const totalRev = courses.reduce((acc, c) => acc + c.total_revenue, 0);
+      const totalSt = courses.reduce((acc, c) => acc + (c.students_count || 0), 0);
+      const avgRt = courses.length > 0 
+        ? (courses.reduce((acc, c) => acc + (c.average_rating || 0), 0) / courses.length).toFixed(1) 
+        : "N/A";
+
+      // Fintech Math: 
+      // Platform takes 20% (0.2). Tutor gets 80% (0.8).
+      const grossTutorRevenue = totalRev * 0.8;
+      
+      // Simulate pending clearance (e.g., funds held for 30-day refund periods).
+      // In production, calculate this by checking if the enrollment date is < 30 days.
+      const pendingClearance = grossTutorRevenue * 0.2; 
+      
+      const clearedRevenue = grossTutorRevenue - pendingClearance;
+      
+      // True Liquid Balance = Cleared Revenue - Everything they already withdrew
+      const liquidBalance = Math.max(0, clearedRevenue - totalWithdrawn);
+
+      return {
+          revenue: totalRev,
+          students: totalSt,
+          rating: avgRt,
+          courses: courses.length,
+          availableBalance: liquidBalance,
+          pendingClearance: pendingClearance
+      }
+  }, [courses, totalWithdrawn]);
 
   // --- HANDLERS ---
 
@@ -1364,7 +1397,7 @@ export default function DashboardPage() {
                                     </div>
                                     <div className="flex items-baseline gap-2">
                                         <h2 className="text-5xl md:text-6xl font-black text-white tracking-tighter">
-                                            ${(overallStats.revenue * 0.8).toFixed(2).split('.')[0]}<span className="text-3xl text-zinc-500">.{ (overallStats.revenue * 0.8).toFixed(2).split('.')[1] }</span>
+                                            ${(overallStats.availableBalance).toFixed(2).split('.')[0]}<span className="text-3xl text-zinc-500">.{ (overallStats.availableBalance).toFixed(2).split('.')[1] }</span>
                                         </h2>
                                         <span className="text-emerald-500 font-bold ml-2 text-sm bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">USD</span>
                                     </div>
@@ -1381,7 +1414,7 @@ export default function DashboardPage() {
                                     <button 
                                         onClick={() => {
                                             if (!user?.payout_method || !user?.payout_details) return showToast("Please configure a payout method below first.", "error")
-                                            if ((overallStats.revenue * 0.8) < 50) return showToast("Minimum payout is $50.00", "error")
+                                            if (overallStats.availableBalance < 50) return showToast("Minimum payout is $50.00", "error")
                                             setWithdrawStep(1)
                                             setWithdrawAmount('')
                                             setWithdrawModalOpen(true)
@@ -1447,22 +1480,24 @@ export default function DashboardPage() {
                                         <p className="text-sm text-zinc-600 text-center py-4">No recent payouts.</p>
                                     ) : (
                                         transactions.map((tx) => (
-                                            <div key={tx.id} className="flex items-center justify-between p-3 bg-black border border-white/5 rounded-xl">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center border border-white/10 shrink-0">
-                                                        <ArrowUpRight size={16} className="text-emerald-500" />
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm font-bold text-white">Withdrawal</p>
-                                                        <p className="text-xs text-zinc-500">{new Date(tx.date).toLocaleDateString()}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-sm font-bold text-white">${tx.amount.toFixed(2)}</p>
-                                                    <p className="text-[10px] text-emerald-400 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded inline-block mt-1">{tx.status}</p>
-                                                </div>
-                                            </div>
-                                        ))
+    <div key={tx.id} className="flex items-center justify-between p-3 bg-black border border-white/5 rounded-xl">
+        <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center border border-white/10 shrink-0">
+                <ArrowUpRight size={16} className="text-emerald-500" />
+            </div>
+            <div>
+                <p className="text-sm font-bold text-white">Withdrawal</p>
+                <p className="text-xs text-zinc-500">{new Date(tx.requested_at).toLocaleDateString()}</p>
+            </div>
+        </div>
+        <div className="text-right">
+            <p className="text-sm font-bold text-white">${Number(tx.amount).toFixed(2)}</p>
+            <p className={`text-[10px] uppercase tracking-widest px-2 py-0.5 rounded inline-block mt-1 ${tx.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400' : tx.status === 'failed' ? 'bg-red-500/10 text-red-400' : 'bg-yellow-500/10 text-yellow-400'}`}>
+                {tx.status}
+            </p>
+        </div>
+    </div>
+))
                                     )}
                                 </div>
                             </div>
@@ -1783,9 +1818,9 @@ export default function DashboardPage() {
                                   
                                   {/* Quick Select Pills */}
                                   <div className="flex justify-center gap-3 mt-6">
-                                      <button onClick={() => setWithdrawAmount(((overallStats.revenue * 0.8) * 0.25).toFixed(2))} className="px-4 py-1.5 bg-black border border-white/10 rounded-full text-xs font-bold text-zinc-400 hover:text-white transition-colors">25%</button>
-                                      <button onClick={() => setWithdrawAmount(((overallStats.revenue * 0.8) * 0.50).toFixed(2))} className="px-4 py-1.5 bg-black border border-white/10 rounded-full text-xs font-bold text-zinc-400 hover:text-white transition-colors">50%</button>
-                                      <button onClick={() => setWithdrawAmount((overallStats.revenue * 0.8).toFixed(2))} className="px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full text-xs font-bold hover:bg-emerald-500/20 transition-colors">Max</button>
+                                      <button onClick={() => setWithdrawAmount(((overallStats.availableBalance) * 0.25).toFixed(2))} className="px-4 py-1.5 bg-black border border-white/10 rounded-full text-xs font-bold text-zinc-400 hover:text-white transition-colors">25%</button>
+                                      <button onClick={() => setWithdrawAmount(((overallStats.availableBalance) * 0.50).toFixed(2))} className="px-4 py-1.5 bg-black border border-white/10 rounded-full text-xs font-bold text-zinc-400 hover:text-white transition-colors">50%</button>
+                                      <button onClick={() => setWithdrawAmount((overallStats.availableBalance).toFixed(2))} className="px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full text-xs font-bold hover:bg-emerald-500/20 transition-colors">Max</button>
                                   </div>
                               </div>
 
@@ -1812,7 +1847,7 @@ export default function DashboardPage() {
                                   onClick={() => {
                                       const amt = parseFloat(withdrawAmount);
                                       if (isNaN(amt) || amt < 10) return showToast("Minimum withdrawal is $10", "error");
-                                      if (amt > (overallStats.revenue * 0.8)) return showToast("Insufficient funds", "error");
+                                      if (amt > (overallStats.availableBalance)) return showToast("Insufficient funds", "error");
                                       setWithdrawStep(2);
                                   }}
                                   className="w-full py-4 bg-white text-black font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-zinc-200 transition-colors shadow-[0_0_20px_rgba(255,255,255,0.1)]"
@@ -1959,15 +1994,24 @@ export default function DashboardPage() {
                               </div>
 
                               <button 
-                                  onClick={() => {
-                                      setWithdrawModalOpen(false);
-                                      // Optimistically update transaction list
-                                      setTransactions([{ id: `tx_${Math.floor(Math.random()*10000)}`, date: new Date().toISOString(), amount: parseFloat(withdrawAmount), status: 'Pending', method: user?.payout_method || 'Bank Transfer' }, ...transactions]);
-                                  }}
-                                  className="relative z-10 w-full py-4 bg-white text-black font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-zinc-200 transition-colors"
-                              >
-                                  Done
-                              </button>
+      onClick={() => {
+          setWithdrawModalOpen(false);
+          // Deduct from local available balance instantly
+          setTotalWithdrawn(prev => prev + parseFloat(withdrawAmount));
+          
+          // Push to real transaction history array
+          setTransactions([{ 
+              id: `tx_${Math.floor(100000 + Math.random() * 900000)}`, // Or use receipt ID from API
+              requested_at: new Date().toISOString(), 
+              amount: parseFloat(withdrawAmount), 
+              status: 'pending', 
+              method: user?.payout_method || 'Bank Transfer' 
+          }, ...transactions]);
+      }}
+      className="relative z-10 w-full py-4 bg-white text-black font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-zinc-200 transition-colors"
+  >
+      Done
+  </button>
                           </div>
                       )}
                   </motion.div>
