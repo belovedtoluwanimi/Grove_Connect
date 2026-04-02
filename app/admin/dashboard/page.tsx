@@ -876,6 +876,7 @@ export default function DashboardPage() {
                                 <StatCard label="Active Students" value={selectedCourse.students_count} icon={Users} trendUp={true} trend="+12" />
                                 <StatCard label="Price Point" value={`$${selectedCourse.price}`} icon={CreditCard} trendUp={true} trend="Fixed" />
                             </div>
+                            {/* something */}
                             <div className="bg-neutral-900/40 border border-white/5 p-6 rounded-2xl h-[400px]">
                                 <h3 className="text-lg font-bold mb-6">Engagement Trend</h3>
                                 <ResponsiveContainer width="100%" height={300}>
