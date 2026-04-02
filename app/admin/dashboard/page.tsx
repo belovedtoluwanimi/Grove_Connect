@@ -487,36 +487,36 @@ export default function DashboardPage() {
         }))
     }, [courses, timeRange])
 
-    // Calculate Overall Stats & Ledger Balance
-    const overallStats = useMemo(() => {
-        const totalRev = courses.reduce((acc, c) => acc + c.total_revenue, 0);
-        const totalSt = courses.reduce((acc, c) => acc + (c.students_count || 0), 0);
-        const avgRt = courses.length > 0
-            ? (courses.reduce((acc, c) => acc + (c.average_rating || 0), 0) / courses.length).toFixed(1)
-            : "N/A";
+   // Calculate Overall Stats & Ledger Balance
+  const overallStats = useMemo(() => {
+      const totalRev = courses.reduce((acc, c) => acc + c.total_revenue, 0);
+      const totalSt = courses.reduce((acc, c) => acc + (c.students_count || 0), 0);
+      const avgRt = courses.length > 0 
+        ? (courses.reduce((acc, c) => acc + (c.average_rating || 0), 0) / courses.length).toFixed(1) 
+        : "N/A";
 
-        // Fintech Math: 
-        // Platform takes 20% (0.2). Tutor gets 80% (0.8).
-        const grossTutorRevenue = totalRev * 0.8;
+      // THE REAL FINTECH BUSINESS MODEL:
+      // 1. Platform keeps 20%. Tutor gets 80%.
+      const grossTutorRevenue = totalRev * 0.8;
+      
+      // 2. Escrow: 20% of the tutor's money is held for 30 days to cover student refunds.
+      const pendingClearance = grossTutorRevenue * 0.2; 
+      
+      // 3. Cleared Revenue: The money that has passed the 30-day mark.
+      const clearedRevenue = grossTutorRevenue - pendingClearance;
+      
+      // 4. True Liquid Balance = Cleared Revenue - Everything they already withdrew
+      const liquidBalance = Math.max(0, clearedRevenue - totalWithdrawn);
 
-        // Simulate pending clearance (e.g., funds held for 30-day refund periods).
-        // In production, calculate this by checking if the enrollment date is < 30 days.
-        const pendingClearance = grossTutorRevenue * 0.2;
-
-        const clearedRevenue = grossTutorRevenue - pendingClearance;
-
-        // True Liquid Balance = Cleared Revenue - Everything they already withdrew
-        const liquidBalance = Math.max(0, clearedRevenue - totalWithdrawn);
-
-        return {
-            revenue: totalRev,
-            students: totalSt,
-            rating: avgRt,
-            courses: courses.length,
-            availableBalance: liquidBalance,
-            pendingClearance: pendingClearance
-        }
-    }, [courses, totalWithdrawn]);
+      return {
+          revenue: totalRev,
+          students: totalSt,
+          rating: avgRt,
+          courses: courses.length,
+          availableBalance: liquidBalance,
+          pendingClearance: pendingClearance
+      }
+  }, [courses, totalWithdrawn]);
 
     // --- HANDLERS ---
 
@@ -2099,17 +2099,21 @@ export default function DashboardPage() {
                                                 </div>
                                             </div>
 
-                                            <button
-                                                onClick={() => {
-                                                    const amt = parseFloat(withdrawAmount);
-                                                    if (isNaN(amt) || amt < 10) return showToast("Minimum withdrawal is $10", "error");
-                                                    if (amt > (overallStats.availableBalance)) return showToast("Insufficient funds", "error");
-                                                    setWithdrawStep(2);
-                                                }}
-                                                className="w-full py-4 bg-white text-black font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-zinc-200 transition-colors shadow-[0_0_20px_rgba(255,255,255,0.1)]"
-                                            >
-                                                Review Transfer
-                                            </button>
+                                            <button 
+                                  onClick={() => {
+                                      const amt = parseFloat(withdrawAmount);
+                                      if (isNaN(amt) || amt < 10) return showToast("Minimum withdrawal is $10", "error");
+                                      
+                                      // THE FIX: We add + 0.01 to prevent JavaScript floating point errors 
+                                      // (e.g., stopping 615.00 from being flagged as larger than 614.999999999)
+                                      if (amt > (overallStats.availableBalance + 0.01)) return showToast("Insufficient funds", "error");
+                                      
+                                      setWithdrawStep(2);
+                                  }}
+                                  className="w-full py-4 bg-white text-black font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-zinc-200 transition-colors shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+                              >
+                                  Review Transfer
+                              </button>
                                         </div>
                                     )}
 
