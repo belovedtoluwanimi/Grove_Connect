@@ -397,28 +397,29 @@ export default function DashboardPage() {
                 .order('created_at', { ascending: false })
 
             if (courseData) {
-                // Process data to calculate real totals
-                // Process data to calculate real totals, but fallback to your DB's original mock data
+               // Process data to calculate real totals, but ONLY show the tutor's 80% cut
         const processedCourses = courseData.map((c: any) => {
-            // Check for real enrollments, fallback to DB mock students_count
-            const realStudentCount = c.enrollments && c.enrollments.length > 0 
-                ? c.enrollments.length 
-                : (c.students_count || 0);
+            const dbStudents = Number(c.students_count) || 0;
+            const realStudentCount = c.enrollments && c.enrollments.length > 0 ? c.enrollments.length : dbStudents;
             
-            // Check for real revenue, fallback to DB mock total_revenue
-            const calculatedRevenue = c.price * realStudentCount;
-            const finalRevenue = c.total_revenue > 0 ? c.total_revenue : calculatedRevenue;
+            const dbRevenue = Number(c.total_revenue) || 0;
+            const calcRevenue = (Number(c.price) || 0) * realStudentCount;
+            
+            // 1. Find the gross sales volume
+            const grossSales = Math.max(dbRevenue, calcRevenue);
+            
+            // 2. THE FIX: The tutor only ever sees their 80% cut!
+            const tutorCut = grossSales * 0.8;
 
-            // Calculate Rating
-            const ratings = c.reviews?.map((r: any) => r.rating) || [];
+            const ratings = c.reviews?.map((r: any) => Number(r.rating)) || [];
             const avgRating = ratings.length > 0 
                 ? ratings.reduce((a: number, b: number) => a + b, 0) / ratings.length 
-                : (c.average_rating || 0);
+                : (Number(c.average_rating) || 0);
 
             return {
                 ...c,
                 students_count: realStudentCount, 
-                total_revenue: finalRevenue, // 👈 Now it loads your original DB data!
+                total_revenue: tutorCut, // 👈 Now the table only shows what THEY earned
                 average_rating: avgRating 
             }
         });
@@ -487,25 +488,20 @@ export default function DashboardPage() {
         }))
     }, [courses, timeRange])
 
-   // Calculate Overall Stats & Ledger Balance
+  // Calculate Overall Stats & Ledger Balance
   const overallStats = useMemo(() => {
-      const totalRev = courses.reduce((acc, c) => acc + c.total_revenue, 0);
-      const totalSt = courses.reduce((acc, c) => acc + (c.students_count || 0), 0);
+      // totalRev is now strictly the Tutor's 80% Lifetime Earnings
+      const totalRev = courses.reduce((acc, c) => acc + (Number(c.total_revenue) || 0), 0);
+      const totalSt = courses.reduce((acc, c) => acc + (Number(c.students_count) || 0), 0);
       const avgRt = courses.length > 0 
-        ? (courses.reduce((acc, c) => acc + (c.average_rating || 0), 0) / courses.length).toFixed(1) 
+        ? (courses.reduce((acc, c) => acc + (Number(c.average_rating) || 0), 0) / courses.length).toFixed(1) 
         : "N/A";
 
-      // THE REAL FINTECH BUSINESS MODEL:
-      // 1. Platform keeps 20%. Tutor gets 80%.
-      const grossTutorRevenue = totalRev * 0.8;
+      // Escrow: We hold 20% of the TUTOR'S money for 30 days to cover student refunds.
+      const pendingClearance = totalRev * 0.2; 
+      const clearedRevenue = totalRev - pendingClearance;
       
-      // 2. Escrow: 20% of the tutor's money is held for 30 days to cover student refunds.
-      const pendingClearance = grossTutorRevenue * 0.2; 
-      
-      // 3. Cleared Revenue: The money that has passed the 30-day mark.
-      const clearedRevenue = grossTutorRevenue - pendingClearance;
-      
-      // 4. True Liquid Balance = Cleared Revenue - Everything they already withdrew
+      // True Liquid Balance = Cleared Revenue - Everything they already withdrew
       const liquidBalance = Math.max(0, clearedRevenue - totalWithdrawn);
 
       return {
