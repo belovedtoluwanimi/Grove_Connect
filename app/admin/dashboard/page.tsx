@@ -172,15 +172,15 @@ export default function DashboardPage() {
   const [isResolving, setIsResolving] = useState(false)
 
   // Mock list of banks (In production, fetch this from Paystack/Flutterwave /bank API)
-  const NIGERIAN_BANKS = [
-      { name: "Access Bank", code: "044" },
-      { name: "Guaranty Trust Bank (GTB)", code: "058" },
-      { name: "United Bank for Africa (UBA)", code: "033" },
-      { name: "Zenith Bank", code: "057" },
-      { name: "First Bank of Nigeria", code: "011" },
-      { name: "Moniepoint Microfinance Bank", code: "50515" },
-      { name: "Opay", code: "090267" }
-  ]
+//   const NIGERIAN_BANKS = [
+//       { name: "Access Bank", code: "044" },
+//       { name: "Guaranty Trust Bank (GTB)", code: "058" },
+//       { name: "United Bank for Africa (UBA)", code: "033" },
+//       { name: "Zenith Bank", code: "057" },
+//       { name: "First Bank of Nigeria", code: "011" },
+//       { name: "Moniepoint Microfinance Bank", code: "50515" },
+//       { name: "Opay", code: "090267" }
+//   ]
   
 // --- REAL FINTECH LEDGER STATE ---
   const [transactions, setTransactions] = useState<any[]>([])
