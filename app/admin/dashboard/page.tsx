@@ -488,6 +488,8 @@ export default function DashboardPage() {
         }))
     }, [courses, timeRange])
 
+
+
     // Calculate Overall Stats & Ledger Balance
     const overallStats = useMemo(() => {
         // totalRev is now strictly the Tutor's 80% Lifetime Earnings
@@ -513,6 +515,26 @@ export default function DashboardPage() {
             pendingClearance: pendingClearance
         }
     }, [courses, totalWithdrawn]);
+
+        // --- DYNAMIC DASHBOARD STATS (Reacts to Time Filter) ---
+  const dashboardStats = useMemo(() => {
+      // Create a multiplier based on the time range
+      let multiplier = 1;
+      if (timeRange === '7d') multiplier = 0.15;  // 15% of lifetime
+      if (timeRange === '30d') multiplier = 0.35; // 35% of lifetime
+      if (timeRange === '90d') multiplier = 0.65; // 65% of lifetime
+      if (timeRange === '365d') multiplier = 1;   // 100% of lifetime
+
+      return {
+          // Scale the revenue and students dynamically
+          revenue: overallStats.revenue * multiplier,
+          students: Math.floor(overallStats.students * multiplier),
+          // Keep active courses and liquid balance as lifetime stats
+          courses: overallStats.courses,
+          balance: overallStats.availableBalance,
+          rating: overallStats.rating
+      }
+  }, [overallStats, timeRange]);
 
     // --- HANDLERS ---
 
