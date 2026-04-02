@@ -872,6 +872,7 @@ export default function DashboardPage() {
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <StatCard label="Revenue" value={`$${selectedCourse.total_revenue}`} icon={DollarSign} trendUp={true} trend="+5%" />
+                                <StatCard label="Wallet Balance" value={`$${overallStats.availableBalance.toLocaleString()}`} icon={Landmark} trend="Ready" trendUp={true} />
                                 <StatCard label="Active Students" value={selectedCourse.students_count} icon={Users} trendUp={true} trend="+12" />
                                 <StatCard label="Price Point" value={`$${selectedCourse.price}`} icon={CreditCard} trendUp={true} trend="Fixed" />
                             </div>
