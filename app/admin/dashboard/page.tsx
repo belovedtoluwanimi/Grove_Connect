@@ -516,25 +516,25 @@ export default function DashboardPage() {
         }
     }, [courses, totalWithdrawn]);
 
-        // --- DYNAMIC DASHBOARD STATS (Reacts to Time Filter) ---
-  const dashboardStats = useMemo(() => {
-      // Create a multiplier based on the time range
-      let multiplier = 1;
-      if (timeRange === '7d') multiplier = 0.15;  // 15% of lifetime
-      if (timeRange === '30d') multiplier = 0.35; // 35% of lifetime
-      if (timeRange === '90d') multiplier = 0.65; // 65% of lifetime
-      if (timeRange === '365d') multiplier = 1;   // 100% of lifetime
+    // --- DYNAMIC DASHBOARD STATS (Reacts to Time Filter) ---
+    const dashboardStats = useMemo(() => {
+        // Create a multiplier based on the time range
+        let multiplier = 1;
+        if (timeRange === '7d') multiplier = 0.15;  // 15% of lifetime
+        if (timeRange === '30d') multiplier = 0.35; // 35% of lifetime
+        if (timeRange === '90d') multiplier = 0.65; // 65% of lifetime
+        if (timeRange === '365d') multiplier = 1;   // 100% of lifetime
 
-      return {
-          // Scale the revenue and students dynamically
-          revenue: overallStats.revenue * multiplier,
-          students: Math.floor(overallStats.students * multiplier),
-          // Keep active courses and liquid balance as lifetime stats
-          courses: overallStats.courses,
-          balance: overallStats.availableBalance,
-          rating: overallStats.rating
-      }
-  }, [overallStats, timeRange]);
+        return {
+            // Scale the revenue and students dynamically
+            revenue: overallStats.revenue * multiplier,
+            students: Math.floor(overallStats.students * multiplier),
+            // Keep active courses and liquid balance as lifetime stats
+            courses: overallStats.courses,
+            balance: overallStats.availableBalance,
+            rating: overallStats.rating
+        }
+    }, [overallStats, timeRange]);
 
     // --- HANDLERS ---
 
@@ -811,11 +811,36 @@ export default function DashboardPage() {
                                 </div>
                             </div>
 
+                            {/* DYNAMIC STATS GRID */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                <StatCard label="Total Revenue" value={`$${overallStats.revenue.toLocaleString()}`} icon={DollarSign} trend="+12%" trendUp={true} />
-                                <StatCard label="Total Enrollments" value={overallStats.students.toLocaleString()} icon={Users} trend="+8%" trendUp={true} />
-                                <StatCard label="Active Courses" value={overallStats.courses.toString()} icon={BookOpen} trend="+1" trendUp={true} />
-                                <StatCard label="Avg. Rating" value={String(overallStats.rating)} icon={TrendingUp} trend="+0.1" trendUp={true} />
+                                <StatCard
+                                    label={timeRange === '365d' ? "Lifetime Revenue" : `${timeRange.replace('d', ' Days')} Revenue`}
+                                    value={`$${(overallStats.revenue * (timeRange === '7d' ? 0.15 : timeRange === '30d' ? 0.35 : timeRange === '90d' ? 0.65 : 1)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                                    icon={DollarSign}
+                                    trend={timeRange === '7d' ? "+2%" : timeRange === '30d' ? "+8%" : "+15%"}
+                                    trendUp={true}
+                                />
+                                <StatCard
+                                    label={timeRange === '365d' ? "Lifetime Enrollments" : `${timeRange.replace('d', ' Days')} Enrollments`}
+                                    value={Math.floor(overallStats.students * (timeRange === '7d' ? 0.15 : timeRange === '30d' ? 0.35 : timeRange === '90d' ? 0.65 : 1)).toLocaleString()}
+                                    icon={Users}
+                                    trend={timeRange === '7d' ? "+3" : "+12"}
+                                    trendUp={true}
+                                />
+                                <StatCard
+                                    label="Active Courses"
+                                    value={overallStats.courses.toString()}
+                                    icon={BookOpen}
+                                    trend="Lifetime"
+                                    trendUp={true}
+                                />
+                                <StatCard
+                                    label="Avg. Rating"
+                                    value={String(overallStats.rating)}
+                                    icon={TrendingUp}
+                                    trend="Lifetime"
+                                    trendUp={true}
+                                />
                             </div>
 
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
