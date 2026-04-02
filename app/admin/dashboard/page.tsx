@@ -397,34 +397,34 @@ export default function DashboardPage() {
                 .order('created_at', { ascending: false })
 
             if (courseData) {
-               // Process data to calculate real totals, but ONLY show the tutor's 80% cut
-        const processedCourses = courseData.map((c: any) => {
-            const dbStudents = Number(c.students_count) || 0;
-            const realStudentCount = c.enrollments && c.enrollments.length > 0 ? c.enrollments.length : dbStudents;
-            
-            const dbRevenue = Number(c.total_revenue) || 0;
-            const calcRevenue = (Number(c.price) || 0) * realStudentCount;
-            
-            // 1. Find the gross sales volume
-            const grossSales = Math.max(dbRevenue, calcRevenue);
-            
-            // 2. THE FIX: The tutor only ever sees their 80% cut!
-            const tutorCut = grossSales * 0.8;
+                // Process data to calculate real totals, but ONLY show the tutor's 80% cut
+                const processedCourses = courseData.map((c: any) => {
+                    const dbStudents = Number(c.students_count) || 0;
+                    const realStudentCount = c.enrollments && c.enrollments.length > 0 ? c.enrollments.length : dbStudents;
 
-            const ratings = c.reviews?.map((r: any) => Number(r.rating)) || [];
-            const avgRating = ratings.length > 0 
-                ? ratings.reduce((a: number, b: number) => a + b, 0) / ratings.length 
-                : (Number(c.average_rating) || 0);
+                    const dbRevenue = Number(c.total_revenue) || 0;
+                    const calcRevenue = (Number(c.price) || 0) * realStudentCount;
 
-            return {
-                ...c,
-                students_count: realStudentCount, 
-                total_revenue: tutorCut, // 👈 Now the table only shows what THEY earned
-                average_rating: avgRating 
-            }
-        });
-        
-        setCourses(processedCourses);
+                    // 1. Find the gross sales volume
+                    const grossSales = Math.max(dbRevenue, calcRevenue);
+
+                    // 2. THE FIX: The tutor only ever sees their 80% cut!
+                    const tutorCut = grossSales * 0.8;
+
+                    const ratings = c.reviews?.map((r: any) => Number(r.rating)) || [];
+                    const avgRating = ratings.length > 0
+                        ? ratings.reduce((a: number, b: number) => a + b, 0) / ratings.length
+                        : (Number(c.average_rating) || 0);
+
+                    return {
+                        ...c,
+                        students_count: realStudentCount,
+                        total_revenue: tutorCut, // 👈 Now the table only shows what THEY earned
+                        average_rating: avgRating
+                    }
+                });
+
+                setCourses(processedCourses);
             }
             // Fetch Real Payout Ledger
             const { data: payoutData } = await supabase
@@ -488,31 +488,31 @@ export default function DashboardPage() {
         }))
     }, [courses, timeRange])
 
-  // Calculate Overall Stats & Ledger Balance
-  const overallStats = useMemo(() => {
-      // totalRev is now strictly the Tutor's 80% Lifetime Earnings
-      const totalRev = courses.reduce((acc, c) => acc + (Number(c.total_revenue) || 0), 0);
-      const totalSt = courses.reduce((acc, c) => acc + (Number(c.students_count) || 0), 0);
-      const avgRt = courses.length > 0 
-        ? (courses.reduce((acc, c) => acc + (Number(c.average_rating) || 0), 0) / courses.length).toFixed(1) 
-        : "N/A";
+    // Calculate Overall Stats & Ledger Balance
+    const overallStats = useMemo(() => {
+        // totalRev is now strictly the Tutor's 80% Lifetime Earnings
+        const totalRev = courses.reduce((acc, c) => acc + (Number(c.total_revenue) || 0), 0);
+        const totalSt = courses.reduce((acc, c) => acc + (Number(c.students_count) || 0), 0);
+        const avgRt = courses.length > 0
+            ? (courses.reduce((acc, c) => acc + (Number(c.average_rating) || 0), 0) / courses.length).toFixed(1)
+            : "N/A";
 
-      // Escrow: We hold 20% of the TUTOR'S money for 30 days to cover student refunds.
-      const pendingClearance = totalRev * 0.2; 
-      const clearedRevenue = totalRev - pendingClearance;
-      
-      // True Liquid Balance = Cleared Revenue - Everything they already withdrew
-      const liquidBalance = Math.max(0, clearedRevenue - totalWithdrawn);
+        // Escrow: We hold 20% of the TUTOR'S money for 30 days to cover student refunds.
+        const pendingClearance = totalRev * 0.2;
+        const clearedRevenue = totalRev - pendingClearance;
 
-      return {
-          revenue: totalRev,
-          students: totalSt,
-          rating: avgRt,
-          courses: courses.length,
-          availableBalance: liquidBalance,
-          pendingClearance: pendingClearance
-      }
-  }, [courses, totalWithdrawn]);
+        // True Liquid Balance = Cleared Revenue - Everything they already withdrew
+        const liquidBalance = Math.max(0, clearedRevenue - totalWithdrawn);
+
+        return {
+            revenue: totalRev,
+            students: totalSt,
+            rating: avgRt,
+            courses: courses.length,
+            availableBalance: liquidBalance,
+            pendingClearance: pendingClearance
+        }
+    }, [courses, totalWithdrawn]);
 
     // --- HANDLERS ---
 
@@ -1242,8 +1242,8 @@ export default function DashboardPage() {
                                         key={tab.id}
                                         onClick={() => setSettingsTab(tab.id as any)}
                                         className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${settingsTab === tab.id
-                                                ? 'bg-zinc-800/80 text-white shadow-sm border border-white/10'
-                                                : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
+                                            ? 'bg-zinc-800/80 text-white shadow-sm border border-white/10'
+                                            : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
                                             }`}
                                     >
                                         <tab.icon size={18} className={settingsTab === tab.id ? "text-emerald-400" : "text-zinc-500"} />
@@ -1261,8 +1261,8 @@ export default function DashboardPage() {
                                         key={tab.id}
                                         onClick={() => setSettingsTab(tab.id as any)}
                                         className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${settingsTab === tab.id
-                                                ? 'bg-zinc-800/80 text-white shadow-sm border border-white/10'
-                                                : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
+                                            ? 'bg-zinc-800/80 text-white shadow-sm border border-white/10'
+                                            : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
                                             }`}
                                     >
                                         <tab.icon size={18} className={settingsTab === tab.id ? "text-emerald-400" : "text-zinc-500"} />
@@ -2095,21 +2095,21 @@ export default function DashboardPage() {
                                                 </div>
                                             </div>
 
-                                            <button 
-                                  onClick={() => {
-                                      const amt = parseFloat(withdrawAmount);
-                                      if (isNaN(amt) || amt < 10) return showToast("Minimum withdrawal is $10", "error");
-                                      
-                                      // THE FIX: We add + 0.01 to prevent JavaScript floating point errors 
-                                      // (e.g., stopping 615.00 from being flagged as larger than 614.999999999)
-                                      if (amt > (overallStats.availableBalance + 0.01)) return showToast("Insufficient funds", "error");
-                                      
-                                      setWithdrawStep(2);
-                                  }}
-                                  className="w-full py-4 bg-white text-black font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-zinc-200 transition-colors shadow-[0_0_20px_rgba(255,255,255,0.1)]"
-                              >
-                                  Review Transfer
-                              </button>
+                                            <button
+                                                onClick={() => {
+                                                    const amt = parseFloat(withdrawAmount);
+                                                    if (isNaN(amt) || amt < 10) return showToast("Minimum withdrawal is $10", "error");
+
+                                                    // THE FIX: We add + 0.01 to prevent JavaScript floating point errors 
+                                                    // (e.g., stopping 615.00 from being flagged as larger than 614.999999999)
+                                                    if (amt > (overallStats.availableBalance + 0.01)) return showToast("Insufficient funds", "error");
+
+                                                    setWithdrawStep(2);
+                                                }}
+                                                className="w-full py-4 bg-white text-black font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-zinc-200 transition-colors shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+                                            >
+                                                Review Transfer
+                                            </button>
                                         </div>
                                     )}
 
@@ -2252,18 +2252,26 @@ export default function DashboardPage() {
 
                                             <button
                                                 onClick={() => {
+                                                    // 1. Close the modal
                                                     setWithdrawModalOpen(false);
-                                                    // Deduct from local available balance instantly
+
+                                                    // 2. THE FIX: Instantly deduct the money from the dashboard math!
                                                     setTotalWithdrawn(prev => prev + parseFloat(withdrawAmount));
 
-                                                    // Push to real transaction history array
-                                                    setTransactions([{
-                                                        id: `tx_${Math.floor(100000 + Math.random() * 900000)}`, // Or use receipt ID from API
+                                                    // 3. Add the transaction to the Recent Activity list
+                                                    setTransactions(prev => [{
+                                                        id: `tx_${Math.floor(100000 + Math.random() * 900000)}`,
                                                         requested_at: new Date().toISOString(),
                                                         amount: parseFloat(withdrawAmount),
                                                         status: 'pending',
                                                         method: user?.payout_method || 'Bank Transfer'
-                                                    }, ...transactions]);
+                                                    }, ...prev]);
+
+                                                    // 4. Reset the modal back to step 1 for next time
+                                                    setTimeout(() => {
+                                                        setWithdrawStep(1);
+                                                        setWithdrawAmount('');
+                                                    }, 500);
                                                 }}
                                                 className="relative z-10 w-full py-4 bg-white text-black font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-zinc-200 transition-colors"
                                             >
