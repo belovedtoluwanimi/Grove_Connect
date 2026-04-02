@@ -1252,52 +1252,50 @@ export default function DashboardPage() {
               <div className="flex-1 space-y-6 min-h-[600px] pb-24">
                   
                   {/* 1. PROFILE SETTINGS */}
+                  {/* 1. PROFILE SETTINGS */}
                   {settingsTab === 'profile' && (
                      <div className="space-y-6 animate-in fade-in duration-500">
+                        
                         {/* Avatar & Header Card */}
-                        {/* PREMIUM LINKED ACCOUNT CARD */}
-                            <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl shadow-xl flex flex-col justify-between">
-                                <div>
-                                    <div className="flex justify-between items-center border-b border-white/5 pb-4 mb-6">
-                                        <h3 className="text-sm font-bold text-white uppercase tracking-widest">Payout Method</h3>
-                                        {user?.payout_method && (
-                                            <button onClick={() => setLinkModalOpen(true)} className="text-xs font-bold text-emerald-400 hover:text-emerald-300">Change</button>
-                                        )}
-                                    </div>
-                                    
-                                    {!user?.payout_method ? (
-                                        <div className="text-center py-6">
-                                            <div className="w-16 h-16 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-4 border border-white/10">
-                                                <Landmark size={24} className="text-zinc-600" />
-                                            </div>
-                                            <p className="text-sm text-zinc-400 mb-6">No payout method configured. Link a bank account or PayPal to receive your earnings.</p>
-                                            <button 
-                                                onClick={() => { setLinkStep(1); setLinkModalOpen(true); }}
-                                                className="px-6 py-3 bg-white text-black font-bold rounded-xl text-sm hover:bg-zinc-200 transition-colors shadow-lg"
-                                            >
-                                                Add Payout Method
-                                            </button>
-                                        </div>
+                        <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl flex flex-col sm:flex-row items-center sm:items-start gap-8 relative overflow-hidden shadow-2xl">
+                            <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-emerald-900/20 to-transparent pointer-events-none" />
+                            
+                            <div className="relative z-10 group">
+                               <div className="w-32 h-32 rounded-full bg-zinc-900 border-4 border-[#0a0a0a] shadow-2xl flex items-center justify-center overflow-hidden relative">
+                                  {/* Fixed: Checks draft state first, then user state for live updates */}
+                                  {user?.avatar_url || profileDraft?.avatar_url ? (
+                                      <img src={profileDraft?.avatar_url || user?.avatar_url} className="w-full h-full object-cover" alt="Avatar" /> 
+                                  ) : (
+                                      <ImageIcon className="text-zinc-600" size={32} />
+                                  )}
+                                  
+                                  <label className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-all duration-300">
+                                    {isUploadingAvatar ? (
+                                        <Loader2 className="animate-spin text-white" /> 
                                     ) : (
-                                        <div className="space-y-4">
-                                            <div className="flex items-center gap-4 p-5 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl relative overflow-hidden group">
-                                                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-[50px] pointer-events-none" />
-                                                <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center border border-emerald-500/30 shrink-0 relative z-10 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-                                                    {user.payout_method.includes('Bank') ? <Landmark size={20} className="text-emerald-400"/> : <CreditCard size={20} className="text-emerald-400"/>}
-                                                </div>
-                                                <div className="overflow-hidden w-full relative z-10">
-                                                    <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1">Active Destination</p>
-                                                    <p className="font-bold text-white text-base truncate">{user.payout_method}</p>
-                                                    <p className="text-sm text-zinc-400 font-mono mt-0.5 tracking-wider">
-                                                        {user.payout_method === 'PayPal' ? user.payout_details : `•••• ${user.payout_details?.slice(-4)}`}
-                                                    </p>
-                                                </div>
-                                                <CheckCircle2 size={24} className="text-emerald-500 shrink-0 relative z-10"/>
-                                            </div>
-                                        </div>
+                                        <><Edit size={18} className="text-white mb-1"/><span className="text-[10px] font-bold text-white uppercase tracking-wider">Upload</span></>
                                     )}
-                                </div>
+                                    <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} disabled={isUploadingAvatar} />
+                                  </label>
+                               </div>
+                               
+                               {user?.is_verified && (
+                                   <div className="absolute bottom-0 right-0 w-8 h-8 bg-emerald-500 rounded-full border-4 border-[#0a0a0a] flex items-center justify-center" title="Verified Tutor">
+                                       <CheckCircle2 size={16} className="text-[#0a0a0a]"/>
+                                   </div>
+                               )}
                             </div>
+                            
+                            <div className="flex-1 z-10 text-center sm:text-left mt-2">
+                                <h2 className="text-2xl font-black text-white">{user?.full_name}</h2>
+                                <p className="text-sm text-zinc-400 mb-4">{user?.email}</p>
+                                {!user?.is_verified && (
+                                    <button onClick={() => setShowKYCModal(true)} className="px-4 py-2 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-xs font-bold hover:bg-blue-500/20 transition-colors">
+                                        Verify Identity to Publish
+                                    </button>
+                                )}
+                            </div>
+                        </div>
 
                         {/* Details Card */}
                         <div className="p-8 bg-[#0a0a0a] border border-white/5 rounded-3xl space-y-6">
@@ -1307,22 +1305,22 @@ export default function DashboardPage() {
                                 <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Public URL</label>
                                 <div className="flex bg-black border border-white/10 rounded-xl overflow-hidden focus-within:border-emerald-500/50 transition-colors">
                                     <span className="px-4 py-3 bg-zinc-900 border-r border-white/5 text-zinc-500 text-sm hidden sm:block">groveconnect.com/tutor/</span>
-                                    <input disabled defaultValue={user.id.substring(0,8)} className="bg-transparent px-4 py-3 text-sm text-white w-full outline-none text-zinc-400" />
+                                    <input disabled defaultValue={user?.id?.substring(0,8)} className="bg-transparent px-4 py-3 text-sm text-white w-full outline-none text-zinc-400" />
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                <div className="space-y-2">
                                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Nationality</label>
-                                 <select className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500/50 text-white appearance-none" defaultValue={user.nationality || ''} onChange={(e) => setProfileDraft({...profileDraft, nationality: e.target.value})}>
+                                 <select className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500/50 text-white appearance-none" defaultValue={profileDraft?.nationality || user?.nationality || ''} onChange={(e) => setProfileDraft({...profileDraft, nationality: e.target.value})}>
                                     <option value="" disabled>Select Country</option>
                                     {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
                                  </select>
                                </div>
-                               <div className="space-y-2"><label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Phone Number</label><input defaultValue={user.phone} onChange={(e)=>setProfileDraft({...profileDraft, phone: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500/50 text-white" placeholder="+1 (555) 000-0000" /></div>
+                               <div className="space-y-2"><label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Phone Number</label><input defaultValue={profileDraft?.phone || user?.phone} onChange={(e)=>setProfileDraft({...profileDraft, phone: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500/50 text-white" placeholder="+1 (555) 000-0000" /></div>
                             </div>
                             
-                            <div className="space-y-2"><label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Instructor Bio</label><textarea defaultValue={user.bio} onChange={(e)=>setProfileDraft({...profileDraft, bio: e.target.value})} placeholder="Tell students about your expertise..." className="w-full h-32 bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none resize-none focus:border-emerald-500/50 text-white" /></div>
+                            <div className="space-y-2"><label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Instructor Bio</label><textarea defaultValue={profileDraft?.bio || user?.bio} onChange={(e)=>setProfileDraft({...profileDraft, bio: e.target.value})} placeholder="Tell students about your expertise..." className="w-full h-32 bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none resize-none focus:border-emerald-500/50 text-white" /></div>
                         </div>
 
                         {/* Social Card */}
@@ -1332,13 +1330,13 @@ export default function DashboardPage() {
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Twitter / X</label>
                                     <div className="flex items-center gap-3 bg-black border border-white/10 rounded-xl px-4 py-3 focus-within:border-emerald-500/50">
-                                        <Twitter size={16} className="text-zinc-500"/><input defaultValue={user.social_twitter} onChange={(e)=>setProfileDraft({...profileDraft, social_twitter: e.target.value})} placeholder="Username" className="bg-transparent outline-none text-sm w-full text-white"/>
+                                        <Twitter size={16} className="text-zinc-500"/><input defaultValue={profileDraft?.social_twitter || user?.social_twitter} onChange={(e)=>setProfileDraft({...profileDraft, social_twitter: e.target.value})} placeholder="Username" className="bg-transparent outline-none text-sm w-full text-white"/>
                                     </div>
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">LinkedIn</label>
                                     <div className="flex items-center gap-3 bg-black border border-white/10 rounded-xl px-4 py-3 focus-within:border-emerald-500/50">
-                                        <Linkedin size={16} className="text-zinc-500"/><input defaultValue={user.social_linkedin} onChange={(e)=>setProfileDraft({...profileDraft, social_linkedin: e.target.value})} placeholder="Profile URL" className="bg-transparent outline-none text-sm w-full text-white"/>
+                                        <Linkedin size={16} className="text-zinc-500"/><input defaultValue={profileDraft?.social_linkedin || user?.social_linkedin} onChange={(e)=>setProfileDraft({...profileDraft, social_linkedin: e.target.value})} placeholder="Profile URL" className="bg-transparent outline-none text-sm w-full text-white"/>
                                     </div>
                                 </div>
                             </div>
@@ -1894,29 +1892,30 @@ export default function DashboardPage() {
                               <button 
                                   disabled={isResolving || !bankCode || accountNumber.length !== 10}
                                   onClick={async () => {
-                                      setIsResolving(true);
-                                      try {
-                                          const res = await fetch('/api/resolve-bank', {
-                                              method: 'POST',
-                                              headers: { 'Content-Type': 'application/json' },
-                                              body: JSON.stringify({ bankCode, accountNumber })
-                                          });
-                                          const data = await res.json();
-                                          
-                                          if (data.success) {
-                                              setResolvedName(data.account_name);
-                                              setLinkStep(3);
-                                          } else {
-                                              showToast(data.error || "Account not found", "error");
-                                          }
-                                      } catch (err) {
-                                          // FALLBACK IF API FAILS
-                                          setResolvedName(user?.full_name?.toUpperCase() || "UNVERIFIED ACCOUNT");
-                                          setLinkStep(3);
-                                      } finally {
-                                          setIsResolving(false);
-                                      }
-                                  }}
+    setIsResolving(true);
+    try {
+        // PING THE REAL API TO FETCH ACCOUNT NAME
+        const res = await fetch('/api/resolve-bank', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bankCode, accountNumber })
+        });
+        
+        const data = await res.json();
+        
+        // NO MORE SIMULATIONS. IF IT FAILS, IT FAILS.
+        if (data.success) {
+            setResolvedName(data.account_name);
+            setLinkStep(3);
+        } else {
+            showToast(data.error || "Account not found", "error");
+        }
+    } catch (err) {
+        showToast("Server error. Check your API route.", "error");
+    } finally {
+        setIsResolving(false);
+    }
+}}
                                   className="w-full py-4 bg-emerald-600 text-white font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-emerald-500 transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)] disabled:opacity-50 flex items-center justify-center gap-2"
                               >
                                   {isResolving ? <Loader2 size={18} className="animate-spin"/> : 'Verify Account'}
