@@ -398,23 +398,32 @@ export default function DashboardPage() {
 
             if (courseData) {
                 // Process data to calculate real totals
-                const processedCourses = courseData.map((c: any) => {
-                    const realStudentCount = c.enrollments ? c.enrollments.length : 0
+                // Process data to calculate real totals, but fallback to your DB's original mock data
+        const processedCourses = courseData.map((c: any) => {
+            // Check for real enrollments, fallback to DB mock students_count
+            const realStudentCount = c.enrollments && c.enrollments.length > 0 
+                ? c.enrollments.length 
+                : (c.students_count || 0);
+            
+            // Check for real revenue, fallback to DB mock total_revenue
+            const calculatedRevenue = c.price * realStudentCount;
+            const finalRevenue = c.total_revenue > 0 ? c.total_revenue : calculatedRevenue;
 
-                    // Calculate Rating
-                    const ratings = c.reviews?.map((r: any) => r.rating) || []
-                    const avgRating = ratings.length > 0
-                        ? ratings.reduce((a: number, b: number) => a + b, 0) / ratings.length
-                        : 0
+            // Calculate Rating
+            const ratings = c.reviews?.map((r: any) => r.rating) || [];
+            const avgRating = ratings.length > 0 
+                ? ratings.reduce((a: number, b: number) => a + b, 0) / ratings.length 
+                : (c.average_rating || 0);
 
-                    return {
-                        ...c,
-                        students_count: realStudentCount, // Use real count
-                        total_revenue: c.price * realStudentCount, // Use real revenue
-                        average_rating: avgRating // Use real rating
-                    }
-                })
-                setCourses(processedCourses)
+            return {
+                ...c,
+                students_count: realStudentCount, 
+                total_revenue: finalRevenue, // 👈 Now it loads your original DB data!
+                average_rating: avgRating 
+            }
+        });
+        
+        setCourses(processedCourses);
             }
             // Fetch Real Payout Ledger
             const { data: payoutData } = await supabase
