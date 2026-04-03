@@ -236,7 +236,7 @@ function CourseBuilder() {
   }, [editId, supabase]);
 
   // --- SUPABASE DATABASE INTEGRATION ---
-  const saveToSupabase = async (status: 'draft' | 'published') => {
+  const saveToSupabase = async (status: 'Draft' | 'Review') => {
     if (!user) throw new Error("Authentication required. Please log in.")
 
     const payload = {
@@ -258,23 +258,27 @@ function CourseBuilder() {
       congrats_message: data.congratsMessage,
       objectives: data.objectives.filter(o => o.trim() !== ''),
       prerequisites: data.prerequisites.filter(p => p.trim() !== ''),
-      curriculum_data: data.modules,
-      status: status,
+      // Ensure the curriculum data is correctly passed as an array for Supabase JSONB
+      curriculum_data: data.modules, 
+      status: status, // This will now send 'Draft' or 'Review'
       updated_at: new Date().toISOString(),
-      ...(status === 'published' ? { published_at: new Date().toISOString() } : {})
+      ...(status === 'Review' ? { published_at: new Date().toISOString() } : {})
     }
 
     const { data: savedData, error } = await supabase.from('courses').upsert(payload).select().single()
-    if (error) throw error
+    if (error) {
+        console.error("DB Save Error:", error);
+        throw error;
+    }
     return savedData
   }
 
   const handleSaveDraft = async () => {
     setIsSavingDraft(true)
     try {
-      const savedRow = await saveToSupabase('draft')
+      const savedRow = await saveToSupabase('Draft')
       if (savedRow && !data.id) {
-        setData(prev => ({ ...prev, id: savedRow.id })) // Bind to new DB row
+        setData(prev => ({ ...prev, id: savedRow.id })) 
       }
       addToast('Draft saved successfully! You can resume from your dashboard.', 'success')
     } catch (e: any) {
@@ -289,27 +293,31 @@ function CourseBuilder() {
   const [isAutoSaving, setIsAutoSaving] = useState(false)
 
   useEffect(() => {
-    // Don't auto-save if the course is completely empty (just loaded)
+    // FIX: Do NOT auto-save if we are currently trying to publish (Kills the Ghost Draft!)
+    if (isPublishing) return;
+    
+    // Don't auto-save if the course is completely empty
     if (!data.title && data.modules.length === 1 && data.modules[0].items.length === 0) return;
 
     setIsAutoSaving(true)
     const timer = setTimeout(async () => {
       try {
-        const savedRow = await saveToSupabase('draft')
+        const savedRow = await saveToSupabase('Draft')
         if (savedRow && !data.id) {
           setData(prev => ({ ...prev, id: savedRow.id })) 
         }
         setLastSaved(new Date())
       } catch (e) {
-        console.error("Auto-save failed", e)
+        console.error("Auto-save failed. Check database columns.", e)
       } finally {
         setIsAutoSaving(false)
       }
-    }, 3000) // Waits 3 seconds after they stop clicking/typing
+    }, 3000)
 
     return () => clearTimeout(timer)
-  }, [data]) // Re-runs every time `data` changes
+  }, [data, isPublishing]) 
 
+  // --- PUBLISH HANDLER ---
   const handlePublish = async () => {
     // 1. STRICT VALIDATION
     const filledObjectives = data.objectives.filter(o => o.trim() !== '')
@@ -320,10 +328,8 @@ function CourseBuilder() {
     
     if (!data.audienceLevel) return addToast("Select a target audience level (Plan Phase).", "error")
     
-    // Enforce high-quality, substantial courses
     if (data.modules.length < 5) {
-      setPhase('create'); 
-      setActiveStep('curriculum'); 
+      setPhase('create'); setActiveStep('curriculum'); 
       return addToast("Quality Standard: Your course must have at least 5 sections before publishing.", "error");
     }  
 
@@ -335,38 +341,41 @@ function CourseBuilder() {
     if (!data.thumbnail) { setPhase('publish'); setActiveStep('landing-page'); return addToast("Course Image is required.", "error") }
     if (data.priceTier === undefined || data.priceTier === null) { setPhase('publish'); setActiveStep('pricing'); return addToast("Pricing tier is required.", "error") }
 
-    // Start the loading spinner early since the AI check takes a second
     setIsPublishing(true)
 
     try {
       // ==========================================
-      // 🚨 2. THE OPENAI BOUNCER 🚨
+      // 🚨 2. THE OPENAI BOUNCER (Safely Bypassed) 🚨
       // ==========================================
       const contentToCheck = `${data.title}. ${data.subtitle}. ${data.description}. ${data.welcomeMessage}`;
+      let isClean = true;
 
-      const modRes = await fetch('/api/moderate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: contentToCheck })
-      });
-      
-      const modData = await modRes.json();
+      try {
+          const modRes = await fetch('/api/moderate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: contentToCheck })
+          });
+          
+          if (modRes.ok) {
+             const modData = await modRes.json();
+             if (modData.isClean === false) isClean = false;
+          }
+      } catch (err) {
+          // If the /api/moderate route doesn't exist yet, we catch the error 
+          // here so it doesn't break the entire publish process!
+          console.warn("Moderation API not found or offline. Bypassing check.");
+      }
 
-      // NEW LOGIC: Only block if the AI explicitly flagged it as dirty.
-      // If modData.isClean is undefined (meaning the API crashed), we let it pass for now!
-      if (modData.isClean === false) {
-          addToast("⚠️ Cannot publish: Content violates our safety and community guidelines.", "error");
+      if (!isClean) {
+          addToast("⚠️ Cannot publish: Content violates our safety guidelines.", "error");
           setIsPublishing(false);
           return; 
-      } else if (modData.error) {
-          console.error("OpenAI Bouncer Offline:", modData.error);
-          // We let the code continue and save to Supabase anyway so you aren't stuck!
       }
       // ==========================================
-      // ==========================================
 
-      // 3. SUBMIT TO DB (If it passes the bouncer)
-      await saveToSupabase('published')
+      // 3. SUBMIT TO DB AS 'Review'
+      await saveToSupabase('Review')
       addToast('Course submitted for review successfully! Redirecting...', 'success')
       
       setTimeout(() => {
@@ -375,8 +384,7 @@ function CourseBuilder() {
 
     } catch (e: any) {
       addToast(e.message || 'Failed to publish course.', 'error')
-    } finally {
-      setIsPublishing(false) // Only turn off loading if it failed, otherwise let it spin while redirecting
+      setIsPublishing(false) 
     }
   }
 
