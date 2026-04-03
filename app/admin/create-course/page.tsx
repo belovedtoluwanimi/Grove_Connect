@@ -289,18 +289,21 @@ function CourseBuilder() {
   }
 
   // --- THE PREMIUM AUTO-SAVE ENGINE ---
+ // --- THE PREMIUM AUTO-SAVE ENGINE (FIXED) ---
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [isAutoSaving, setIsAutoSaving] = useState(false)
 
   useEffect(() => {
-    // FIX: Do NOT auto-save if we are currently trying to publish (Kills the Ghost Draft!)
+    // Kills the ghost draft if we are publishing
     if (isPublishing) return;
     
     // Don't auto-save if the course is completely empty
     if (!data.title && data.modules.length === 1 && data.modules[0].items.length === 0) return;
 
-    setIsAutoSaving(true)
+    // Start the 3-second countdown, but DO NOT update React state yet!
     const timer = setTimeout(async () => {
+      // Only show the "Saving..." spinner when actually talking to the DB
+      setIsAutoSaving(true)
       try {
         const savedRow = await saveToSupabase('Draft')
         if (savedRow && !data.id) {
@@ -314,8 +317,9 @@ function CourseBuilder() {
       }
     }, 3000)
 
+    // If the user types again before 3 seconds, wipe the timer
     return () => clearTimeout(timer)
-  }, [data, isPublishing]) 
+  }, [data, isPublishing])
 
   // --- PUBLISH HANDLER ---
   const handlePublish = async () => {
