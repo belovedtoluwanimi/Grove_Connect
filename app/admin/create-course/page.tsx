@@ -235,6 +235,52 @@ function CourseBuilder() {
     fetchCourseToEdit();
   }, [editId, supabase]);
 
+  // --- THE AUTO-LOCATION ENGINE ---
+  useEffect(() => {
+    // We only want to auto-detect if they are making a NEW course. 
+    // If they are editing an existing one, we don't want to overwrite their saved settings!
+    if (editId) return;
+
+    const detectLocationAndSetDefaults = async () => {
+      try {
+        // Ping a free IP Geolocation API
+        const res = await fetch('https://ipapi.co/json/');
+        if (!res.ok) return;
+        const locationData = await res.json();
+
+        // 1. Map the detected country to your Currencies
+        let detectedCurrency = 'USD'; // Default fallback
+        if (locationData.currency === 'NGN') detectedCurrency = 'NGN';
+        else if (locationData.currency === 'GBP') detectedCurrency = 'GBP';
+        else if (locationData.currency === 'INR') detectedCurrency = 'INR';
+        else if (locationData.currency === 'EUR') detectedCurrency = 'EUR';
+
+        // 2. Map the detected language (Rough mapping based on region)
+        let detectedLanguage = 'English (US)';
+        if (locationData.languages) {
+           if (locationData.languages.includes('fr')) detectedLanguage = 'French';
+           else if (locationData.languages.includes('es')) detectedLanguage = 'Spanish';
+           else if (locationData.country_code === 'GB') detectedLanguage = 'English (UK)';
+        }
+
+        // 3. Silently update the course data state
+        setData(prev => ({
+          ...prev,
+          currency: detectedCurrency,
+          language: detectedLanguage
+        }));
+
+        addToast(`Localized to ${locationData.country_name}`, 'info');
+
+      } catch (error) {
+        console.error("Auto-location failed:", error);
+        // Fails silently in the background, leaving the defaults as USD / English
+      }
+    };
+
+    detectLocationAndSetDefaults();
+  }, [editId, setData, addToast]);
+
   // --- SUPABASE DATABASE INTEGRATION ---
   const saveToSupabase = async (status: 'Draft' | 'Review') => {
     if (!user) throw new Error("Authentication required. Please log in.")
