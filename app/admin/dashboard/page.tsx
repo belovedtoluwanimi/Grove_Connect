@@ -899,7 +899,7 @@ export default function DashboardPage() {
                             </div>
 
                             <h3 className="text-xl font-bold pt-4 text-white">Recent Courses</h3>
-                            <CoursesTable courses={courses.slice(0, 5)} onAction={handleEditCourse} onDelete={handleDeleteCourse} onView={(c: Course) => { setSelectedCourse(c); setCurrentView('course_detail') }} />
+                            <CoursesTable courses={courses.slice(0, 5)} onAction={handleEditCourse} onDelete={handleDeleteCourse} onView={(c: Course) => { setSelectedCourse(c); setCurrentView('course_detail') }} format={format} />
                         </motion.div>
                     )}
 
@@ -920,7 +920,7 @@ export default function DashboardPage() {
                                     <button onClick={handleNewCourseClick} className="px-6 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-500 transition-colors">Start Verification</button>
                                 </div>
                             ) : (
-                                <CoursesTable courses={courses} onAction={handleEditCourse} onDelete={handleDeleteCourse} onView={(c: Course) => { setSelectedCourse(c); setCurrentView('course_detail') }} />
+                                <CoursesTable courses={courses} onAction={handleEditCourse} onDelete={handleDeleteCourse} onView={(c: Course) => { setSelectedCourse(c); setCurrentView('course_detail') }} format={format} />
                             )}
                         </motion.div>
                     )}
@@ -2654,9 +2654,10 @@ interface CoursesTableProps {
     onAction: (id: string) => void;
     onDelete: (id: string) => void;
     onView?: (course: Course) => void;
+    format: (amount: number) => string;
 }
 
-const CoursesTable = ({ courses, onAction, onDelete, onView }: CoursesTableProps) => (
+const CoursesTable = ({ courses, onAction, onDelete, onView, format }: CoursesTableProps) => (
     <div className="bg-neutral-900/40 border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
         <div className="overflow-x-auto">
             <table className="w-full text-left">
