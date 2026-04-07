@@ -290,36 +290,34 @@ function CourseBuilder() {
 
   // --- THE PREMIUM AUTO-SAVE ENGINE ---
  // --- THE PREMIUM AUTO-SAVE ENGINE (FIXED) ---
+  // --- THE SILENT AUTO-SAVE ENGINE ---
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
-  const [isAutoSaving, setIsAutoSaving] = useState(false)
 
   useEffect(() => {
-    // Kills the ghost draft if we are publishing
-    if (isPublishing) return;
-    
-    // Don't auto-save if the course is completely empty
+    // 1. Don't auto-save if publishing, saving manually, or if the course is totally empty
+    if (isPublishing || isSavingDraft) return;
     if (!data.title && data.modules.length === 1 && data.modules[0].items.length === 0) return;
 
-    // Start the 3-second countdown, but DO NOT update React state yet!
+    // 2. Set a 5-second debounce timer (less aggressive than 3 seconds)
     const timer = setTimeout(async () => {
-      // Only show the "Saving..." spinner when actually talking to the DB
-      setIsAutoSaving(true)
       try {
-        const savedRow = await saveToSupabase('Draft')
+        // 3. Save silently in the background! Notice we removed setIsAutoSaving(true)
+        const savedRow = await saveToSupabase('Draft');
+        
         if (savedRow && !data.id) {
-          setData(prev => ({ ...prev, id: savedRow.id })) 
+          // Only update React state if we need to attach the newly created Database ID
+          setData(prev => ({ ...prev, id: savedRow.id }));
         }
-        setLastSaved(new Date())
+        
+        setLastSaved(new Date()); // Quietly update the timestamp
       } catch (e) {
-        console.error("Auto-save failed. Check database columns.", e)
-      } finally {
-        setIsAutoSaving(false)
+        console.error("Silent auto-save failed:", e);
       }
-    }, 3000)
+    }, 5000);
 
-    // If the user types again before 3 seconds, wipe the timer
-    return () => clearTimeout(timer)
-  }, [data, isPublishing])
+    // 4. If the user types or clicks ANYTHING before 5 seconds, restart the timer
+    return () => clearTimeout(timer);
+  }, [data, isPublishing, isSavingDraft]);
 
   // --- PUBLISH HANDLER ---
   const handlePublish = async () => {
@@ -436,8 +434,10 @@ function CourseBuilder() {
               Phase: {phase}
             </span>
           </div>
-          <div className="text-xs text-zinc-500 font-medium flex items-center gap-2 mt-2">
-    {isAutoSaving ? <><Loader2 size={12} className="animate-spin"/> Saving...</> : lastSaved ? <><CheckCircle2 size={12} className="text-emerald-500"/> Draft saved {lastSaved.toLocaleTimeString()}</> : null}
+          <div className="text-xs text-zinc-500 font-medium flex items-center gap-2 mt-2 h-4">
+    {lastSaved && (
+      <><CheckCircle2 size={12} className="text-emerald-500"/> Draft saved {lastSaved.toLocaleTimeString()}</>
+    )}
   </div>
           <h2 className="font-bold text-xl leading-tight">Build Your Course</h2>
         </div>
