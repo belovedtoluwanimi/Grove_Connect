@@ -104,9 +104,54 @@ const Toast = ({ message, type, onClose }: { message: string, type: 'success' | 
     </motion.div>
 )
 
+// --- LIVE CURRENCY ENGINE ---
+const useLiveCurrency = () => {
+  const [currency, setCurrency] = useState({ code: 'USD', symbol: '$', rate: 1 });
+
+  useEffect(() => {
+    const fetchLiveRates = async () => {
+      try {
+        // 1. Detect User Location (e.g., Nigeria -> NGN)
+        const locRes = await fetch('https://ipapi.co/json/');
+        const locData = await locRes.json();
+        const userCurrency = locData.currency || 'USD';
+
+        if (userCurrency === 'USD') return; // No conversion needed
+
+        // 2. Fetch Live Global Exchange Rates (Base: USD)
+        const rateRes = await fetch('https://open.er-api.com/v6/latest/USD');
+        const rateData = await rateRes.json();
+        const liveRate = rateData.rates[userCurrency] || 1;
+
+        // 3. Determine the correct symbol (₦, £, €, etc.)
+        const symbol = (0).toLocaleString(locData.languages?.split(',')[0] || 'en-US', { 
+            style: 'currency', 
+            currency: userCurrency, 
+            minimumFractionDigits: 0 
+        }).replace(/\d/g, '').trim() || userCurrency;
+
+        setCurrency({ code: userCurrency, symbol, rate: liveRate });
+      } catch (error) {
+        console.error("Currency engine offline, falling back to USD.", error);
+      }
+    };
+    fetchLiveRates();
+  }, []);
+
+  // 4. The Formatter Function (Wraps all USD numbers on your dashboard)
+  const format = (usdAmount: number) => {
+    const localAmount = usdAmount * currency.rate;
+    return `${currency.symbol}${localAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  return { currency, format };
+};
+
 export default function DashboardPage() {
     const router = useRouter()
     const supabase = createClient()
+
+    const { currency, format } = useLiveCurrency();
 
     // --- STATE ---
     const [loading, setLoading] = useState(true)
