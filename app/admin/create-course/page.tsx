@@ -1056,8 +1056,32 @@ function VideoUploader({ label = "Upload Video", url, captionUrl, onUpload, onCa
     const supabase = createClient() 
 
     const handleFile = async (e: any) => {
-        // ... (Keep your exact existing video upload and anti-piracy hash code here) ...
-    }
+      const file = e.target.files?.[0];
+      if (!file) return;
+      
+      setUploading(true);
+      addToast('Uploading video... Please wait.', 'info');
+      
+      try {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `video-${Math.random().toString(36).substring(2)}.${fileExt}`;
+          
+          // Upload to your Supabase 'course-content' bucket
+          const { error } = await supabase.storage.from('course-content').upload(fileName, file);
+          if (error) throw error;
+
+          // Get the permanent public URL
+          const { data: publicData } = supabase.storage.from('course-content').getPublicUrl(fileName);
+          
+          // Trigger the success callback to save it to your state
+          onUpload(publicData.publicUrl);
+      } catch (err: any) {
+          console.error("Upload error:", err);
+          addToast(err.message || 'Failed to upload video.', 'error');
+      } finally {
+          setUploading(false);
+      }
+  }
 
     const handleCaptionUpload = async (e: any) => {
         const file = e.target.files?.[0]
