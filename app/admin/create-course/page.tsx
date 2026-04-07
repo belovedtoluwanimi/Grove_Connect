@@ -17,11 +17,11 @@ import { createClient } from '@/app/utils/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 import dynamic from 'next/dynamic'
-import 'react-quill/dist/quill.snow.css'
+// Change the CSS import to point to the new package
+import 'react-quill-new/dist/quill.snow.css'
 
-// Dynamically import Quill to prevent Next.js SSR crashes
-import type { Quill } from 'react-quill'
-const ReactQuill = dynamic(() => import('react-quill'), { ssr: false }) as any
+// Change the dynamic import to point to the new package
+const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false }) as any
 
 // --- 1. TOAST SYSTEM (Built-in) ---
 type ToastType = 'success' | 'error' | 'info'
