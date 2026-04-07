@@ -858,35 +858,11 @@ export default function DashboardPage() {
 
                             {/* DYNAMIC STATS GRID */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                <StatCard
-                                    label={timeRange === '365d' ? "Lifetime Revenue" : `${timeRange.replace('d', ' Days')} Revenue`}
-                                    value={`$${(overallStats.revenue * (timeRange === '7d' ? 0.15 : timeRange === '30d' ? 0.35 : timeRange === '90d' ? 0.65 : 1)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                                    icon={DollarSign}
-                                    trend={timeRange === '7d' ? "+2%" : timeRange === '30d' ? "+8%" : "+15%"}
-                                    trendUp={true}
-                                />
-                                <StatCard
-                                    label={timeRange === '365d' ? "Lifetime Enrollments" : `${timeRange.replace('d', ' Days')} Enrollments`}
-                                    value={Math.floor(overallStats.students * (timeRange === '7d' ? 0.15 : timeRange === '30d' ? 0.35 : timeRange === '90d' ? 0.65 : 1)).toLocaleString()}
-                                    icon={Users}
-                                    trend={timeRange === '7d' ? "+3" : "+12"}
-                                    trendUp={true}
-                                />
-                                <StatCard
-                                    label="Active Courses"
-                                    value={overallStats.courses.toString()}
-                                    icon={BookOpen}
-                                    trend="Lifetime"
-                                    trendUp={true}
-                                />
-                                <StatCard
-                                    label="Avg. Rating"
-                                    value={String(overallStats.rating)}
-                                    icon={TrendingUp}
-                                    trend="Lifetime"
-                                    trendUp={true}
-                                />
-                            </div>
+    <StatCard label="Total Revenue" value={format(overallStats.revenue)} icon={DollarSign} trend="+12%" trendUp={true} />
+    <StatCard label="Total Enrollments" value={overallStats.students.toLocaleString()} icon={Users} trend="+8%" trendUp={true} />
+    <StatCard label="Active Courses" value={overallStats.courses.toString()} icon={BookOpen} trend="+1" trendUp={true} />
+    <StatCard label="Liquid Balance" value={format(overallStats.availableBalance)} icon={Landmark} trend="Ready" trendUp={true} />
+</div>
 
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                                 {/* Revenue Chart */}
@@ -1585,11 +1561,11 @@ export default function DashboardPage() {
                                                         <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-widest">Available Balance</h3>
                                                     </div>
                                                     <div className="flex items-baseline gap-2">
-                                                        <h2 className="text-5xl md:text-6xl font-black text-white tracking-tighter">
-                                                            ${(overallStats.availableBalance).toFixed(2).split('.')[0]}<span className="text-3xl text-zinc-500">.{(overallStats.availableBalance).toFixed(2).split('.')[1]}</span>
-                                                        </h2>
-                                                        <span className="text-emerald-500 font-bold ml-2 text-sm bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">USD</span>
-                                                    </div>
+    <h2 className="text-5xl md:text-6xl font-black text-white tracking-tighter">
+        {format(overallStats.availableBalance)}
+    </h2>
+    <span className="text-emerald-500 font-bold ml-2 text-sm bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">{currency.code}</span>
+</div>
                                                 </div>
 
                                                 <div className="w-full md:w-auto space-y-3">
@@ -2692,9 +2668,10 @@ const CoursesTable = ({ courses, onAction, onDelete, onView }: CoursesTableProps
                         <tr key={course.id} onClick={() => onView && onView(course)} className="hover:bg-white/[0.02] transition-colors cursor-pointer group">
                             <td className="p-5 font-bold text-white flex items-center gap-3"><div className="w-10 h-10 bg-neutral-800 rounded flex items-center justify-center"><BookOpen size={16} className="text-gray-500" /></div>{course.title}</td>
                             <td className="p-5"><span className={`px-3 py-1 rounded-full text-[10px] uppercase font-bold ${course.status === 'Active' ? 'bg-green-500/10 text-green-400' : 'bg-yellow-500/10 text-yellow-400'}`}>{course.status}</span></td>
-                            <td className="p-5 text-gray-300">${course.price}</td>
-                            <td className="p-5 text-gray-300">{course.students_count || 0}</td>
-                            <td className="p-5 font-mono text-green-400 font-bold">${course.total_revenue}</td>
+                            {/* Find the <td> for Price and Revenue and update them like this: */}
+<td className="p-5 text-gray-300">{format(course.price)}</td>
+<td className="p-5 text-gray-300">{course.students_count || 0}</td>
+<td className="p-5 font-mono text-emerald-400 font-bold">{format(course.total_revenue)}</td>
                             <td className="p-5 text-yellow-400 flex items-center gap-1 font-bold">{course.average_rating ? course.average_rating.toFixed(1) : '-'}<span className="text-[10px] text-gray-600">★</span></td>
                             <td className="p-5 text-right"><button onClick={(e) => { e.stopPropagation(); onAction(course.id) }} className="text-gray-500 hover:text-white mr-4"><Edit size={16} /></button><button onClick={(e) => { e.stopPropagation(); onDelete(course.id) }} className="text-gray-500 hover:text-red-400"><Trash2 size={16} /></button></td>
                         </tr>
