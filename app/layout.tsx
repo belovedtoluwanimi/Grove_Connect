@@ -40,12 +40,12 @@ export const metadata: Metadata = {
 
   openGraph: {
     title: "Grove Connect",
-    description: "Professional ICT solutions for businesses.",
+    description: "Grove Connect is a Nigerian ICT agency specializing in web development, software engineering, UI/UX design, branding, and digital solutions for businesses.",
     url: "https://grove-connect.vercel.app/",
     siteName: "Grove Connect",
     images: [
       {
-        url: "/og-image.png",
+        url: "/favicon.ico",
         width: 1200,
         height: 630,
       },
@@ -64,6 +64,15 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+
+  applicationName: "Grove Connect",
+creator: "Grove Connect",
+publisher: "Grove Connect",
+category: "Technology",
+
+alternates: {
+  canonical: "https://grove-connect.vercel.app",
+},
 };
 
 export default function RootLayout({
