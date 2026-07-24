@@ -29,6 +29,41 @@ export const metadata: Metadata = {
   description: "Grove Connect Official Website",
   manifest: '/manifest.json',
   themeColor: '#050505',
+  keywords: [
+    "Grove Connect",
+    "Web Development",
+    "Software Development",
+    "ICT Agency",
+    "Nigeria",
+  ],
+  metadataBase: new URL("https://grove-connect.vercel.app/"),
+
+  openGraph: {
+    title: "Grove Connect",
+    description: "Professional ICT solutions for businesses.",
+    url: "https://grove-connect.vercel.app/",
+    siteName: "Grove Connect",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+      },
+    ],
+    type: "website",
+  },
+
+  twitter: {
+    card: "summary_large_image",
+    title: "Grove Connect",
+    description: "Professional ICT solutions.",
+    images: ["/og-image.png"],
+  },
+
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
